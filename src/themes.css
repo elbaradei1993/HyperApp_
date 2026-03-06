@@ -1,0 +1,338 @@
+/* Light Theme - Enhanced with Figma Design System */
+[data-theme="light"] {
+  /* Background Colors */
+  --bg-primary: #ffffff;
+  --bg-primary-rgb: 255, 255, 255;
+  --bg-secondary: #f9fafb;
+  --bg-secondary-rgb: 249, 250, 251;
+  --bg-tertiary: #f3f4f6;
+  --bg-glass: rgba(255, 255, 255, 0.8);
+  --bg-glass-border: rgba(255, 255, 255, 0.2);
+
+  /* Text Colors - Updated per Font Specification */
+  --text-primary: #000000; /* Pure black for main content */
+  --text-secondary: #666666; /* Dark gray for less important info */
+  --text-muted: #999999; /* Light gray for meta info, timestamps */
+  --text-disabled: #cccccc; /* Very light gray */
+  --text-inverse: #ffffff;
+
+  /* Border & Surface */
+  --border-color: #e5e7eb;
+  --border-color-rgb: 229, 231, 235;
+  --surface-elevated: #ffffff;
+
+  /* Shadows - Enhanced Figma System */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-color: rgba(0, 0, 0, 0.1);
+
+  /* Brand Colors - Figma Purple + Existing Blue */
+  --accent-primary: #3b82f6;        /* Blue - existing */
+  --accent-secondary: #8b5cf6;      /* Purple - Figma addition */
+  --brand-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+
+  /* Semantic Colors */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --emergency: #dc2626;
+
+  /* Vibe Colors - Enhanced */
+  --vibe-safe: #10b981;
+  --vibe-calm: #3b82f6;
+  --vibe-lively: #f59e0b;
+  --vibe-festive: #8b5cf6;
+  --vibe-crowded: #ef4444;
+  --vibe-suspicious: #f97316;
+  --vibe-dangerous: #dc2626;
+  --vibe-noisy: #eab308;
+  --vibe-quiet: #06b6d4;
+
+  /* Spacing System - 8px Grid */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 40px;
+  --space-6: 48px;
+
+  /* Border Radius - Consistent */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* Touch Targets - Minimum 44px */
+  --touch-target: 44px;
+}
+
+/* Premium Animations for Credibility Components */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Credibility Ring Animation */
+@keyframes credibilityRing {
+  0% {
+    stroke-dasharray: 0, 100;
+  }
+  100% {
+    stroke-dasharray: var(--percentage), 100;
+  }
+}
+
+/* Mobile-First Responsive Adjustments for Credibility Components */
+@media (max-width: 480px) {
+  /* Make credibility indicators extra compact on small screens */
+  .credibility-indicator-mobile {
+    padding: 6px 8px !important;
+    gap: 6px !important;
+  }
+
+  .credibility-ring-mobile {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .credibility-text-mobile {
+    font-size: 10px !important;
+  }
+}
+
+/* Dark Theme - Enhanced with Figma Design System */
+[data-theme="dark"] {
+  /* Background Colors */
+  --bg-primary: #1f2937;
+  --bg-primary-rgb: 31, 41, 55;
+  --bg-secondary: #374151;
+  --bg-secondary-rgb: 55, 65, 81;
+  --bg-tertiary: #4b5563;
+  --bg-glass: rgba(31, 41, 55, 0.8);
+  --bg-glass-border: rgba(31, 41, 55, 0.2);
+
+  /* Text Colors - Updated per Font Specification for dark theme */
+  --text-primary: #ffffff; /* Pure white for main content in dark mode */
+  --text-secondary: #cccccc; /* Light gray for less important info */
+  --text-muted: #999999; /* Medium gray for meta info, timestamps */
+  --text-disabled: #666666; /* Darker gray for disabled */
+  --text-inverse: #000000;
+
+  /* Border & Surface */
+  --border-color: #4b5563;
+  --border-color-rgb: 75, 85, 99;
+  --surface-elevated: #374151;
+
+  /* Shadows - Enhanced Figma System */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  --shadow-color: rgba(0, 0, 0, 0.4);
+
+  /* Brand Colors - Figma Purple + Existing Blue */
+  --accent-primary: #3b82f6;        /* Blue - existing */
+  --accent-secondary: #8b5cf6;      /* Purple - Figma addition */
+  --brand-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+
+  /* Semantic Colors */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --emergency: #dc2626;
+
+  /* Vibe Colors - Enhanced */
+  --vibe-safe: #10b981;
+  --vibe-calm: #3b82f6;
+  --vibe-lively: #f59e0b;
+  --vibe-festive: #8b5cf6;
+  --vibe-crowded: #ef4444;
+  --vibe-suspicious: #f97316;
+  --vibe-dangerous: #dc2626;
+  --vibe-noisy: #eab308;
+  --vibe-quiet: #06b6d4;
+
+  /* Spacing System - 8px Grid */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 40px;
+  --space-6: 48px;
+
+  /* Border Radius - Consistent */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* Touch Targets - Minimum 44px */
+  --touch-target: 44px;
+}
+
+/* High Contrast Theme */
+[data-theme="high-contrast"] {
+  --bg-primary: #000000;
+  --bg-primary-rgb: 0, 0, 0;
+  --bg-secondary: #1a1a1a;
+  --bg-secondary-rgb: 26, 26, 26;
+  --bg-tertiary: #333333;
+  --text-primary: #ffffff;
+  --text-secondary: #ffffff;
+  --text-muted: #cccccc;
+  --border-color: #ffffff;
+  --border-color-rgb: 255, 255, 255;
+  --shadow-color: rgba(255, 255, 255, 0.2);
+  --accent-primary: #ffff00;
+  --accent-secondary: #00ff00;
+  --danger: #ff0000;
+  --warning: #ffff00;
+  --success: #00ff00;
+}
+
+/* System Theme - Automatically follows OS preference with Figma enhancements */
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] {
+    /* Background Colors */
+    --bg-primary: #1f2937;
+    --bg-primary-rgb: 31, 41, 55;
+    --bg-secondary: #374151;
+    --bg-secondary-rgb: 55, 65, 81;
+    --bg-tertiary: #4b5563;
+    --bg-glass: rgba(31, 41, 55, 0.8);
+    --bg-glass-border: rgba(31, 41, 55, 0.2);
+
+    /* Text Colors */
+    --text-primary: #f9fafb;
+    --text-secondary: #d1d5db;
+    --text-muted: #9ca3af;
+    --text-inverse: #1f2937;
+
+    /* Border & Surface */
+    --border-color: #4b5563;
+    --border-color-rgb: 75, 85, 99;
+    --surface-elevated: #374151;
+
+    /* Shadows - Enhanced Figma System */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+    --shadow-color: rgba(0, 0, 0, 0.4);
+
+    /* Brand Colors - Figma Purple + Existing Blue */
+    --accent-primary: #3b82f6;
+    --accent-secondary: #8b5cf6;
+    --brand-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+
+    /* Semantic Colors */
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --emergency: #dc2626;
+
+    /* Vibe Colors - Enhanced */
+    --vibe-safe: #10b981;
+    --vibe-calm: #3b82f6;
+    --vibe-lively: #f59e0b;
+    --vibe-festive: #8b5cf6;
+    --vibe-crowded: #ef4444;
+    --vibe-suspicious: #f97316;
+    --vibe-dangerous: #dc2626;
+    --vibe-noisy: #eab308;
+    --vibe-quiet: #06b6d4;
+
+    /* Spacing System - 8px Grid */
+    --space-1: 8px;
+    --space-2: 16px;
+    --space-3: 24px;
+    --space-4: 32px;
+    --space-5: 40px;
+    --space-6: 48px;
+
+    /* Border Radius - Consistent */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+
+    /* Touch Targets - Minimum 44px */
+    --touch-target: 44px;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    /* Background Colors */
+    --bg-primary: #ffffff;
+    --bg-primary-rgb: 255, 255, 255;
+    --bg-secondary: #f9fafb;
+    --bg-secondary-rgb: 249, 250, 251;
+    --bg-tertiary: #f3f4f6;
+    --bg-glass: rgba(255, 255, 255, 0.8);
+    --bg-glass-border: rgba(255, 255, 255, 0.2);
+
+    /* Text Colors */
+    --text-primary: #1f2937;
+    --text-secondary: #374151;
+    --text-muted: #6b7280;
+    --text-inverse: #ffffff;
+
+    /* Border & Surface */
+    --border-color: #e5e7eb;
+    --border-color-rgb: 229, 231, 235;
+    --surface-elevated: #ffffff;
+
+    /* Shadows - Enhanced Figma System */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    --shadow-color: rgba(0, 0, 0, 0.1);
+
+    /* Brand Colors - Figma Purple + Existing Blue */
+    --accent-primary: #3b82f6;
+    --accent-secondary: #8b5cf6;
+    --brand-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+
+    /* Semantic Colors */
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --emergency: #dc2626;
+
+    /* Vibe Colors - Enhanced */
+    --vibe-safe: #10b981;
+    --vibe-calm: #3b82f6;
+    --vibe-lively: #f59e0b;
+    --vibe-festive: #8b5cf6;
+    --vibe-crowded: #ef4444;
+    --vibe-suspicious: #f97316;
+    --vibe-dangerous: #dc2626;
+    --vibe-noisy: #eab308;
+    --vibe-quiet: #06b6d4;
+
+    /* Spacing System - 8px Grid */
+    --space-1: 8px;
+    --space-2: 16px;
+    --space-3: 24px;
+    --space-4: 32px;
+    --space-5: 40px;
+    --space-6: 48px;
+
+    /* Border Radius - Consistent */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+
+    /* Touch Targets - Minimum 44px */
+    --touch-target: 44px;
+  }
+}

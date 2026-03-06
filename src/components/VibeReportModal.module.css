@@ -1,0 +1,868 @@
+/* CSS Variables */
+:root {
+  --primary: #3b82f6;
+  --primary-dark: #1d4ed8;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --radius-sm: 0.375rem;
+  --radius: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+}
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 1rem;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.modal {
+  background-color: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 800px;
+  max-height: 95vh;
+  overflow-y: auto;
+  position: relative;
+  animation: modalFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modalHeader {
+  padding: 1.5rem 1.5rem 1rem;
+  text-align: center;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.modalIcon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem;
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.2);
+  font-size: 24px;
+  color: var(--primary);
+  animation: iconFloat 3s ease-in-out infinite;
+}
+
+@keyframes iconFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.modalTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 0.5rem;
+}
+
+.modalDescription {
+  color: var(--gray-600);
+  font-size: 0.95rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.modalContent {
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.sectionTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.vibeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.vibeOption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem 0.75rem;
+  border: 2px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+  /* Mobile-optimized 3D setup */
+  transform-style: preserve-3d;
+  perspective: 500px;
+  will-change: transform;
+  backface-visibility: hidden;
+  /* Hardware acceleration for mobile */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+.vibeOption::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--vibe-color);
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+  /* 3D context for the accent bar */
+  transform-style: preserve-3d;
+}
+
+.vibeOption:hover {
+  /* Mobile-friendly 3D hover effect */
+  transform: translateY(-4px) rotateX(5deg) rotateY(2deg) scale(1.02);
+  box-shadow:
+    0 8px 25px var(--vibe-shadow),
+    0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.vibeOption:hover::before {
+  transform: scaleX(1) translateZ(1px);
+}
+
+.vibeOption.selected {
+  border-color: var(--vibe-color);
+  background: linear-gradient(135deg, var(--vibe-color-light) 0%, var(--vibe-color-lighter) 100%);
+  box-shadow:
+    0 10px 30px var(--vibe-shadow),
+    0 6px 15px rgba(0, 0, 0, 0.15);
+  /* Enhanced 3D effect for selected state */
+  transform: translateY(-6px) rotateX(8deg) rotateY(3deg) scale(1.03);
+  /* Add subtle glow effect */
+  filter: drop-shadow(0 0 8px var(--vibe-color)20);
+}
+
+.vibeOption.selected::before {
+  transform: scaleX(1) translateZ(2px);
+}
+
+/* Mobile touch interaction improvements */
+@media (hover: none) and (pointer: coarse) {
+  .vibeOption:hover {
+    /* Reduce 3D effects on touch devices for better performance */
+    transform: translateY(-2px) rotateX(2deg) scale(1.01);
+  }
+
+  .vibeOption.selected {
+    transform: translateY(-3px) rotateX(3deg) scale(1.02);
+  }
+}
+
+/* Performance fallback for low-end devices */
+@media (max-width: 480px) and (-webkit-min-device-pixel-ratio: 1) {
+  .vibeOption {
+    /* Reduce 3D complexity on small screens */
+    perspective: 300px;
+  }
+
+  .vibeOption:hover {
+    transform: translateY(-2px) scale(1.01);
+  }
+
+  .vibeOption.selected {
+    transform: translateY(-3px) scale(1.02);
+  }
+}
+
+/* Dynamic 3D effects based on device capabilities - applied via JavaScript */
+.vibeOption[data-3d-disabled="true"] {
+  /* Disable 3D effects for devices that don't support them */
+  transform-style: flat !important;
+  perspective: none !important;
+  will-change: auto !important;
+  -webkit-transform: none !important;
+  transform: none !important;
+}
+
+.vibeOption[data-3d-disabled="true"]:hover {
+  transform: translateY(-2px) scale(1.01);
+}
+
+.vibeOption[data-3d-disabled="true"].selected {
+  transform: translateY(-3px) scale(1.02);
+}
+
+.vibeOption[data-reduced-motion="true"] {
+  /* Respect user's reduced motion preference */
+  transition: all 0.1s ease !important;
+}
+
+.vibeOption[data-reduced-motion="true"]:hover,
+.vibeOption[data-reduced-motion="true"].selected {
+  transform: none !important;
+  animation: none !important;
+}
+
+.vibeOption[data-low-end="true"] {
+  /* Simplified effects for low-end devices */
+  transition: all 0.15s ease !important;
+}
+
+.vibeOption[data-low-end="true"]:hover {
+  transform: translateY(-1px) scale(1.005);
+}
+
+.vibeOption[data-low-end="true"].selected {
+  transform: translateY(-2px) scale(1.01);
+}
+
+.vibeIcon {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 0.5rem;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--vibe-color);
+  filter: grayscale(0.3);
+}
+
+.vibeOption:hover .vibeIcon {
+  transform: scale(1.15) rotate(5deg);
+  filter: grayscale(0);
+}
+
+.vibeOption.selected .vibeIcon {
+  transform: scale(1.25);
+  filter: grayscale(0);
+  animation: iconPulse 1.5s infinite;
+}
+
+@keyframes iconPulse {
+  0%, 100% {
+    transform: scale(1.25);
+  }
+  50% {
+    transform: scale(1.35);
+  }
+}
+
+/* Specific animations for each icon */
+.safeIcon {
+  animation: shieldPulse 2s infinite;
+}
+
+@keyframes shieldPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.calmIcon {
+  animation: waveFloat 4s infinite;
+}
+
+@keyframes waveFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.livelyIcon {
+  animation: musicBounce 1.5s infinite;
+}
+
+@keyframes musicBounce {
+  0%, 100% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.1) rotate(-5deg);
+  }
+  75% {
+    transform: scale(1.1) rotate(5deg);
+  }
+}
+
+.festiveIcon {
+  animation: confettiSpin 3s infinite;
+}
+
+@keyframes confettiSpin {
+  0%, 100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(5deg);
+  }
+  75% {
+    transform: rotate(-5deg);
+  }
+}
+
+.crowdedIcon {
+  animation: peopleBounce 2s infinite;
+}
+
+@keyframes peopleBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+.suspiciousIcon {
+  animation: eyeBlink 3s infinite;
+}
+
+@keyframes eyeBlink {
+  0%, 90%, 100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+
+.dangerousIcon {
+  animation: warningPulse 2s infinite;
+}
+
+@keyframes warningPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.noisyIcon {
+  animation: soundWave 1.5s infinite;
+}
+
+@keyframes soundWave {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+}
+
+.quietIcon {
+  animation: quietPulse 3s infinite;
+}
+
+@keyframes quietPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.9);
+  }
+}
+
+.vibeLabel {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 0.25rem;
+}
+
+.vibeDescription {
+  font-size: 0.75rem;
+  color: var(--gray-600);
+  line-height: 1.3;
+}
+
+.formGroup {
+  margin-bottom: 1.25rem;
+}
+
+.formLabel {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--gray-700);
+  margin-bottom: 0.5rem;
+}
+
+.inputWrapper {
+  position: relative;
+}
+
+.formInput {
+  width: 100%;
+  padding: 0.75rem 3rem 0.75rem 0.75rem;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.formInput:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.formTextarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  outline: none;
+  resize: vertical;
+  min-height: 120px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.formTextarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.locationButton {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--gray-500);
+  cursor: pointer;
+  padding: 0.25rem;
+  transition: all 0.3s ease;
+}
+
+.locationButton:hover {
+  color: var(--primary);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.locationButton:disabled {
+  color: var(--gray-300);
+  cursor: not-allowed;
+  transform: translateY(-50%);
+}
+
+.modalActions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.btn {
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  transition: left 0.5s;
+}
+
+.btn:hover:not(:disabled)::before {
+  left: 100%;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btnCancel {
+  background: #f8fafc;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  min-height: 44px;
+  transition: all 0.15s ease;
+}
+
+.btnCancel:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #d1d5db;
+  color: #374151;
+}
+
+.btnSubmit {
+  background: #3b82f6;
+  color: white;
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  min-height: 44px;
+  transition: all 0.15s ease;
+}
+
+.btnSubmit:hover:not(:disabled) {
+  background: #2563eb;
+  border-color: #1d4ed8;
+}
+
+.btnSubmit:active:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.btnSubmit:disabled {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  color: #d1d5db;
+  text-shadow: none;
+  cursor: not-allowed;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.btnSubmit:disabled::after {
+  display: none;
+}
+
+.loadingSpinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Success animation */
+.successCheckmark {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.successCheckmark .checkIcon {
+  width: 80px;
+  height: 80px;
+  position: relative;
+  border-radius: 50%;
+  box-sizing: content-box;
+  border: 4px solid #10b981;
+}
+
+.successCheckmark .checkIcon::before {
+  top: 3px;
+  left: -2px;
+  width: 30px;
+  transform-origin: 100% 50%;
+  border-radius: 100px 0 0 100px;
+}
+
+.successCheckmark .checkIcon::after {
+  top: 0;
+  left: 30px;
+  width: 60px;
+  transform-origin: 0 50%;
+  border-radius: 0 100px 100px 0;
+  animation: rotate-circle 4.25s ease-in;
+}
+
+.successCheckmark .checkIcon::before,
+.successCheckmark .checkIcon::after {
+  content: '';
+  height: 100px;
+  position: absolute;
+  background: #FFFFFF;
+  transform: rotate(-45deg);
+}
+
+.successCheckmark .iconLine {
+  height: 5px;
+  background-color: #10b981;
+  display: block;
+  border-radius: 2px;
+  position: absolute;
+  z-index: 10;
+}
+
+.successCheckmark .iconLine.lineTip {
+  top: 46px;
+  left: 14px;
+  width: 25px;
+  transform: rotate(45deg);
+  animation: icon-line-tip 0.75s;
+}
+
+.successCheckmark .iconLine.lineLong {
+  top: 38px;
+  right: 8px;
+  width: 47px;
+  transform: rotate(-45deg);
+  animation: icon-line-long 0.75s;
+}
+
+@keyframes rotate-circle {
+  0% {
+    transform: rotate(-45deg);
+  }
+  5% {
+    transform: rotate(-45deg);
+  }
+  12% {
+    transform: rotate(-405deg);
+  }
+  100% {
+    transform: rotate(-405deg);
+  }
+}
+
+@keyframes icon-line-tip {
+  0% {
+    width: 0;
+    left: 1px;
+    top: 19px;
+  }
+  54% {
+    width: 0;
+    left: 1px;
+    top: 19px;
+  }
+  70% {
+    width: 50px;
+    left: -8px;
+    top: 37px;
+  }
+  84% {
+    width: 17px;
+    left: 21px;
+    top: 48px;
+  }
+  100% {
+    width: 25px;
+    left: 14px;
+    top: 45px;
+  }
+}
+
+@keyframes icon-line-long {
+  0% {
+    width: 0;
+    right: 46px;
+    top: 54px;
+  }
+  65% {
+    width: 0;
+    right: 46px;
+    top: 54px;
+  }
+  84% {
+    width: 55px;
+    right: 0px;
+    top: 35px;
+  }
+  100% {
+    width: 47px;
+    right: 8px;
+    top: 38px;
+  }
+}
+
+/* Character counter for textarea */
+.charCounter {
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  margin-top: 0.25rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .modalOverlay {
+    padding: 0.5rem;
+  }
+
+  .modalHeader {
+    padding: 1.25rem 1.25rem 0.75rem;
+  }
+
+  .modalContent {
+    padding: 1rem 1.25rem 1.25rem;
+  }
+
+  .vibeGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+
+  .vibeOption {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .vibeIcon {
+    width: 36px;
+    height: 36px;
+    margin-bottom: 0.375rem;
+  }
+
+  .vibeLabel {
+    font-size: 0.8125rem;
+  }
+
+  .vibeDescription {
+    font-size: 0.6875rem;
+  }
+
+  .formGroup {
+    margin-bottom: 1rem;
+  }
+
+  .formTextarea {
+    min-height: 100px;
+  }
+
+  .modalActions {
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+  }
+
+  .btn {
+    width: 100%;
+    justify-content: center;
+    padding: 0.875rem 1.25rem;
+    min-height: 52px;
+    font-size: 0.9rem;
+  }
+
+  .btnSubmit {
+    min-height: 52px;
+  }
+
+  .sectionTitle {
+    font-size: 1.0625rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .modalTitle {
+    font-size: 1.25rem;
+  }
+
+  .modalDescription {
+    font-size: 0.9rem;
+  }
+
+  .formInput {
+    padding: 1rem 3rem 1rem 1rem;
+  }
+
+  .formTextarea {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .vibeGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .vibeOption {
+    padding: 0.75rem 0.25rem;
+  }
+
+  .modalIcon {
+    width: 56px;
+    height: 56px;
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 360px) {
+  .vibeGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,23 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+
+serve(async (req) => {
+  try {
+    const { testEmail } = await req.json()
+    
+    console.log('Test function called with:', testEmail)
+    
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: `Test function works! Email: ${testEmail}` 
+      }),
+      { headers: { 'Content-Type': 'application/json' } }
+    )
+  } catch (error) {
+    console.error('Test function error:', error)
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+})

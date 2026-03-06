@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1096420795648",
+    "project_id": "hyper-7e997",
+    "storage_bucket": "hyper-7e997.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1096420795648:android:d4f1a2c051cc84f99ebfe5",
+        "android_client_info": {
+          "package_name": "com.hyperapp.mimi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBJMAB9zWAcZJBpKh60d3Dj-NkmuuqfcgQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
