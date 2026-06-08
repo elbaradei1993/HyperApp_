@@ -199,6 +199,61 @@ html, body {
   }
 }
 
+/* Dark theme overrides for Chakra UI components */
+[role="dialog"] {
+  background: var(--bg-surface) !important;
+  color: var(--t1) !important;
+}
+
+[role="dialog"] [role="presentation"] {
+  background: var(--bg-surface) !important;
+}
+
+/* Modal backdrop */
+[role="dialog"] > div:first-child {
+  background: rgba(0, 0, 0, 0.7) !important;
+}
+
+/* Modal content */
+[role="dialog"] > div:not(:first-child) {
+  background: var(--bg-surface) !important;
+  color: var(--t1) !important;
+}
+
+/* Chakra Box dark overrides */
+div[bg="white"],
+div[bg*="gray.5"],
+div[bg*="gray.1"] {
+  background: var(--bg-elevated) !important;
+}
+
+/* Input fields */
+input, textarea, select {
+  background: var(--bg-elevated) !important;
+  border-color: var(--wire) !important;
+  color: var(--t1) !important;
+}
+
+input::placeholder {
+  color: var(--t3) !important;
+}
+
+/* Chakra Button color overrides */
+[role="button"],
+button {
+  color: var(--t1) !important;
+}
+
+/* Tab styling */
+[role="tab"] {
+  color: var(--t2) !important;
+}
+
+[role="tab"][aria-selected="true"] {
+  color: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
+
 /* Mobile viewport height fix */
 :root {
   --vh: 1vh;

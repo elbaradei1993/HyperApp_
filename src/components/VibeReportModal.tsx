@@ -425,15 +425,15 @@ const VibeReportModal: React.FC<VibeReportModalProps> = ({
         padding: window.innerWidth < 480 ? '16px' : '20px',
       }}>
         <div style={{
-          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%)',
+          background: 'linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-elevated) 100%)',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
           borderRadius: window.innerWidth < 480 ? '20px' : '24px',
           width: '100%',
           maxWidth: window.innerWidth < 480 ? '90vw' : '400px',
           padding: window.innerWidth < 480 ? '2rem 1.5rem' : '3rem 2rem',
-          boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25), 0 15px 35px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
+          boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5), 0 15px 35px rgba(0, 0, 0, 0.3)',
+          border: '0.5px solid var(--wire)',
           textAlign: 'center',
           position: 'relative',
           overflow: 'hidden',
