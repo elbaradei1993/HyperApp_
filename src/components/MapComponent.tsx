@@ -578,7 +578,7 @@ const VibeMarker: React.FC<{
           }}
           className={`w-4 h-4 rounded-full ${vibeColor.bg} opacity-30 absolute top-0 left-1/2 -translate-x-1/2`}
         />
-        <div className={`relative w-10 h-10 ${vibeColor.bg} rounded-full shadow-lg flex items-center justify-center border-4 border-white`}>
+        <div className={`relative w-10 h-10 ${vibeColor.bg} rounded-full shadow-lg flex items-center justify-center border-4`} style={{ borderColor: 'rgba(9,9,11,0.8)' }}>
           <MapPin className="w-5 h-5 text-white" fill="currentColor" />
         </div>
         <div className={`w-0 h-0 border-l-4 border-r-4 border-t-8 ${vibeColor.bg} border-l-transparent border-r-transparent mx-auto`} />
@@ -591,17 +591,18 @@ const VibeMarker: React.FC<{
             initial={{ opacity: 0, y: 10, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.9 }}
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-72 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-4 border border-gray-200 dark:border-gray-800"
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-72 rounded-2xl shadow-2xl p-4"
+            style={{ background: 'var(--bg-surface)', border: '0.5px solid var(--wire)' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-sm font-semibold">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold" style={{ background: 'linear-gradient(135deg,#00c896,#4f8ef7)', color: 'white' }}>
                 {vibe.profile?.username?.[0]?.toUpperCase() || 'U'}
               </div>
               <div className="flex-1">
-                <p className="text-sm font-semibold">{vibe.profile?.username || 'Anonymous'}</p>
-                <div className="flex items-center gap-1 text-xs text-gray-500">
+                <p className="text-sm font-semibold" style={{ color: 'var(--t1)' }}>{vibe.profile?.username || 'Anonymous'}</p>
+                <div className="flex items-center gap-1 text-xs" style={{ color: 'var(--t3)' }}>
                   <Clock className="w-3 h-3" />
                   {getTimeAgo(new Date(vibe.created_at))}
                 </div>
@@ -613,7 +614,7 @@ const VibeMarker: React.FC<{
 
             {/* Content */}
             {vibe.notes && (
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+              <p className="text-sm mb-3" style={{ color: 'var(--t2)' }}>
                 {vibe.notes}
               </p>
             )}
@@ -662,11 +663,11 @@ const SOSMarker: React.FC<{
       icon={sosIcon}
     >
       <Popup>
-        <div style={{ color: '#1f2937', maxWidth: '320px' }}>
+        <div style={{ color: 'var(--t1)', maxWidth: '320px', background: 'var(--bg-surface)', padding: '8px 0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
             <div>
-              <strong>SOS Alert!</strong>
-              <p style={{ marginTop: '4px' }}>{sos.notes || 'No details provided.'}</p>
+              <strong style={{ color: 'var(--t1)' }}>🚨 SOS Alert!</strong>
+              <p style={{ marginTop: '4px', color: 'var(--t2)' }}>{sos.notes || 'No details provided.'}</p>
             </div>
             <BoostButton
               type="sos"
@@ -676,7 +677,7 @@ const SOSMarker: React.FC<{
               onBoostUpdate={onBoostUpdate}
             />
           </div>
-          <small style={{ color: '#6b7280' }}>Reported by {sos.profile?.username || 'anonymous'} at {new Date(sos.created_at).toLocaleString()}</small>
+          <small style={{ color: 'var(--t3)' }}>Reported by {sos.profile?.username || 'anonymous'} at {new Date(sos.created_at).toLocaleString()}</small>
         </div>
       </Popup>
     </Marker>
@@ -692,20 +693,20 @@ const SOSMarker: React.FC<{
 const OtherUserMarker: React.FC<{
   user: NearbyUser;
 }> = React.memo(({ user }) => {
-  // Create a custom icon for other users (blue circle with person icon)
+  // Create a custom icon for other users (teal circle with person icon)
   const otherUserIcon = L.divIcon({
     html: `
       <div style="
         position: relative;
         width: 18px;
         height: 18px;
-        background: #3b82f6;
-        border: 1px solid white;
+        background: #00c896;
+        border: 1px solid rgba(9,9,11,0.6);
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+        box-shadow: 0 0 6px rgba(0,200,150,0.4);
         cursor: pointer;
         transition: all 0.2s ease;
       ">
