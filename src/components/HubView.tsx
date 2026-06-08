@@ -1061,11 +1061,11 @@ const HubView: React.FC<HubViewProps> = ({ userLocation: initialUserLocation }) 
   });
 
   return (
-    <Box maxW="500px" mx="auto" bg="white" minH="100vh" position="relative" borderX="1px solid" borderColor="gray.200">
+    <Box maxW="500px" mx="auto" bg="var(--bg-base)" minH="100vh" position="relative" borderX="1px solid" borderColor="var(--wire)" style={{ color: 'var(--t1)' }}>
       {/* Header */}
       <Box
-        bg="linear-gradient(135deg, #ffffff 0%, #fafafa 100%)"
-        color="black"
+        bg="linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-elevated) 100%)"
+        color="var(--t1)"
         p={6}
         position="sticky"
         top={0}
@@ -1100,7 +1100,7 @@ const HubView: React.FC<HubViewProps> = ({ userLocation: initialUserLocation }) 
       </Box>
 
       {/* Tab Navigation */}
-      <HStack bg="white" borderBottom="1px solid" borderColor="gray.200" position="sticky" top="89px" zIndex={99}>
+      <HStack bg="var(--bg-surface)" borderBottom="1px solid" borderColor="var(--wire)" position="sticky" top="89px" zIndex={99}>
         <Button
           flex={1}
           p={4}

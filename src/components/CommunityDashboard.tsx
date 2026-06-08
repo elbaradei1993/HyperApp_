@@ -499,11 +499,11 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
   }
 
   return (
-    <Box maxW="500px" mx="auto" bg="white" minH="100vh" position="relative" borderX="1px solid" borderColor="gray.200">
+    <Box maxW="500px" mx="auto" bg="var(--bg-base)" minH="100vh" position="relative" borderX="1px solid" borderColor="var(--wire)" style={{ color: 'var(--t1)' }}>
       {/* Header */}
       <Box
-        bg="white"
-        color="black"
+        bg="var(--bg-surface)"
+        color="var(--t1)"
         p={6}
         position="sticky"
         top={0}
