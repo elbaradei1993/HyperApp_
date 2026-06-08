@@ -27,6 +27,7 @@ import { notificationService } from './services/notificationService';
 import { pushNotificationService } from './services/pushNotificationService';
 import { fcmService } from './lib/firebase';
 import { locationService } from './services/locationService';
+import { logger } from './lib/logger';
 import type { Vibe, SOS } from './types';
 
 // Lazy load heavy components for better performance
@@ -347,15 +348,15 @@ const AppContent: React.FC = () => {
                 } else {
                   // Use default for mobile too
                   const defaultLocation: [number, number] = [30.0444, 31.2357];
-                  console.log('✅ Setting mobile default location:', defaultLocation);
+                  logger.log('✅ Setting mobile default location:', defaultLocation);
                   setUserLocation(defaultLocation);
-                  console.log(`📍 Mobile using default location: ${defaultLocation[0]}, ${defaultLocation[1]} - marker should appear`);
+                  logger.log(`📍 Mobile using default location: ${defaultLocation[0]}, ${defaultLocation[1]} - marker should appear`);
                 }
               } catch (mobileError) {
-                console.log('❌ Mobile IP fallback failed:', mobileError?.message || mobileError);
+                logger.log('❌ Mobile IP fallback failed:', (mobileError as Error)?.message || mobileError);
                 // Still show permission modal for mobile
                 if (isPermissionError) {
-                  console.log('🚨 Showing permission modal for mobile due to permission error');
+                  logger.log('🚨 Showing permission modal for mobile due to permission error');
                   setShowLocationPermissionModal(true);
                 }
               }

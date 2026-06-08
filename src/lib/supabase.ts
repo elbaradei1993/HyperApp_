@@ -4,28 +4,14 @@ import { Capacitor } from '@capacitor/core';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Debug environment variables
-console.log('🔧 Environment variables check:', {
-  VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
-  VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY ? '[PRESENT]' : '[MISSING]',
-  allEnvKeys: Object.keys(import.meta.env).filter(key => key.startsWith('VITE_')),
-});
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error(
+    'Missing required environment variables: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set in .env.local'
+  );
+}
 
-// Fallback for development if env vars are missing
-const fallbackUrl = 'https://nqwejzbayquzsvcodunl.supabase.co';
-const fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xd2VqemJheXF1enN2Y29kdW5sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzOTA0MjAsImV4cCI6MjA3Mzk2NjQyMH0.01yifC-tfEbBHD5u315fpb_nZrqMZCbma_UrMacMb78';
-
-const finalUrl = supabaseUrl || fallbackUrl;
-const finalKey = supabaseKey || fallbackKey;
-
-console.log('🔧 Supabase client initialization', {
-  url: finalUrl,
-  hasKey: !!finalKey,
-  keyLength: finalKey.length,
-  isNative: Capacitor.isNativePlatform(),
-  usedFallback: !supabaseUrl || !supabaseKey,
-  timestamp: new Date().toISOString(),
-});
+const finalUrl = supabaseUrl;
+const finalKey = supabaseKey;
 
 // Custom storage adapter for Capacitor to avoid ITP issues
 const capacitorStorageAdapter = {
@@ -69,19 +55,7 @@ export const supabase = createClient(finalUrl, finalKey, {
   },
 });
 
-// Test the connection
-supabase.auth.getSession().then(({ data, error }) => {
-  if (error) {
-    console.error('🚨 Supabase connection test failed:', error);
-  } else {
-    console.log('✅ Supabase connection test successful', {
-      hasSession: !!data.session,
-      timestamp: new Date().toISOString(),
-    });
-  }
-}).catch((error) => {
-  console.error('🚨 Supabase connection test error:', error);
-});
+// Connection will be tested on first use
 
 // Export the client type for TypeScript
 export type { SupabaseClient };

@@ -3,13 +3,14 @@ import type { AuthResponse } from '@supabase/supabase-js';
 
 import type { User, AuthState } from '../types';
 import { authService } from '../services/auth';
+import { logger } from '../lib/logger';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, username: string, marketingConsent?: boolean) => Promise<AuthResponse>;
+  signUp: (email: string, password: string, username: string, marketingConsent?: boolean, language?: string) => Promise<AuthResponse>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -39,10 +40,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       let minLoadingTime: Promise<void>;
 
       try {
-        console.log('🔄 Initializing auth...');
+        logger.log('🔄 Initializing auth...');
         const authPromise = authService.getSession();
         const { session } = await Promise.race([authPromise, timeoutPromise]) as any;
-        console.log('📋 Session check result:', !!session?.user);
+        logger.log('📋 Session check result:', !!session?.user);
 
         // Set loading time based on whether user has existing session
         // 5 seconds for new login, 2 seconds for refresh
@@ -50,12 +51,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         minLoadingTime = new Promise(resolve => setTimeout(resolve, loadingDuration));
 
         if (session?.user && isMounted) {
-          console.log('👤 Syncing user profile...');
+          logger.log('👤 Syncing user profile...');
           const userProfile = await authService.syncUserWithProfile(session.user);
-          console.log('✅ User profile synced:', userProfile?.username);
+          logger.log('✅ User profile synced:', userProfile?.username);
           setUser(userProfile);
         } else {
-          console.log('🚪 No active session found');
+          logger.log('🚪 No active session found');
         }
 
         // Wait for minimum loading time to ensure splash screen is visible
@@ -67,7 +68,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (error?.message?.includes('Invalid Refresh Token') ||
             error?.message?.includes('Refresh Token Not Found') ||
             error?.message?.includes('refresh_token_not_found')) {
-          console.log('🔄 Invalid refresh token detected, clearing auth state...');
+          logger.log('🔄 Invalid refresh token detected, clearing auth state...');
           await authService.clearAuthState();
         }
 
@@ -77,7 +78,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         await minLoadingTime;
       } finally {
         if (isMounted) {
-          console.log('🏁 Setting loading to false');
+          logger.log('🏁 Setting loading to false');
           setIsLoading(false);
         }
       }
@@ -85,19 +86,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Listen for auth changes
     const { data: { subscription } } = authService.onAuthStateChange(async (authUser) => {
-      console.log('🔐 Auth state change detected:', !!authUser, authUser?.email);
+      logger.log('🔐 Auth state change detected:', !!authUser, authUser?.email);
       if (!isMounted) {
         return;
       }
 
       try {
         if (authUser) {
-          console.log('👤 Syncing user profile for:', authUser.email);
+          logger.log('👤 Syncing user profile for:', authUser.email);
           const userProfile = await authService.syncUserWithProfile(authUser);
-          console.log('✅ User profile synced:', userProfile.username);
+          logger.log('✅ User profile synced:', userProfile.username);
           setUser(userProfile);
         } else {
-          console.log('🚪 User signed out');
+          logger.log('🚪 User signed out');
           setUser(null);
         }
       } catch (error) {
@@ -121,8 +122,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await authService.signIn(email, password);
   };
 
-  const signUp = async (email: string, password: string, username: string, marketingConsent?: boolean) => {
-    return await authService.signUp(email, password, username, marketingConsent);
+  const signUp = async (email: string, password: string, username: string, marketingConsent?: boolean, language?: string) => {
+    return await authService.signUp(email, password, username, marketingConsent, language);
   };
 
   const signInWithGoogle = async () => {

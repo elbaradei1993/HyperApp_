@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Text, VStack, HStack, Button, Input, Textarea, Select, Badge, Spinner, Checkbox } from '@chakra-ui/react';
+import { Box, Text, VStack, HStack, Button, Input, Textarea, Select, Badge, Spinner, useToast } from '@chakra-ui/react';
 import { Mail, Send, Users, Eye, Trash2, Plus, CheckSquare, Square } from 'lucide-react';
 
 import { supabase } from '../lib/supabase';
@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 interface MarketingEmailAdminProps {}
 
 const MarketingEmailAdmin: React.FC<MarketingEmailAdminProps> = () => {
+  const toast = useToast();
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [recipients, setRecipients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -449,10 +450,12 @@ const MarketingEmailAdmin: React.FC<MarketingEmailAdminProps> = () => {
                         cursor="pointer"
                         onClick={() => toggleRecipient(recipient.user_id)}
                       >
-                        <Checkbox
-                          isChecked={selectedRecipients.has(recipient.user_id)}
+                        {/* TODO: fix Chakra v3 Checkbox */}
+                        <input
+                          type="checkbox"
+                          checked={selectedRecipients.has(recipient.user_id)}
                           onChange={() => toggleRecipient(recipient.user_id)}
-                          colorScheme="green"
+                          style={{ cursor: 'pointer', width: '18px', height: '18px' }}
                         />
                         <VStack align="start" gap={0} flex={1}>
                           <Text fontWeight="semibold" fontSize="sm">
