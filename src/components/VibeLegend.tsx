@@ -20,11 +20,11 @@ const VibeLegend: React.FC = () => {
         bottom: '20px',
         right: '10px',
         zIndex: 1000,
-        background: 'rgba(255, 255, 255, 0.95)',
+        background: 'var(--bg-surface)',
         backdropFilter: 'blur(10px)',
         borderRadius: '12px',
-        border: '1px solid rgba(0, 0, 0, 0.1)',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        border: '0.5px solid var(--wire)',
+        boxShadow: '0 4px 12px rgba(0,200,150,0.1)',
         overflow: 'hidden',
         minWidth: '140px',
       }}
@@ -43,16 +43,16 @@ const VibeLegend: React.FC = () => {
           justifyContent: 'space-between',
           fontSize: '12px',
           fontWeight: '600',
-          color: '#374151',
+          color: 'var(--t1)',
           WebkitTapHighlightColor: 'transparent',
         }}
         aria-label={isExpanded ? t('community.vibeLegendCollapse') : t('community.vibeLegendExpand')}
       >
         <span>{t('community.vibeLegend')}</span>
         {isExpanded ? (
-          <ChevronDown size={14} color="#6b7280" />
+          <ChevronDown size={14} color="var(--t2)" />
         ) : (
-          <ChevronUp size={14} color="#6b7280" />
+          <ChevronUp size={14} color="var(--t2)" />
         )}
       </button>
 
@@ -87,10 +87,10 @@ const VibeLegend: React.FC = () => {
                     gap: '6px',
                     padding: '4px 6px',
                     borderRadius: '6px',
-                    background: 'rgba(255, 255, 255, 0.8)',
+                    background: 'var(--bg-elevated)',
                     fontSize: '11px',
                     fontWeight: '500',
-                    color: '#374151',
+                    color: 'var(--t1)',
                     whiteSpace: 'nowrap',
                   }}
                 >
@@ -101,7 +101,7 @@ const VibeLegend: React.FC = () => {
                       height: '12px',
                       borderRadius: '50%',
                       backgroundColor: config.color,
-                      border: '1px solid rgba(0, 0, 0, 0.1)',
+                      border: '0.5px solid rgba(255,255,255,0.1)',
                       flexShrink: 0,
                     }}
                   />
