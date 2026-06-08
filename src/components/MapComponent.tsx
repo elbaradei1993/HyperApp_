@@ -860,7 +860,7 @@ const MapComponent: React.FC<MapComponentProps> = React.memo(({
   return (
     <>
 
-      <MapContainer center={center} zoom={zoom} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
+      <MapContainer center={center} zoom={zoom} scrollWheelZoom={true} style={{ height: '100%', width: '100%', background: '#09090b' }}>
         <MapFlyController center={center} zoom={zoom} />
         <SearchFlyController searchLocation={searchLocation} />
         <TargetLocationController targetLocation={targetLocation} />
@@ -872,8 +872,9 @@ const MapComponent: React.FC<MapComponentProps> = React.memo(({
         <MapClickHandler onMapClick={handleMapClick} />
 
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          maxZoom={20}
         />
         {userLocation && (
           <Marker
@@ -910,51 +911,10 @@ const MapComponent: React.FC<MapComponentProps> = React.memo(({
             position={[vibe.latitude!, vibe.longitude!]}
             icon={L.divIcon({
               html: `
-                <div id="marker-${vibe.id}" style="
-                  position: relative;
-                  width: 28px;
-                  height: 28px;
-                  background: ${vibeColorsHex[vibe.vibe_type as VibeType] || '#3b82f6'};
-                  border: 3px solid white;
-                  border-radius: 50%;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-                  cursor: pointer;
-                  transition: all 0.2s ease;
-                " class="vibe-marker">
-                  <!-- Pulsing background -->
-                  <div style="
-                    position: absolute;
-                    width: 12px;
-                    height: 12px;
-                    background: ${vibeColorsHex[vibe.vibe_type as VibeType] || '#3b82f6'};
-                    border-radius: 50%;
-                    opacity: 0.3;
-                    animation: pulse 2s infinite ease-in-out;
-                  "></div>
-                  <!-- Map pin icon -->
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                  </svg>
+                <div style="position:relative;width:26px;height:26px;display:flex;align-items:center;justify-content:center;">
+                  <div style="position:absolute;width:26px;height:26px;border-radius:50%;background:${vibeColorsHex[vibe.vibe_type as VibeType] || '#00c896'};opacity:0.2;"></div>
+                  <div style="width:12px;height:12px;border-radius:50%;background:${vibeColorsHex[vibe.vibe_type as VibeType] || '#00c896'};border:2px solid rgba(9,9,11,0.6);box-shadow:0 0 8px ${vibeColorsHex[vibe.vibe_type as VibeType] || '#00c896'}55;"></div>
                 </div>
-                <!-- Marker pointer -->
-                <div style="
-                  width: 0;
-                  height: 0;
-                  border-left: 6px solid transparent;
-                  border-right: 6px solid transparent;
-                  border-top: 12px solid ${vibeColorsHex[vibe.vibe_type as VibeType] || '#3b82f6'};
-                  margin: 0 auto;
-                  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
-                "></div>
-                <style>
-                  @keyframes pulse {
-                    0%, 100% { transform: scale(1); opacity: 0.3; }
-                    50% { transform: scale(1.3); opacity: 0.1; }
-                  }
-                </style>
               `,
               className: 'custom-vibe-marker',
               iconSize: [28, 40],
