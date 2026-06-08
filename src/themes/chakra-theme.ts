@@ -1,46 +1,22 @@
-// Chakra UI v3 theme - enhanced with tab navigation design tokens
+// Chakra UI v3 theme - premium dark design
 const theme = {
   colors: {
     brand: {
-      50: '#eff6ff',
-      100: '#dbeafe',
-      200: '#bfdbfe',
-      300: '#93c5fd',
-      400: '#60a5fa',
-      500: '#3b82f6', // Your primary blue
-      600: '#2563eb',
-      700: '#1d4ed8',
-      800: '#1e40af',
-      900: '#1e3a8a',
-    },
-    green: {
-      50: '#ecfdf5',
-      100: '#d1fae5',
-      200: '#a7f3d0',
-      300: '#6ee7b7',
-      400: '#34d399',
-      500: '#10b981', // Your secondary green
-      600: '#059669',
-      700: '#047857',
-      800: '#065f46',
-      900: '#064e3b',
-    },
-    red: {
-      50: '#fef2f2',
-      100: '#fee2e2',
-      200: '#fecaca',
-      300: '#fca5a5',
-      400: '#f87171',
-      500: '#ef4444', // Your danger red
-      600: '#dc2626',
-      700: '#b91c1c',
-      800: '#991b1b',
-      900: '#7f1d1d',
+      50:  '#e0faf5',
+      100: '#b3f2e8',
+      200: '#80e9d8',
+      300: '#4ddfc8',
+      400: '#26d9bc',
+      500: '#00c896',
+      600: '#00b08a',
+      700: '#008c6e',
+      800: '#006852',
+      900: '#004436',
     },
   },
   fonts: {
-    heading: '\'Inter\', -apple-system, BlinkMacSystemFont, \'Segoe UI\', \'Roboto\', sans-serif',
-    body: '\'Inter\', -apple-system, BlinkMacSystemFont, \'Segoe UI\', \'Roboto\', sans-serif',
+    heading: '\'DM Sans\', -apple-system, BlinkMacSystemFont, sans-serif',
+    body: '\'DM Sans\', -apple-system, BlinkMacSystemFont, sans-serif',
   },
   shadows: {
     tab: '0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06)',

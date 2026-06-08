@@ -10,6 +10,7 @@ import { VibeProvider } from './contexts/VibeContext';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { NotificationManager } from './components/shared/Notification';
 import TabNavigation, { TabType } from './components/TabNavigation';
+import AppSidebar from './components/AppSidebar';
 import Header from './components/Header';
 import AuthModal from './components/AuthModal';
 import AuthCallback from './components/AuthCallback';
@@ -895,46 +896,22 @@ const AppContent: React.FC = () => {
   return (
     <div
       key={currentLanguage}
-      style={{
-        height: '100vh',
-        width: '100vw',
-        backgroundColor: 'var(--bg-secondary)',
-        // Prevent horizontal scrolling on mobile
-        overflowX: 'hidden',
-        // Ensure proper mobile viewport handling
-        WebkitOverflowScrolling: 'touch',
-      }}
+      className="app-layout"
+      style={{ backgroundColor: 'var(--bg-base)', overflowX: 'hidden' }}
     >
-
-
-      {/* Main App Content - Mobile optimized */}
       {isAuthenticated && (
         <>
-          {/* Header */}
-          <Header
-            onNavigateToProfile={() => setActiveTab('profile')}
+          <AppSidebar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            onNewReport={handleNewReport}
           />
-
-          <div style={{
-            // Account for header only - navigation overlays this area
-            height: 'calc(var(--vh, 1vh) * 100 - 80px)',
-            width: '100vw',
-            // Account for fixed header height
-            paddingTop: 'calc(80px + env(safe-area-inset-top, 0px))',
-            // Use specific overflow properties to avoid conflicts
-            overflowY: (activeTab === 'profile' || activeTab === 'settings' || activeTab === 'reports' || activeTab === 'guardian' || activeTab === 'hub') ? 'auto' : 'hidden',
-            overflowX: 'hidden',
-            // Mobile scrolling improvements
-            WebkitOverflowScrolling: 'touch',
-            // Ensure proper stacking context
-            position: 'relative',
-            // Ensure consistent background color
-            backgroundColor: 'white',
-          }}>
-            {renderActiveView()}
+          <div className="app-main">
+            <Header onNavigateToProfile={() => setActiveTab('profile')} />
+            <div className="app-content-desktop">
+              {renderActiveView()}
+            </div>
           </div>
-
-          {/* Tab Navigation */}
           <TabNavigation
             activeTab={activeTab}
             onTabChange={setActiveTab}
