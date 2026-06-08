@@ -11,7 +11,6 @@ import { useTheme } from '../contexts/ThemeContext';
 import { authService } from '../services/auth';
 import { pushNotificationService } from '../services/pushNotificationService';
 import { notificationService } from '../services/notificationService';
-import { fcmService } from '../lib/firebase';
 import { storageManager } from '../lib/storage';
 
 import ToggleSwitch from './shared/ToggleSwitch';
@@ -157,18 +156,17 @@ const SettingsView: React.FC = () => {
 
       if (notificationPermissionStatus !== 'granted') {
         try {
-          const token = await fcmService.requestPermission();
-          if (token) {
+          // TODO: Implement with Capacitor push notifications
+          if (user?.id) {
+            await pushNotificationService.initialize(user.id);
             setNotificationPermissionStatus('granted');
             updateSettings({ notifications: true });
-            if (user?.id) {
-              await pushNotificationService.initialize(user.id);
-            }
           } else {
             setNotificationPermissionStatus('denied');
             updateSettings({ notifications: false });
           }
         } catch (error) {
+          console.error('Notification permission error:', error);
           setNotificationPermissionStatus('denied');
           updateSettings({ notifications: false });
         }

@@ -6,7 +6,6 @@ import { Box } from '@chakra-ui/react';
 import { useAuth } from '../contexts/AuthContext';
 import { useVibe } from '../contexts/VibeContext';
 import { VIBE_CONFIG } from '../constants/vibes';
-import { fcmService } from '../lib/firebase';
 
 import VibeFigure from './VibeFigure';
 import NotificationBell from './shared/NotificationBell';
@@ -151,8 +150,8 @@ const Header: React.FC<HeaderProps> = ({ onNavigateToProfile }) => {
   useEffect(() => {
     const checkNotificationPermission = async () => {
       try {
-        const permissionStatus = await fcmService.getPermissionStatus();
-        setNotificationPermissionStatus(permissionStatus);
+        // TODO: Implement notification permission check with Capacitor
+        setNotificationPermissionStatus('unknown');
       } catch (error) {
         console.warn('Error checking notification permission:', error);
         setNotificationPermissionStatus('unknown');

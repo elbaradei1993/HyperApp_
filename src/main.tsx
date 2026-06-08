@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { Capacitor } from '@capacitor/core';
-import { getMessaging, onMessage } from 'firebase/messaging';
 
 import App from './App';
 // SplashScreen will be handled inside App.tsx now
@@ -66,9 +65,6 @@ const cleanupOneSignal = async () => {
   }
 };
 
-
-import { app } from './lib/firebase';
-
 // Register main service worker for caching and offline functionality
 const registerMainServiceWorker = async () => {
   // Disabled - sw.js file doesn't exist
@@ -108,6 +104,12 @@ const registerFirebaseServiceWorker = async (retries = 3) => {
     return;
   }
 
+  // Firebase service worker removed - using Capacitor for push notifications
+  console.log('ℹ️ Firebase messaging removed - use Capacitor for push notifications');
+  return null as any;
+
+  // Original Firebase registration code commented out:
+  /*
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       console.log(`🔄 Attempting Firebase service worker registration (attempt ${attempt}/${retries})`);

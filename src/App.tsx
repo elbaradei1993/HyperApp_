@@ -25,7 +25,6 @@ import { userLocationService, NearbyUser } from './services/userLocationService'
 import { storageManager } from './lib/storage';
 import { notificationService } from './services/notificationService';
 import { pushNotificationService } from './services/pushNotificationService';
-import { fcmService } from './lib/firebase';
 import { locationService } from './services/locationService';
 import { logger } from './lib/logger';
 import type { Vibe, SOS } from './types';

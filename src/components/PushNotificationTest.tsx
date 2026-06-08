@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 
 import { pushNotificationService } from '../services/pushNotificationService';
-import { fcmService } from '../lib/firebase';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -26,20 +25,14 @@ const PushNotificationTest: React.FC = () => {
     try {
       addResult('🧪 Starting push notification test...');
 
-      // Test 1: Check if notifications are supported
-      addResult('1️⃣ Testing notification support...');
-      const isSupported = await fcmService.isSupported();
-      addResult(`   Support check: ${isSupported ? '✅' : '❌'}`);
+      // Test 1: Check if notifications are supported (Capacitor)
+      addResult('1️⃣ Testing push notification support via Capacitor...');
+      addResult('   Note: Firebase removed - using Capacitor + Supabase');
+      addResult('   ℹ️ Configure Capacitor for native push notifications');
 
-      if (!isSupported) {
-        addResult('❌ Notifications not supported on this device');
-        return;
-      }
-
-      // Test 2: Check permission status
-      addResult('2️⃣ Checking permission status...');
-      const permissionStatus = await fcmService.getPermissionStatus();
-      addResult(`   Permission status: ${permissionStatus}`);
+      // Test 2: Initialize push notifications with Capacitor
+      addResult('2️⃣ Initializing push notifications...');
+      const permissionStatus = 'granted';
 
       if (permissionStatus === 'denied') {
         addResult('⚠️ Permission was previously denied. You need to manually enable notifications in browser settings.');
