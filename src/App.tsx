@@ -111,21 +111,9 @@ const AppContent: React.FC = () => {
         return;
       }
 
-      // Check current permission status
-      const currentPermission = await fcmService.getPermissionStatus();
-      console.log('🔔 Checking permission status for reminder:', currentPermission);
-
-      // If permission is denied, show persistent reminder on every app startup
-      if (currentPermission === 'denied') {
-        console.log('🔔 Permission is denied - showing persistent reminder on app startup');
-        // Add a notification to remind user to enable notifications
-        addNotification({
-          type: 'warning',
-          title: 'Notifications Disabled',
-          message: 'Enable notifications in your browser settings to receive safety alerts. Click the lock icon in the address bar.',
-          duration: 10000, // Show for 10 seconds
-        });
-      }
+      // TODO: Check notification permission status with Capacitor
+      console.log('🔔 Checking notification permission status (Firebase removed)');
+      // Permission check implementation coming with Capacitor integration
     };
 
     // Show reminder when user is authenticated and onboarding is complete
@@ -144,7 +132,8 @@ const AppContent: React.FC = () => {
       }
 
       // Check current permission status
-      const currentPermission = await fcmService.getPermissionStatus();
+      // TODO: Implement with Capacitor
+      const currentPermission = 'unknown';
       console.log('🔔 Current notification permission status:', currentPermission);
 
       // If permission is already granted and notifications are enabled, initialize
@@ -180,7 +169,8 @@ const AppContent: React.FC = () => {
         console.log('🔔 Requesting notification permission for authenticated user...');
 
         // Request permission
-        const token = await fcmService.requestPermission();
+        // TODO: Implement with Capacitor
+        const token = null;
 
         if (token) {
           console.log('🔔 Notification permission granted, initializing push notifications...');
