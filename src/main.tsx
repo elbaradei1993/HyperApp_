@@ -107,61 +107,7 @@ const registerFirebaseServiceWorker = async (retries = 3) => {
   // Firebase service worker removed - using Capacitor for push notifications
   console.log('ℹ️ Firebase messaging removed - use Capacitor for push notifications');
   return null as any;
-
-  // Original Firebase registration code commented out:
-  /*
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      console.log(`🔄 Attempting Firebase service worker registration (attempt ${attempt}/${retries})`);
-
-      // Check if already registered
-      const existingRegistrations = await navigator.serviceWorker.getRegistrations();
-      const firebaseRegistration = existingRegistrations.find(reg =>
-        reg.scope === window.location.origin + '/' &&
-        reg.active?.scriptURL.includes('firebase-messaging-sw.js'),
-      );
-
-      if (firebaseRegistration) {
-        console.log('✅ Firebase service worker already registered:', firebaseRegistration.scope);
-        return firebaseRegistration;
-      }
-
-      // Register Firebase messaging service worker
-      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-        scope: '/',
-      });
-
-      console.log('✅ Firebase service worker registered successfully:', registration.scope);
-
-      // Wait for the service worker to be ready
-      await navigator.serviceWorker.ready;
-
-      // Initialize Firebase messaging after service worker is ready
-      const messaging = getMessaging(app);
-
-      // Listen for foreground messages
-      onMessage(messaging, (payload) => {
-        console.log('📨 Foreground message received:', payload);
-        // Handle foreground messages here if needed
-      });
-
-      return registration;
-
-    } catch (error) {
-      console.error(`❌ Firebase service worker registration failed (attempt ${attempt}/${retries}):`, error);
-
-      if (attempt === retries) {
-        console.error('❌ All Firebase service worker registration attempts failed');
-        throw error;
-      }
-
-      // Wait before retrying (exponential backoff)
-      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
-      console.log(`⏳ Waiting ${delay}ms before retry...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-};
+}
 
 // Initialize service workers sequentially
 const initializeServiceWorkers = async () => {

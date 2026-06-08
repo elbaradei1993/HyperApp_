@@ -77,9 +77,6 @@ class PushNotificationService {
         if (token !== 'capacitor-push-notifications-enabled') {
           console.log('🌐 Web platform: configure Capacitor or use alternative notification method');
           // TODO: Implement web push notifications with Supabase or alternative service
-          if (token) {
-          });
-          console.log('🌐 Foreground message listener set up');
         }
       }
 
