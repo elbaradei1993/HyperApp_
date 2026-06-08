@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Text, VStack, Button as ChakraButton, Image } from '@chakra-ui/react';
 import { motion, Variants } from 'framer-motion';
-import { ChevronRight, Sparkles } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
 interface LanguageSelectionScreenProps {
   onLanguageSelect: (language: 'en' | 'ar') => void;
@@ -51,339 +50,232 @@ const LanguageSelectionScreen: React.FC<LanguageSelectionScreenProps> = ({ onLan
   };
 
   const titleVariants: Variants = {
-    hidden: { opacity: 0, y: 30 },
+    hidden: { opacity: 0, y: 20 },
     visible: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] },
+      transition: {
+        duration: 0.8,
+        ease: [0.25, 0.46, 0.45, 0.94],
+        delay: 0.2,
+      },
     },
   };
 
   const buttonVariants: Variants = {
-    hidden: { opacity: 0, x: -50, scale: 0.8 },
-    visible: (i: number) => ({
+    hidden: { opacity: 0, y: 20 },
+    visible: (custom: number) => ({
       opacity: 1,
-      x: 0,
-      scale: 1,
+      y: 0,
       transition: {
         duration: 0.6,
         ease: [0.25, 0.46, 0.45, 0.94],
-        delay: i * 0.1,
+        delay: 0.4 + custom * 0.1,
       },
     }),
     hover: {
-      scale: 1.08,
-      boxShadow: '0 25px 50px rgba(0, 0, 0, 0.15), 0 0 30px rgba(255, 255, 255, 0.1)',
-      transition: { duration: 0.3, ease: 'easeOut' },
+      scale: 1.02,
+      transition: { duration: 0.3 },
     },
     tap: {
-      scale: 0.95,
-      transition: { duration: 0.1 },
+      scale: 0.98,
     },
   };
 
   return (
-    <Box
-      minH="100vh"
-      position="relative"
-      overflow="hidden"
-      bg="radial-gradient(ellipse at center, #1a1a2e 0%, #16213e 25%, #0f3460 50%, #1a1a2e 75%, #16213e 100%)"
+    <div
+      style={{
+        minHeight: '100vh',
+        width: '100vw',
+        position: 'relative',
+        overflow: 'hidden',
+        background: 'radial-gradient(ellipse at center, #0f1117 0%, #0a0c10 60%, #09090b 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
     >
-      {/* Dynamic background with mouse tracking */}
-      <Box
-        position="absolute"
-        top="0"
-        left="0"
-        right="0"
-        bottom="0"
-        bg={`radial-gradient(circle at ${50 + mousePosition.x}% ${50 + mousePosition.y}%, rgba(120, 119, 198, 0.3) 0%, rgba(255, 177, 153, 0.2) 25%, rgba(56, 178, 172, 0.1) 50%, transparent 70%)`}
-        transition="all 0.3s ease"
+      {/* Mouse-tracked glow layer */}
+      <div
+        style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: `radial-gradient(circle at ${50 + mousePosition.x}% ${50 + mousePosition.y}%, rgba(0,200,150,0.08) 0%, transparent 60%)`,
+          transition: 'all 0.3s ease',
+        }}
       />
 
-      {/* Animated mesh gradient background */}
-      <Box
-        position="absolute"
-        top="0"
-        left="0"
-        right="0"
-        bottom="0"
-        bg="linear-gradient(45deg, rgba(120, 119, 198, 0.1) 0%, rgba(255, 177, 153, 0.1) 50%, rgba(56, 178, 172, 0.1) 100%)"
-        opacity="0.6"
-        animation="gradientShift 8s ease-in-out infinite"
-      />
+      {/* Concentric rings */}
+      {[160, 280, 400, 520].map((size, i) => (
+        <div key={i} style={{
+          position: 'absolute',
+          width: size, height: size,
+          borderRadius: '50%',
+          border: `1px solid rgba(0,200,150,${0.12 - i * 0.025})`,
+          top: '50%', left: '50%',
+          transform: 'translate(-50%, -50%)',
+          pointerEvents: 'none',
+        }} />
+      ))}
 
       {/* Floating particles */}
       {[...Array(6)].map((_, i) => (
-        <Box
+        <div
           key={i}
-          position="absolute"
-          w={`${Math.random() * 4 + 2}px`}
-          h={`${Math.random() * 4 + 2}px`}
-          bg="rgba(255, 255, 255, 0.6)"
-          borderRadius="50%"
-          top={`${Math.random() * 100}%`}
-          left={`${Math.random() * 100}%`}
-          animation={`floatParticle ${Math.random() * 10 + 10}s linear infinite`}
           style={{
-            animationDelay: `${Math.random() * 5}s`,
+            position: 'absolute',
+            width: '3px', height: '3px',
+            background: 'rgba(0,200,150,0.4)',
+            borderRadius: '50%',
+            top: `${15 + i * 14}%`,
+            left: `${10 + i * 15}%`,
+            animation: `floatParticle ${12 + i * 2}s linear infinite`,
+            animationDelay: `${i * 1.5}s`,
           }}
         />
       ))}
 
-      {/* Main content */}
-      <Box
-        position="relative"
-        zIndex="10"
-        minH="100vh"
-        display="flex"
-        alignItems="center"
-        justifyContent="center"
-        p={4}
+      {/* Main card */}
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        style={{
+          position: 'relative', zIndex: 10,
+          width: '100%', maxWidth: '420px',
+          padding: '0 20px',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '40px',
+        }}
       >
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          style={{ width: '100%', maxWidth: '450px' }}
-        >
-          <VStack w="full" align="center" gap={[8, 12]}>
-            {/* Premium Logo Section */}
-            <motion.div variants={logoVariants}>
-              <VStack align="center" gap={[3, 4]}>
-                {/* Icon with glow effect */}
-                <Box position="relative">
-                  <Box
-                    w={{ base: '80px', md: '120px' }}
-                    h={{ base: '80px', md: '120px' }}
-                    bg="linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1))"
-                    borderRadius="30px"
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="center"
-                    backdropFilter="blur(25px)"
-                    border="1px solid rgba(255, 255, 255, 0.3)"
-                    boxShadow="0 20px 60px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)"
-                    position="relative"
-                    overflow="hidden"
-                    p={2}
-                  >
-                    {/* Inner glow */}
-                    <Box
-                      position="absolute"
-                      top="50%"
-                      left="50%"
-                      transform="translate(-50%, -50%)"
-                      w={{ base: '50px', md: '80px' }}
-                      h={{ base: '50px', md: '80px' }}
-                      bg="radial-gradient(circle, rgba(255, 255, 255, 0.4) 0%, transparent 70%)"
-                      borderRadius="50%"
-                    />
-                    <Image
-                      src="/hyperapp-logo.png"
-                      alt="HyperApp Logo"
-                      w={{ base: '50px', md: '80px' }}
-                      h={{ base: '50px', md: '80px' }}
-                      borderRadius="20px"
-                      objectFit="cover"
-                      position="relative"
-                      zIndex="1"
-                      boxShadow="0 8px 24px rgba(0, 0, 0, 0.2)"
-                    />
-                  </Box>
+        {/* Logo section */}
+        <motion.div variants={logoVariants} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          {/* App mark */}
+          <div style={{
+            width: '80px', height: '80px', borderRadius: '22px',
+            background: 'linear-gradient(135deg, #00c896 0%, rgba(0,200,150,0.35) 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 8px 32px rgba(0,200,150,0.25), 0 0 0 1px rgba(0,200,150,0.15)',
+            position: 'relative',
+          }}>
+            <img
+              src="/hyperapp-logo.png"
+              alt="HyperApp"
+              style={{ width: '52px', height: '52px', borderRadius: '14px', objectFit: 'cover' }}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = 'none';
+              }}
+            />
+            {/* Hex fallback shown when no logo */}
+            <div style={{
+              width: '30px', height: '30px',
+              background: 'rgba(9,9,11,0.5)',
+              clipPath: 'polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)',
+              position: 'absolute',
+            }} />
+          </div>
 
-                  {/* Sparkle effects */}
-                  <Sparkles
-                    size={16}
-                    color="rgba(255, 255, 255, 0.8)"
-                    style={{
-                      position: 'absolute',
-                      top: '10px',
-                      right: '10px',
-                      animation: 'sparkle 2s ease-in-out infinite',
-                    }}
-                  />
-                </Box>
-
-                {/* Title with premium typography */}
-                <VStack align="center" gap={1}>
-                  <Text
-                    fontSize={{ base: '2xl', md: '4xl' }}
-                    fontWeight="800"
-                    color="white"
-                    textAlign="center"
-                    textShadow="0 4px 8px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 255, 255, 0.1)"
-                    letterSpacing="-1px"
-                    style={{
-                      background: 'linear-gradient(135deg, #ffffff 0%, rgba(255, 255, 255, 0.8) 100%)',
-                      backgroundClip: 'text',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                    }}
-                  >
-                    HyperApp
-                  </Text>
-                  <Text
-                    fontSize={{ base: 'xs', md: 'sm' }}
-                    color="rgba(255, 255, 255, 0.7)"
-                    textAlign="center"
-                    fontWeight="500"
-                    letterSpacing="0.5px"
-                  >
-                    Stay Safe...Stay Connected
-                  </Text>
-                </VStack>
-              </VStack>
-            </motion.div>
-
-            {/* Language Selection */}
-            <motion.div variants={titleVariants}>
-              <VStack w="full" align="center" gap={[6, 8]}>
-                <Text
-                  fontSize={{ base: 'md', md: 'xl' }}
-                  fontWeight="600"
-                  color="white"
-                  textAlign="center"
-                  opacity={0.95}
-                  textShadow="0 2px 4px rgba(0, 0, 0, 0.3)"
-                >
-                  Choose your language
-                  {/* Mobile responsive update */}
-                </Text>
-
-                <VStack w="full" maxW="320px" gap={{ base: 3, md: 5 }}>
-                  {/* English Button */}
-                  <motion.div
-                    custom={0}
-                    variants={buttonVariants}
-                    whileHover="hover"
-                    whileTap="tap"
-                    style={{ width: '100%' }}
-                  >
-                    <ChakraButton
-                      onClick={() => onLanguageSelect('en')}
-                      w="full"
-                      h={{ base: '50px', md: '70px' }}
-                      bg="linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1))"
-                      backdropFilter="blur(30px)"
-                      border="1px solid rgba(255, 255, 255, 0.25)"
-                      borderRadius="20px"
-                      color="white"
-                      fontSize={{ base: 'sm', md: 'lg' }}
-                      fontWeight="700"
-                      letterSpacing="0.5px"
-                      _hover={{
-                        bg: 'linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2))',
-                        borderColor: 'rgba(255, 255, 255, 0.4)',
-                      }}
-                      _active={{
-                        bg: 'linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.15))',
-                      }}
-                      transition="all 0.4s cubic-bezier(0.4, 0, 0.2, 1)"
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="space-between"
-                      px={{ base: 4, md: 8 }}
-                      boxShadow="0 15px 35px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1)"
-                      position="relative"
-                      overflow="hidden"
-                    >
-                      {/* Button glow effect */}
-                      <Box
-                        position="absolute"
-                        top="0"
-                        left="0"
-                        right="0"
-                        bottom="0"
-                        bg="linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%)"
-                        opacity="0"
-                        transition="opacity 0.3s ease"
-                        _groupHover={{ opacity: 1 }}
-                      />
-                      <Text fontSize={{ base: 'sm', md: 'lg' }} fontWeight="700" zIndex="1">English</Text>
-                      <ChevronRight size={18} style={{ zIndex: 1 }} />
-                    </ChakraButton>
-                  </motion.div>
-
-                  {/* Arabic Button */}
-                  <motion.div
-                    custom={1}
-                    variants={buttonVariants}
-                    whileHover="hover"
-                    whileTap="tap"
-                    style={{ width: '100%' }}
-                  >
-                    <ChakraButton
-                      onClick={() => onLanguageSelect('ar')}
-                      w="full"
-                      h={{ base: '50px', md: '70px' }}
-                      bg="linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1))"
-                      backdropFilter="blur(30px)"
-                      border="1px solid rgba(255, 255, 255, 0.25)"
-                      borderRadius="20px"
-                      color="white"
-                      fontSize={{ base: 'sm', md: 'lg' }}
-                      fontWeight="700"
-                      letterSpacing="0.5px"
-                      _hover={{
-                        bg: 'linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2))',
-                        borderColor: 'rgba(255, 255, 255, 0.4)',
-                      }}
-                      _active={{
-                        bg: 'linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.15))',
-                      }}
-                      transition="all 0.4s cubic-bezier(0.4, 0, 0.2, 1)"
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="space-between"
-                      px={{ base: 4, md: 8 }}
-                      boxShadow="0 15px 35px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1)"
-                      position="relative"
-                      overflow="hidden"
-                    >
-                      {/* Button glow effect */}
-                      <Box
-                        position="absolute"
-                        top="0"
-                        left="0"
-                        right="0"
-                        bottom="0"
-                        bg="linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%)"
-                        opacity="0"
-                        transition="opacity 0.3s ease"
-                        _groupHover={{ opacity: 1 }}
-                      />
-                      <Text fontSize={{ base: 'sm', md: 'lg' }} fontWeight="700" zIndex="1">العربية</Text>
-                      <ChevronRight size={18} style={{ zIndex: 1 }} />
-                    </ChakraButton>
-                  </motion.div>
-                </VStack>
-              </VStack>
-            </motion.div>
-          </VStack>
+          {/* Name */}
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              fontSize: '32px', fontWeight: '800', letterSpacing: '-1px',
+              color: '#f4f4f5', lineHeight: 1.1, marginBottom: '6px',
+            }}>
+              HyperApp
+            </div>
+            <div style={{
+              fontSize: '12px', color: 'rgba(161,161,170,0.8)',
+              letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: '500',
+            }}>
+              Stay Safe · Stay Connected
+            </div>
+          </div>
         </motion.div>
-      </Box>
 
-      <style>
-        {`
-          @keyframes gradientShift {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-          }
+        {/* Language picker */}
+        <motion.div variants={titleVariants} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+          <div style={{ fontSize: '15px', fontWeight: '600', color: 'rgba(244,244,245,0.7)', textAlign: 'center', letterSpacing: '0.02em' }}>
+            Choose your language
+          </div>
 
-          @keyframes floatParticle {
-            0% { transform: translateY(0px) rotate(0deg); opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
-          }
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {/* English */}
+            <motion.div custom={0} variants={buttonVariants} whileHover="hover" whileTap="tap" style={{ width: '100%' }}>
+              <button
+                onClick={() => onLanguageSelect('en')}
+                style={{
+                  width: '100%', height: '58px',
+                  background: 'rgba(255,255,255,0.05)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: '0.5px solid rgba(255,255,255,0.12)',
+                  borderRadius: '16px',
+                  color: '#f4f4f5',
+                  fontSize: '16px', fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '0 20px',
+                  transition: 'all 0.2s ease',
+                  fontFamily: 'inherit',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,200,150,0.08)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(0,200,150,0.3)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.12)'; }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontSize: '22px' }}>🇺🇸</span>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#f4f4f5' }}>English</div>
+                    <div style={{ fontSize: '11px', color: 'rgba(161,161,170,0.7)', fontWeight: '400' }}>English</div>
+                  </div>
+                </div>
+                <ChevronRight size={18} color="rgba(161,161,170,0.5)" />
+              </button>
+            </motion.div>
 
-          @keyframes sparkle {
-            0%, 100% { opacity: 0.3; transform: scale(0.8) rotate(0deg); }
-            50% { opacity: 1; transform: scale(1.2) rotate(180deg); }
-          }
-        `}
-      </style>
-    </Box>
+            {/* Arabic */}
+            <motion.div custom={1} variants={buttonVariants} whileHover="hover" whileTap="tap" style={{ width: '100%' }}>
+              <button
+                onClick={() => onLanguageSelect('ar')}
+                style={{
+                  width: '100%', height: '58px',
+                  background: 'rgba(255,255,255,0.05)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: '0.5px solid rgba(255,255,255,0.12)',
+                  borderRadius: '16px',
+                  color: '#f4f4f5',
+                  fontSize: '16px', fontWeight: '700',
+                  cursor: 'pointer',
+                  direction: 'rtl',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '0 20px',
+                  transition: 'all 0.2s ease',
+                  fontFamily: 'inherit',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,200,150,0.08)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(0,200,150,0.3)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.12)'; }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontSize: '22px' }}>🇪🇬</span>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#f4f4f5' }}>العربية</div>
+                    <div style={{ fontSize: '11px', color: 'rgba(161,161,170,0.7)', fontWeight: '400' }}>Arabic</div>
+                  </div>
+                </div>
+                <ChevronRight size={18} color="rgba(161,161,170,0.5)" style={{ transform: 'scaleX(-1)' }} />
+              </button>
+            </motion.div>
+          </div>
+        </motion.div>
+      </motion.div>
+
+      <style>{`
+        @keyframes floatParticle {
+          0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+          10% { opacity: 0.6; }
+          90% { opacity: 0.6; }
+          100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
+        }
+      `}</style>
+    </div>
   );
 };
 

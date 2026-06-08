@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Box, VStack, HStack, Text, Button } from '@chakra-ui/react';
-import { MapPin, X, AlertTriangle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { AlertTriangle, X, MapPin } from 'lucide-react';
 
 interface LocationPermissionModalProps {
   isOpen: boolean;
@@ -13,234 +13,214 @@ const LocationPermissionModal: React.FC<LocationPermissionModalProps> = ({
   onClose,
   onManualLocation,
 }) => {
-  const primaryActionRef = useRef<HTMLButtonElement>(null);
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
+  const primaryActionRef = useRef<HTMLButtonElement>(null);
 
-  // Focus management and body scroll prevention
   useEffect(() => {
     if (isOpen) {
-      // Prevent body scroll
       document.body.style.overflow = 'hidden';
-
-      // Focus on primary button when modal opens
-      setTimeout(() => {
-        primaryActionRef.current?.focus();
-      }, 100);
-    } else {
-      document.body.style.overflow = 'unset';
+      primaryActionRef.current?.focus();
     }
-
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = 'auto';
     };
   }, [isOpen]);
 
-  // Enhanced Try Again logic
-  const handleTryAgain = async () => {
-    setIsLoading(true);
-    onClose();
-
-    try {
-      // Modern API with better error handling
-      if ('permissions' in navigator && 'geolocation' in navigator) {
-        const permissionStatus = await navigator.permissions.query({
-          name: 'geolocation' as PermissionName,
-        });
-
-        if (permissionStatus.state === 'prompt') {
-          // Get location with proper error handling
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              console.log('Location granted:', position);
-              window.location.reload();
-            },
-            (error) => {
-              console.error('Location error:', error);
-              setIsLoading(false);
-            },
-            {
-              enableHighAccuracy: true,
-              timeout: 5000,
-              maximumAge: 0,
-            },
-          );
-        } else {
-          setIsLoading(false);
-        }
-      } else {
-        // Fallback for browsers without Permissions API
-        console.warn('Permissions API not supported');
-        setIsLoading(false);
-      }
-    } catch (error) {
-      console.error('Error checking permissions:', error);
-      setIsLoading(false);
-    }
-  };
-
-  // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       onClose();
     }
   };
 
-  if (!isOpen) {
-    return null;
-  }
+  const handleTryAgain = async () => {
+    setIsLoading(true);
+    try {
+      await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+        });
+      });
+      onManualLocation();
+    } catch {
+      setIsLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
 
   return (
-    <Box
-      position="fixed"
-      top={0}
-      left={0}
-      right={0}
-      bottom={0}
-      bg="rgba(0, 0, 0, 0.5)"
-      display="flex"
-      alignItems="center"
-      justifyContent="center"
-      zIndex={1000}
-      p={4}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.72)',
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '16px',
       }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onKeyDown={handleKeyDown}
     >
-      <Box
-        bg="white"
-        borderRadius="20px"
-        maxW="500px"
-        w="full"
-        maxH="90vh"
-        overflow="hidden"
-        boxShadow="0 20px 25px rgba(0, 0, 0, 0.1)"
+      <div
+        style={{
+          background: '#111318',
+          border: '0.5px solid rgba(255,255,255,0.1)',
+          borderRadius: '22px',
+          width: '100%', maxWidth: '480px',
+          maxHeight: '90vh',
+          overflow: 'hidden',
+          display: 'flex', flexDirection: 'column',
+          boxShadow: '0 24px 48px rgba(0,0,0,0.6)',
+        }}
       >
         {/* Header */}
-        <Box
-          bg="white"
-          p={6}
-          borderBottom="1px solid"
-          borderColor="gray.200"
-          position="sticky"
-          top={0}
-          zIndex={10}
-        >
-          <HStack justify="space-between" align="center">
-            <HStack gap={3}>
-              <Box w="10" h="10" borderRadius="8px" bg="red.100" display="flex" alignItems="center" justifyContent="center">
-                <AlertTriangle size={16} color="#dc2626" />
-              </Box>
-              <VStack align="start" gap={0}>
-                <Text fontSize="18px" fontWeight="700" color="gray.900">
-                  Location Access Required
-                </Text>
-                <Text fontSize="12px" color="gray.600">
-                  Enable location to see nearby safety reports
-                </Text>
-              </VStack>
-            </HStack>
-            <Button
-              aria-label="Close modal"
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              borderRadius="full"
-              p={2}
-              minW="auto"
-              h="auto"
-            >
-              <X size={16} />
-            </Button>
-          </HStack>
-        </Box>
+        <div style={{
+          padding: '20px 22px 18px',
+          borderBottom: '0.5px solid rgba(255,255,255,0.07)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexShrink: 0,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '40px', height: '40px', borderRadius: '10px',
+              background: 'rgba(255,59,92,0.12)',
+              border: '0.5px solid rgba(255,59,92,0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <AlertTriangle size={18} color="#ff3b5c" />
+            </div>
+            <div>
+              <div style={{ fontSize: '16px', fontWeight: '700', color: '#f4f4f5', lineHeight: 1.2 }}>
+                {t('location.permission.title', 'Location Access Required')}
+              </div>
+              <div style={{ fontSize: '11px', color: '#71717a', marginTop: '2px' }}>
+                {t('location.permission.subtitle', 'Enable location to see nearby safety reports')}
+              </div>
+            </div>
+          </div>
+          <button
+            aria-label="Close modal"
+            onClick={onClose}
+            style={{
+              width: '30px', height: '30px', borderRadius: '8px',
+              background: 'rgba(255,255,255,0.05)',
+              border: '0.5px solid rgba(255,255,255,0.08)',
+              color: '#71717a', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <X size={14} />
+          </button>
+        </div>
 
         {/* Content */}
-        <Box p={6} overflowY="auto" maxH="calc(70vh - 140px)">
-          <VStack gap={6} align="stretch">
-            {/* Why we need location */}
-            <Box p={4} bg="blue.50" borderRadius="12px" border="1px solid" borderColor="blue.200">
-              <Text fontSize="16px" fontWeight="600" color="blue.900" mb={3}>
-                Why we need your location:
-              </Text>
-              <VStack align="start" gap={2}>
-                <Text fontSize="14px" color="blue.800">• Show safety reports near you</Text>
-                <Text fontSize="14px" color="blue.800">• Help others find your reports</Text>
-                <Text fontSize="14px" color="blue.800">• Provide location-based alerts</Text>
-                <Text fontSize="14px" color="blue.800">• Improve community safety mapping</Text>
-              </VStack>
-            </Box>
+        <div style={{ padding: '20px 22px', overflowY: 'auto', flex: 1 }}>
+          {/* Why we need location */}
+          <div style={{
+            background: 'rgba(0,200,150,0.06)',
+            border: '0.5px solid rgba(0,200,150,0.18)',
+            borderRadius: '12px',
+            padding: '16px',
+            marginBottom: '12px',
+          }}>
+            <div style={{ fontSize: '13px', fontWeight: '600', color: '#00c896', marginBottom: '10px' }}>
+              {t('location.permission.whyWeed', 'Why we need your location')}
+            </div>
+            {[
+              t('location.permission.reason1', 'Show safety reports near you'),
+              t('location.permission.reason2', 'Help others find your reports'),
+              t('location.permission.reason3', 'Provide location-based alerts'),
+              t('location.permission.reason4', 'Improve community safety mapping'),
+            ].map((item) => (
+              <div key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
+                <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#00c896', marginTop: '5px', flexShrink: 0 }} />
+                <span style={{ fontSize: '13px', color: '#a1a1aa', lineHeight: 1.4 }}>{item}</span>
+              </div>
+            ))}
+          </div>
 
-            {/* How to enable location */}
-            <Box p={4} bg="orange.50" borderRadius="12px" border="1px solid" borderColor="orange.200">
-              <Text fontSize="16px" fontWeight="600" color="orange.900" mb={3}>
-                How to enable location:
-              </Text>
-              <VStack align="start" gap={2}>
-                <Text fontSize="14px" color="orange.800">
-                  <strong>iOS:</strong> Settings → Privacy → Location Services → Safari → Allow
-                </Text>
-                <Text fontSize="14px" color="orange.800">
-                  <strong>Android:</strong> Settings → Apps → [Browser] → Permissions → Location → Allow
-                </Text>
-                <Text fontSize="14px" color="orange.800">
-                  <strong>Desktop:</strong> Click the location icon in your browser's address bar
-                </Text>
-              </VStack>
-            </Box>
-          </VStack>
-        </Box>
+          {/* How to enable */}
+          <div style={{
+            background: 'rgba(245,158,11,0.06)',
+            border: '0.5px solid rgba(245,158,11,0.18)',
+            borderRadius: '12px',
+            padding: '16px',
+          }}>
+            <div style={{ fontSize: '13px', fontWeight: '600', color: '#f59e0b', marginBottom: '10px' }}>
+              {t('location.permission.howToEnable', 'How to enable location')}
+            </div>
+            {[
+              { label: 'iOS', text: t('location.permission.ios', 'Settings → Privacy → Location Services → Safari → Allow') },
+              { label: 'Android', text: t('location.permission.android', 'Settings → Apps → [Browser] → Permissions → Location → Allow') },
+              { label: 'Desktop', text: t('location.permission.desktop', "Click the location icon in your browser's address bar") },
+            ].map(({ label, text }) => (
+              <div key={label} style={{ marginBottom: '8px', fontSize: '12px', color: '#a1a1aa', lineHeight: 1.4 }}>
+                <span style={{ color: '#f4f4f5', fontWeight: '600' }}>{label}: </span>
+                {text}
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Actions */}
-        <Box
-          p={6}
-          borderTop="1px solid"
-          borderColor="gray.200"
-          bg="gray.50"
-        >
-          <VStack gap={3}>
-            <Button
-              ref={primaryActionRef}
-              w="full"
-              bg="blue.500"
-              color="white"
-              onClick={onManualLocation}
-              borderRadius="12px"
-              _hover={{ bg: 'blue.600' }}
-            >
-              Set Location Manually
-            </Button>
+        <div style={{
+          padding: '16px 22px 20px',
+          borderTop: '0.5px solid rgba(255,255,255,0.07)',
+          display: 'flex', flexDirection: 'column', gap: '8px',
+          flexShrink: 0, background: '#0f1115',
+        }}>
+          <button
+            ref={primaryActionRef}
+            onClick={onManualLocation}
+            style={{
+              width: '100%', padding: '13px',
+              background: '#00c896', color: '#09090b',
+              border: 'none', borderRadius: '12px',
+              fontSize: '14px', fontWeight: '700',
+              cursor: 'pointer', letterSpacing: '0.02em',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+            }}
+          >
+            <MapPin size={16} />
+            {t('location.permission.setManually', 'Set Location Manually')}
+          </button>
 
-            <Button
-              w="full"
-              variant="outline"
-              onClick={onClose}
-              borderRadius="12px"
-              border="1px solid"
-              borderColor="gray.200"
-            >
-              Continue Without Location
-            </Button>
+          <button
+            onClick={onClose}
+            style={{
+              width: '100%', padding: '12px',
+              background: 'rgba(255,255,255,0.04)',
+              color: '#a1a1aa',
+              border: '0.5px solid rgba(255,255,255,0.09)',
+              borderRadius: '12px',
+              fontSize: '14px', fontWeight: '500',
+              cursor: 'pointer',
+            }}
+          >
+            {t('location.permission.continueWithout', 'Continue Without Location')}
+          </button>
 
-            <Button
-              w="full"
-              variant="ghost"
-              onClick={handleTryAgain}
-              borderRadius="12px"
-              disabled={isLoading}
-              color="blue.500"
-              _hover={{ bg: 'blue.50' }}
-            >
-              {isLoading ? 'Trying...' : 'Try Again'}
-            </Button>
-          </VStack>
-        </Box>
-      </Box>
-    </Box>
+          <button
+            onClick={handleTryAgain}
+            disabled={isLoading}
+            style={{
+              width: '100%', padding: '12px',
+              background: 'transparent', color: '#00c896',
+              border: 'none', borderRadius: '12px',
+              fontSize: '13px', fontWeight: '500',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              opacity: isLoading ? 0.5 : 1,
+            }}
+          >
+            {isLoading ? t('location.permission.trying', 'Trying…') : t('location.permission.tryAgain', 'Try Again')}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 
-export default React.memo(LocationPermissionModal, (prevProps, nextProps) => {
-  return prevProps.isOpen === nextProps.isOpen;
-});
+export default LocationPermissionModal;
