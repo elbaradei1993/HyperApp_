@@ -136,18 +136,14 @@ const AppContent: React.FC = () => {
       const currentPermission = 'unknown';
       console.log('🔔 Current notification permission status:', currentPermission);
 
-      // If permission is already granted and notifications are enabled, initialize
-      if (currentPermission === 'granted' && settings.notifications) {
+      // If notifications are enabled, initialize
+      if (settings.notifications) {
         console.log('🔔 Permission already granted, initializing push notifications...');
         await pushNotificationService.initialize(user.id);
         return;
       }
 
-      // If permission is denied, skip (reminder is handled by separate effect above)
-      if (currentPermission === 'denied') {
-        console.log('🔔 Permission is denied - reminder handled by separate effect');
-        return;
-      }
+      // Permission check handled by Capacitor
 
       // If notifications are disabled in settings, don't prompt
       if (!settings.notifications) {
