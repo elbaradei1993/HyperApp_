@@ -51,7 +51,8 @@ describe('TTSService', () => {
   });
 
   it('plays hosted neural audio and caches repeated replies', async () => {
-    const audioBlob = new Blob(['mp3-data'], { type: 'audio/mpeg' });
+    // supabase-js preserves binary function responses as octet-stream Blobs.
+    const audioBlob = new Blob(['mp3-data'], { type: 'application/octet-stream' });
     invokeFunction.mockResolvedValue({ data: audioBlob, error: null });
     const browserSpeak = vi.fn();
     Object.defineProperty(window, 'speechSynthesis', {
@@ -76,6 +77,7 @@ describe('TTSService', () => {
     });
     expect(browserSpeak).not.toHaveBeenCalled();
     expect(URL.createObjectURL).toHaveBeenCalledTimes(2);
+    expect((vi.mocked(URL.createObjectURL).mock.calls[0][0] as Blob).type).toBe('audio/mpeg');
     expect(URL.revokeObjectURL).toHaveBeenCalledTimes(2);
   });
 

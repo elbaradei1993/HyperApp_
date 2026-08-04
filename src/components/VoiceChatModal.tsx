@@ -515,6 +515,11 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       return;
     }
 
+    // This handler runs inside the user's click/submit gesture, which is the
+    // reliable moment to unlock delayed audio on desktop and mobile browsers.
+    if (isTTSEnabled) {
+      ttsService.unlock();
+    }
     setDraft('');
     void processTranscript(cleanedPrompt);
   };
