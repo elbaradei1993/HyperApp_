@@ -22,6 +22,7 @@ const VOICE_START_TIMEOUT_MS = 5000;
 const HOSTED_TTS_TIMEOUT_MS = 18000;
 const MAX_SPEECH_CHUNK_LENGTH = 220;
 const MAX_AUDIO_CACHE_ENTRIES = 16;
+const BINARY_AUDIO_CONTENT_TYPE = 'application/octet-stream';
 const SILENT_AUDIO_DATA_URI = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQQAAAA=';
 type BrowserVoice = ReturnType<typeof window.speechSynthesis.getVoices>[number];
 
@@ -127,17 +128,16 @@ export class TTSService {
     if (!audio) {
       return;
     }
-    audio.muted = true;
+    // The file itself is silent. Keep the element unmuted so iOS/Safari and
+    // desktop autoplay policies register this user gesture for later speech.
+    audio.muted = false;
     audio.src = SILENT_AUDIO_DATA_URI;
     const unlockAttempt = audio.play();
     if (unlockAttempt) {
       void unlockAttempt.then(() => {
         audio.pause();
         audio.currentTime = 0;
-        audio.muted = false;
-      }).catch(() => {
-        audio.muted = false;
-      });
+      }).catch(() => undefined);
     }
   }
 
@@ -193,11 +193,21 @@ export class TTSService {
       if (error) {
         throw new Error(await getFunctionErrorMessage(error as HostedTtsError));
       }
-      if (!(data instanceof Blob) || data.size === 0 || !data.type.startsWith('audio/')) {
+      if (
+        !(data instanceof Blob) ||
+        data.size === 0 ||
+        (!data.type.startsWith('audio/') && data.type !== BINARY_AUDIO_CONTENT_TYPE)
+      ) {
         throw new Error('Hosted voice returned invalid audio.');
       }
 
-      this.audioCache.set(text, data);
+      // Supabase needs an octet-stream response to preserve the binary body.
+      // Restore the real MIME type before handing the object URL to browsers.
+      const audio = data.type === BINARY_AUDIO_CONTENT_TYPE
+        ? new Blob([data], { type: 'audio/mpeg' })
+        : data;
+
+      this.audioCache.set(text, audio);
       while (this.audioCache.size > MAX_AUDIO_CACHE_ENTRIES) {
         const oldestKey = this.audioCache.keys().next().value as string | undefined;
         if (!oldestKey) {
@@ -205,7 +215,7 @@ export class TTSService {
         }
         this.audioCache.delete(oldestKey);
       }
-      return data;
+      return audio;
     } finally {
       if (timeoutId !== undefined) {
         window.clearTimeout(timeoutId);

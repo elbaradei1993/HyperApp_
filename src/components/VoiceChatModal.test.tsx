@@ -100,4 +100,21 @@ describe('VoiceChatModal hands-free conversation', () => {
     await waitFor(() => expect(recognition?.start).toHaveBeenCalledTimes(2), { timeout: 2000 });
     expect(screen.getByRole('button', { name: 'End conversation' })).toBeVisible();
   });
+
+  it('unlocks delayed audio from the typed-message user gesture', async () => {
+    mocks.askHyperAi.mockResolvedValue({ answer: 'The voice response is ready.' });
+
+    render(<VoiceChatModal isOpen onClose={vi.fn()} userLocation={null} />);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Message Hyper AI' }), {
+      target: { value: 'Tell me what is nearby.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+
+    expect(mocks.unlock).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mocks.speak).toHaveBeenCalledWith(
+      'The voice response is ready.',
+      expect.objectContaining({ volume: 1 }),
+    ));
+  });
 });

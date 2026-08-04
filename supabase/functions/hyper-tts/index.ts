@@ -14,7 +14,11 @@ const jsonHeaders = {
 const audioHeaders = {
   ...corsHeaders,
   'Cache-Control': 'private, max-age=1800',
-  'Content-Type': 'audio/mpeg',
+  // supabase-js currently treats only application/octet-stream and PDFs as
+  // binary responses. Returning audio/mpeg makes it decode the MP3 as text.
+  'Content-Type': 'application/octet-stream',
+  'Content-Disposition': 'inline; filename="hyper-ai.mp3"',
+  'X-Hyper-Audio-Type': 'audio/mpeg',
   'X-Content-Type-Options': 'nosniff',
 };
 const MODEL = '@cf/myshell-ai/melotts';
