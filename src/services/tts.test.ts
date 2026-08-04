@@ -1,4 +1,4 @@
-/* global URL, Blob */
+/* global AudioBuffer, AudioBufferSourceNode, AudioContextState, AudioDestinationNode, GainNode, URL, Blob */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { invokeFunction } = vi.hoisted(() => ({
@@ -24,6 +24,7 @@ class TestAudio {
   currentTime = 0;
   onended: (() => void) | null = null;
   onerror: (() => void) | null = null;
+  setAttribute = vi.fn();
   pause = vi.fn();
   play = vi.fn(() => {
     void Promise.resolve().then(() => this.onended?.());
@@ -131,5 +132,69 @@ describe('TTSService', () => {
     expect(speak).toHaveBeenCalledTimes(1);
     expect(speak.mock.calls[0][0].text).toBe('Natural fallback reply.');
     expect(speak.mock.calls[0][0].voice?.name).toContain('Aria');
+  });
+
+  it('uses a user-unlocked Web Audio context for delayed iPhone playback', async () => {
+    const audioBlob = new Blob(['mp3-data'], { type: 'audio/mpeg' });
+    Object.defineProperty(audioBlob, 'arrayBuffer', {
+      configurable: true,
+      value: vi.fn(async () => new ArrayBuffer(8)),
+    });
+    invokeFunction.mockResolvedValue({ data: audioBlob, error: null });
+
+    const sources: Array<{
+      start: ReturnType<typeof vi.fn>;
+      stop: ReturnType<typeof vi.fn>;
+      playbackRate: { value: number };
+    }> = [];
+    const decodeAudioData = vi.fn(async () => ({ duration: 0.1 } as AudioBuffer));
+
+    class TestAudioContext {
+      state: AudioContextState = 'suspended';
+      sampleRate = 44100;
+      destination = {} as AudioDestinationNode;
+      resume = vi.fn(async () => {
+        this.state = 'running';
+      });
+      createBuffer = vi.fn(() => ({} as AudioBuffer));
+      decodeAudioData = decodeAudioData;
+      createGain = vi.fn(() => ({
+        gain: { value: 1 },
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+      } as unknown as GainNode));
+      createBufferSource = vi.fn(() => {
+        const source = {
+          buffer: null,
+          playbackRate: { value: 1 },
+          onended: null as (() => void) | null,
+          connect: vi.fn(),
+          disconnect: vi.fn(),
+          start: vi.fn(),
+          stop: vi.fn(),
+        };
+        source.start.mockImplementation(() => {
+          void Promise.resolve().then(() => source.onended?.());
+        });
+        source.stop.mockImplementation(() => source.onended?.());
+        sources.push(source);
+        return source as unknown as AudioBufferSourceNode;
+      });
+    }
+
+    Object.defineProperty(window, 'AudioContext', {
+      configurable: true,
+      value: TestAudioContext,
+    });
+
+    const service = new TTSService();
+    service.unlock();
+    await service.speak('This should play on an iPhone.', { speed: 1.1, volume: 0.8 });
+
+    expect(decodeAudioData).toHaveBeenCalledTimes(1);
+    expect(sources).toHaveLength(2);
+    expect(sources[1].playbackRate.value).toBe(1.1);
+    expect(sources[1].start).toHaveBeenCalledWith(0);
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
   });
 });

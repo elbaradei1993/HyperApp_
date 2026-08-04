@@ -1,4 +1,4 @@
-/* global HTMLAudioElement, Blob, URL */
+/* global HTMLAudioElement, AudioBufferSourceNode, AudioContext, Blob, URL, Window */
 import { supabase } from '../lib/supabase';
 
 export interface TTSOptions {
@@ -25,6 +25,11 @@ const MAX_AUDIO_CACHE_ENTRIES = 16;
 const BINARY_AUDIO_CONTENT_TYPE = 'application/octet-stream';
 const SILENT_AUDIO_DATA_URI = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQQAAAA=';
 type BrowserVoice = ReturnType<typeof window.speechSynthesis.getVoices>[number];
+type AudioContextConstructor = new () => AudioContext;
+
+interface AudioWindow extends Window {
+  webkitAudioContext?: AudioContextConstructor;
+}
 
 function splitForSpeech(text: string): string[] {
   const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((part) => part.trim()).filter(Boolean) || [text];
@@ -106,6 +111,8 @@ export class TTSService {
   private speechSynthesis: typeof window.speechSynthesis | null = null;
   private voicesPromise: Promise<BrowserVoice[]> | null = null;
   private audioElement: HTMLAudioElement | null = null;
+  private audioContext: AudioContext | null = null;
+  private activeAudioSource: AudioBufferSourceNode | null = null;
   private cancelHostedPlayback: (() => void) | null = null;
   private audioCache = new Map<string, Blob>();
   private requestId = 0;
@@ -117,12 +124,30 @@ export class TTSService {
     if (typeof window !== 'undefined' && typeof window.Audio === 'function') {
       this.audioElement = new window.Audio();
       this.audioElement.preload = 'auto';
+      this.audioElement.setAttribute?.('playsinline', '');
+      this.audioElement.setAttribute?.('webkit-playsinline', '');
     }
   }
 
   unlock(): void {
     this.speechSynthesis?.resume();
     void this.speechSynthesis?.getVoices();
+
+    // iOS does not reliably preserve an HTMLMediaElement autoplay grant across
+    // the async AI/TTS round trip. Resume Web Audio during the direct tap and
+    // keep that context available for the delayed hosted response.
+    const context = this.getOrCreateAudioContext();
+    if (context) {
+      try {
+        const source = context.createBufferSource();
+        source.buffer = context.createBuffer(1, 1, context.sampleRate || 44100);
+        source.connect(context.destination);
+        source.start(0);
+        void context.resume().catch(() => undefined);
+      } catch {
+        // The unlocked HTML audio element below remains the compatibility path.
+      }
+    }
 
     const audio = this.audioElement;
     if (!audio) {
@@ -143,6 +168,28 @@ export class TTSService {
 
   async prepare(): Promise<void> {
     await this.loadVoices();
+  }
+
+  private getOrCreateAudioContext(): AudioContext | null {
+    if (this.audioContext) {
+      return this.audioContext;
+    }
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    const audioWindow = window as AudioWindow;
+    const Context = window.AudioContext || audioWindow.webkitAudioContext;
+    if (!Context) {
+      return null;
+    }
+
+    try {
+      this.audioContext = new Context();
+      return this.audioContext;
+    } catch {
+      return null;
+    }
   }
 
   async speak(text: string, options: TTSOptions = {}): Promise<void> {
@@ -223,7 +270,100 @@ export class TTSService {
     }
   }
 
-  private playHostedAudio(blob: Blob, options: TTSOptions, requestId: number): Promise<void> {
+  private async playHostedAudio(blob: Blob, options: TTSOptions, requestId: number): Promise<void> {
+    if (this.audioContext) {
+      try {
+        await this.playHostedAudioWithWebAudio(blob, options, requestId);
+        return;
+      } catch {
+        if (requestId !== this.requestId) {
+          return;
+        }
+        // Decode or Web Audio output can still fail on older webviews. The
+        // unlocked HTML element remains a safe second hosted-audio path.
+      }
+    }
+
+    await this.playHostedAudioWithElement(blob, options, requestId);
+  }
+
+  private async playHostedAudioWithWebAudio(
+    blob: Blob,
+    options: TTSOptions,
+    requestId: number,
+  ): Promise<void> {
+    const context = this.audioContext;
+    if (!context) {
+      throw new Error('Web Audio playback is unavailable on this device.');
+    }
+
+    await context.resume();
+    if (context.state !== 'running') {
+      throw new Error('Web Audio playback is still suspended.');
+    }
+
+    const decodedAudio = await context.decodeAudioData(await blob.arrayBuffer());
+    if (requestId !== this.requestId) {
+      return;
+    }
+
+    const { speed = 1, volume = 1 } = options;
+    const playbackRate = Math.max(0.8, Math.min(1.2, speed));
+    const source = context.createBufferSource();
+    const gain = context.createGain();
+    source.buffer = decodedAudio;
+    source.playbackRate.value = playbackRate;
+    gain.gain.value = Math.max(0, Math.min(1, volume));
+    source.connect(gain);
+    gain.connect(context.destination);
+    this.activeAudioSource = source;
+
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const finish = (error?: Error) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        window.clearTimeout(playbackTimeoutId);
+        source.onended = null;
+        source.disconnect();
+        gain.disconnect();
+        if (this.activeAudioSource === source) {
+          this.activeAudioSource = null;
+        }
+        this.cancelHostedPlayback = null;
+        if (requestId !== this.requestId) {
+          resolve();
+        } else if (error) {
+          reject(error);
+        } else {
+          resolve();
+        }
+      };
+      const playbackTimeoutId = window.setTimeout(
+        () => finish(new Error('Web Audio playback did not finish.')),
+        Math.max(20000, (decodedAudio.duration / playbackRate) * 1000 + 5000),
+      );
+
+      this.cancelHostedPlayback = () => {
+        try {
+          source.stop();
+        } catch {
+          // A source that already ended can be treated as cancelled.
+        }
+        finish();
+      };
+      source.onended = () => finish();
+      try {
+        source.start(0);
+      } catch {
+        finish(new Error('Web Audio playback could not start.'));
+      }
+    });
+  }
+
+  private playHostedAudioWithElement(blob: Blob, options: TTSOptions, requestId: number): Promise<void> {
     const audio = this.audioElement;
     if (!audio) {
       return Promise.reject(new Error('Hosted audio playback is unavailable on this device.'));
@@ -401,6 +541,7 @@ export class TTSService {
     this.requestId += 1;
     this.cancelHostedPlayback?.();
     this.cancelHostedPlayback = null;
+    this.activeAudioSource = null;
     if (this.audioElement) {
       this.audioElement.pause();
       this.audioElement.currentTime = 0;
