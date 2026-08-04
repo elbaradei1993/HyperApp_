@@ -404,7 +404,7 @@ class GuardianService {
     // Use the app's base URL - must be set in environment variables
     const baseUrl = import.meta.env.VITE_APP_URL;
     if (!baseUrl) {
-      throw new Error('VITE_APP_URL environment variable is not set. Please set it to your app\'s domain (e.g., https://hyperap.netlify.app)');
+      throw new Error('VITE_APP_URL environment variable is not set. Please set it to your app\'s public domain (e.g., https://your-app.pages.dev)');
     }
     const invitationUrl = `${baseUrl}/guardian/invite/${invitation.invitation_token}`;
 
