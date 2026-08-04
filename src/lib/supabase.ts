@@ -1,12 +1,11 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Capacitor } from '@capacitor/core';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error(
-    'Missing required environment variables: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set in .env.local'
+    'Missing required environment variables: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set in .env.local',
   );
 }
 
@@ -17,7 +16,7 @@ const finalKey = supabaseKey;
 const capacitorStorageAdapter = {
   getItem: (key: string) => {
     try {
-      return localStorage.getItem(key);
+      return globalThis.localStorage.getItem(key);
     } catch (error) {
       console.warn('Storage getItem failed:', error);
       return null;
@@ -25,14 +24,14 @@ const capacitorStorageAdapter = {
   },
   setItem: (key: string, value: string) => {
     try {
-      localStorage.setItem(key, value);
+      globalThis.localStorage.setItem(key, value);
     } catch (error) {
       console.warn('Storage setItem failed:', error);
     }
   },
   removeItem: (key: string) => {
     try {
-      localStorage.removeItem(key);
+      globalThis.localStorage.removeItem(key);
     } catch (error) {
       console.warn('Storage removeItem failed:', error);
     }
@@ -46,7 +45,9 @@ export const supabase = createClient(finalUrl, finalKey, {
     detectSessionInUrl: true, // Enable for email confirmation redirects
     flowType: 'pkce', // Recommended for security
     storage: capacitorStorageAdapter, // Use custom storage adapter
-    debug: process.env.NODE_ENV === 'development', // Enable debug logging in development
+    // Auth debug output includes complete session objects and must stay disabled,
+    // including during local development.
+    debug: false,
   },
   global: {
     headers: {

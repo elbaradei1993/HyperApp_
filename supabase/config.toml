@@ -14,3 +14,13 @@ entrypoint = "./functions/test-function/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/fetch-ticketmaster-events/index.ts"
+
+[functions.hyper-ai]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/hyper-ai/index.ts"
+
+[functions.hyper-tts]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/hyper-tts/index.ts"

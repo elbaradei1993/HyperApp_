@@ -1,6 +1,7 @@
 flutter/
 flutter.zip
 node_modules/
+npm-cache--global/
 dist/
 *.log
 .DS_Store

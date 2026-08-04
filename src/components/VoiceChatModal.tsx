@@ -1,12 +1,44 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, MicOff, Volume2, VolumeX, MessageCircle, AlertTriangle } from 'lucide-react';
+import { AlertTriangle, MessageCircle, Mic, MicOff, RotateCcw, Send, Sparkles, Volume2, VolumeX, X } from 'lucide-react';
 
-import { transcriptionService } from '../services/transcription';
+import {
+  askHyperAi,
+  buildHyperAiReportContext,
+  createHyperAiMessage,
+  type HyperAiMessage,
+} from '../services/hyperAi';
 import { reportsService } from '../services/reports';
 import { ttsService } from '../services/tts';
 import type { Report } from '../types';
 
-import { Modal, Button, LoadingSpinner } from './shared';
+import { Modal, LoadingSpinner } from './shared';
+import './VoiceChatModal.css';
+
+const AI_PRIMARY = '#7065f0';
+const AI_SECONDARY = '#38cfc3';
+const CONVERSATION_STORAGE_KEY = 'hyper-ai-conversation-v2';
+
+function loadStoredConversation(): HyperAiMessage[] {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(window.sessionStorage.getItem(CONVERSATION_STORAGE_KEY) || '[]');
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed
+      .filter((message) => (
+        message &&
+        (message.role === 'user' || message.role === 'assistant') &&
+        typeof message.content === 'string'
+      ))
+      .slice(-20);
+  } catch {
+    return [];
+  }
+}
 
 
 // Animated Listening Indicator Component with Speech Detection
@@ -48,11 +80,11 @@ const ListeningIndicator: React.FC<{ isActive: boolean; speechDetected?: boolean
           style={{
             width: '4px',
             height: `${height * 40}px`,
-            backgroundColor: speechDetected ? '#10b981' : '#ef4444',
+            backgroundColor: speechDetected ? AI_SECONDARY : AI_PRIMARY,
             borderRadius: '2px',
             transition: 'all 0.2s ease',
             opacity: isActive ? 1 : 0.3,
-            boxShadow: speechDetected ? '0 0 8px rgba(16, 185, 129, 0.6)' : 'none',
+            boxShadow: speechDetected ? '0 0 10px rgba(56, 207, 195, 0.62)' : 'none',
           }}
         />
       ))}
@@ -94,7 +126,7 @@ const ProcessingIndicator: React.FC<{ isActive: boolean }> = ({ isActive }) => {
             width: '8px',
             height: '8px',
             borderRadius: '50%',
-            backgroundColor: '#f59e0b',
+            backgroundColor: i === 1 ? AI_SECONDARY : AI_PRIMARY,
             opacity: isActive ? opacity : 0.3,
             transition: 'opacity 0.3s ease',
             animation: isActive ? `bounce 1.4s ease-in-out ${i * 0.16}s infinite both` : 'none',
@@ -149,7 +181,7 @@ const SpeakingIndicator: React.FC<{ isActive: boolean }> = ({ isActive }) => {
           style={{
             width: '3px',
             height: `${height * 35}px`,
-            backgroundColor: '#10b981',
+            backgroundColor: i % 2 === 0 ? AI_PRIMARY : AI_SECONDARY,
             borderRadius: '1px',
             transition: 'height 0.05s ease',
             opacity: isActive ? 1 : 0.3,
@@ -166,6 +198,30 @@ interface VoiceChatModalProps {
   userLocation: [number, number] | null;
 }
 
+interface SpeechRecognitionResultEventLike {
+  results: ArrayLike<{ 0: { transcript: string } }>;
+}
+
+interface SpeechRecognitionErrorEventLike {
+  error: string;
+}
+
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  // eslint-disable-next-line no-unused-vars
+  onresult: ((_event: SpeechRecognitionResultEventLike) => void) | null;
+  // eslint-disable-next-line no-unused-vars
+  onerror: ((_event: SpeechRecognitionErrorEventLike) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
 type RecordingState = 'idle' | 'recording' | 'processing' | 'speaking' | 'error';
 
 const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
@@ -174,43 +230,73 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
   userLocation,
 }) => {
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
-  const [transcript, setTranscript] = useState('');
-  const [response, setResponse] = useState('');
+  const [draft, setDraft] = useState('');
+  const [messages, setMessages] = useState<HyperAiMessage[]>(loadStoredConversation);
   const [nearbyReports, setNearbyReports] = useState<Report[]>([]);
   const [isTTSEnabled, setIsTTSEnabled] = useState(true);
+  const [isHandsFreeMode, setIsHandsFreeMode] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const speechSynthesisRef = useRef<SpeechSynthesis | null>(null);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const conversationEndRef = useRef<React.ElementRef<'div'> | null>(null);
+  const messagesRef = useRef<HyperAiMessage[]>(messages);
+  const recordingStateRef = useRef<RecordingState>('idle');
+  const handsFreeRef = useRef(false);
+  const isOpenRef = useRef(isOpen);
+  const isListeningRef = useRef(false);
+  const restartTimerRef = useRef<number | null>(null);
+
+  const setVoiceState = (nextState: RecordingState) => {
+    recordingStateRef.current = nextState;
+    setRecordingState(nextState);
+  };
 
   useEffect(() => {
-    if (isOpen) {
-      setRecordingState('idle');
-      setTranscript('');
-      setResponse('');
-      setErrorMessage('');
-      speechSynthesisRef.current = window.speechSynthesis;
+    messagesRef.current = messages;
+    try {
+      window.sessionStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify(messages.slice(-20)));
+    } catch {
+      // Conversation memory remains available in React state when storage is restricted.
+    }
+    conversationEndRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+  }, [messages]);
 
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+    if (isOpen) {
+      handsFreeRef.current = false;
+      setIsHandsFreeMode(false);
+      setVoiceState('idle');
+      setDraft('');
+      setErrorMessage('');
       loadNearbyReports();
+      void ttsService.prepare();
 
       // Initialize speech recognition if available
       initializeSpeechRecognition();
     }
 
     return () => {
-      stopRecording();
-      stopSpeaking();
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
+      isOpenRef.current = false;
+      handsFreeRef.current = false;
+      isListeningRef.current = false;
+      if (restartTimerRef.current !== null) {
+        window.clearTimeout(restartTimerRef.current);
+        restartTimerRef.current = null;
       }
+      recognitionRef.current?.abort();
+      recognitionRef.current = null;
+      ttsService.stop();
     };
   }, [isOpen, userLocation]);
 
   const initializeSpeechRecognition = () => {
     // Check for Web Speech API support
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const speechWindow = window as typeof window & {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
+    };
+    const SpeechRecognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
 
     if (SpeechRecognition) {
       recognitionRef.current = new SpeechRecognition();
@@ -218,14 +304,22 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       recognitionRef.current.interimResults = false;
       recognitionRef.current.lang = 'en-US'; // Default to English, could be made configurable
 
-      recognitionRef.current.onresult = (event: any) => {
+      recognitionRef.current.onresult = (event) => {
+        isListeningRef.current = false;
         const transcript = event.results[0][0].transcript;
-        setTranscript(transcript);
-        processTranscript(transcript);
+        void processTranscript(transcript);
       };
 
-      recognitionRef.current.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
+      recognitionRef.current.onerror = (event) => {
+        isListeningRef.current = false;
+        if (event.error === 'aborted') {
+          return;
+        }
+        if (event.error === 'no-speech' && handsFreeRef.current) {
+          setVoiceState('recording');
+          return;
+        }
+
         let friendlyMessage = 'Speech recognition failed. Please try again.';
 
         // Provide more specific error messages
@@ -237,10 +331,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
           friendlyMessage = 'Microphone access denied. Please allow microphone permissions and try again.';
           break;
         case 'no-speech':
-          friendlyMessage = 'No speech detected. Please speak clearly into your microphone.';
-          break;
-        case 'aborted':
-          friendlyMessage = 'Speech recognition was interrupted. Please try again.';
+          friendlyMessage = 'I did not hear anything. Tap Start conversation and try again.';
           break;
         case 'audio-capture':
           friendlyMessage = 'Microphone error. Please check your audio settings.';
@@ -251,11 +342,20 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
         }
 
         setErrorMessage(friendlyMessage);
-        setRecordingState('error');
+        handsFreeRef.current = false;
+        setIsHandsFreeMode(false);
+        setVoiceState('error');
       };
 
       recognitionRef.current.onend = () => {
-        setRecordingState('idle');
+        isListeningRef.current = false;
+        if (
+          handsFreeRef.current &&
+          isOpenRef.current &&
+          recordingStateRef.current === 'recording'
+        ) {
+          scheduleListeningRestart(350);
+        }
       };
     }
   };
@@ -279,129 +379,106 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     }
   };
 
-  const startRecording = async () => {
+  const scheduleListeningRestart = (delayMs = 250) => {
+    if (restartTimerRef.current !== null) {
+      window.clearTimeout(restartTimerRef.current);
+    }
+    restartTimerRef.current = window.setTimeout(() => {
+      restartTimerRef.current = null;
+      beginListening();
+    }, delayMs);
+  };
+
+  const beginListening = () => {
     setErrorMessage('');
-    setTranscript('');
-    setResponse('');
-
-    // Try Web Speech API first (faster, no API costs)
-    if (recognitionRef.current) {
-      try {
-        setRecordingState('recording');
-        recognitionRef.current.start();
-        return;
-      } catch (error) {
-        console.warn('Web Speech API failed, falling back to MediaRecorder');
-      }
+    const recognition = recognitionRef.current;
+    if (!recognition) {
+      handsFreeRef.current = false;
+      setIsHandsFreeMode(false);
+      setErrorMessage('Voice input is not supported in this browser. You can still type your question below.');
+      setVoiceState('error');
+      return;
+    }
+    if (!handsFreeRef.current || !isOpenRef.current || isListeningRef.current) {
+      return;
+    }
+    if (recordingStateRef.current === 'processing' || recordingStateRef.current === 'speaking') {
+      return;
     }
 
-    // Fallback to MediaRecorder + Whisper
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
-
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus',
-      });
-
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        await processAudioRecording();
-        // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
-      setRecordingState('recording');
-
-      // Auto-stop after 30 seconds
-      setTimeout(() => {
-        if (recordingState === 'recording') {
-          stopRecording();
-        }
-      }, 30000);
-
-    } catch (error) {
-      console.error('Error starting recording:', error);
-      setErrorMessage('Could not access microphone. Please check permissions.');
-      setRecordingState('error');
+      isListeningRef.current = true;
+      setVoiceState('recording');
+      recognition.start();
+    } catch {
+      isListeningRef.current = false;
+      scheduleListeningRestart(500);
     }
   };
 
-  const stopRecording = () => {
-    if (recognitionRef.current && recordingState === 'recording') {
-      recognitionRef.current.stop();
-    } else if (mediaRecorderRef.current && recordingState === 'recording') {
-      mediaRecorderRef.current.stop();
-    }
+  const startHandsFreeConversation = () => {
+    ttsService.unlock();
+    handsFreeRef.current = true;
+    setIsHandsFreeMode(true);
+    beginListening();
   };
 
-  const processAudioRecording = async () => {
-    try {
-      setRecordingState('processing');
-      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-
-      // Validate audio file
-      const validation = transcriptionService.validateAudioFile(new File([audioBlob], 'recording.webm'));
-      if (!validation.valid) {
-        setErrorMessage(validation.error || 'Invalid audio file');
-        setRecordingState('error');
-        return;
-      }
-
-      // Transcribe audio
-      const transcriptionResult = await transcriptionService.transcribeAudio(audioBlob);
-      const transcriptText = transcriptionResult.text.trim();
-
-      if (!transcriptText) {
-        setErrorMessage('Could not understand audio. Please try speaking more clearly.');
-        setRecordingState('error');
-        return;
-      }
-
-      setTranscript(transcriptText);
-      await processTranscript(transcriptText);
-
-    } catch (error) {
-      console.error('Error processing audio:', error);
-      setErrorMessage('Failed to process audio. Please try again.');
-      setRecordingState('error');
+  const stopHandsFreeConversation = () => {
+    handsFreeRef.current = false;
+    setIsHandsFreeMode(false);
+    isListeningRef.current = false;
+    if (restartTimerRef.current !== null) {
+      window.clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
     }
+    recognitionRef.current?.abort();
+    ttsService.stop();
+    setVoiceState('idle');
   };
 
   const processTranscript = async (transcriptText: string) => {
+    const cleanedText = transcriptText.trim();
+    if (!cleanedText) {
+      return;
+    }
+
+    const userMessage = createHyperAiMessage('user', cleanedText);
+    const nextMessages = [...messagesRef.current, userMessage].slice(-20);
+    messagesRef.current = nextMessages;
+    setMessages(nextMessages);
+
     try {
-      setRecordingState('processing');
+      setVoiceState('processing');
+      if (isListeningRef.current) {
+        isListeningRef.current = false;
+        recognitionRef.current?.abort();
+      }
+      setErrorMessage('');
 
-      // Provide a simple response since Safety Assistant has been removed
-      const simpleResponse = `You said: "${transcriptText}". Voice chat feature is currently unavailable.`;
+      const reportContext = buildHyperAiReportContext(nearbyReports, Boolean(userLocation));
+      const { answer } = await askHyperAi(nextMessages, reportContext);
+      setMessages((currentMessages) => {
+        const updatedMessages = [
+          ...currentMessages,
+          createHyperAiMessage('assistant', answer),
+        ].slice(-20);
+        messagesRef.current = updatedMessages;
+        return updatedMessages;
+      });
+      setVoiceState('speaking');
 
-      setResponse(simpleResponse);
-      setRecordingState('speaking');
-
-      // Speak response if TTS is enabled
       if (isTTSEnabled) {
-        speakText(simpleResponse);
+        await speakText(answer);
       } else {
-        setRecordingState('idle');
+        setVoiceState('idle');
+        if (handsFreeRef.current) {
+          scheduleListeningRestart();
+        }
       }
     } catch (error) {
       console.error('Error processing transcript:', error);
-      setErrorMessage('Failed to process request. Please try again.');
-      setRecordingState('error');
+      setErrorMessage(error instanceof Error ? error.message : 'I could not process that request. Please try again.');
+      setVoiceState('error');
     }
   };
 
@@ -409,20 +486,61 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     try {
       // Use more human-like speech parameters
       await ttsService.speak(text, {
-        speed: 0.75,  // Slower, more natural pace
-        pitch: 1.1,   // Slightly higher pitch for more natural sound
-        volume: 0.85,  // Good volume level
+        speed: 1.02,
+        pitch: 1.02,
+        volume: 1,
       });
-      setRecordingState('idle');
     } catch (error) {
       console.error('TTS error:', error);
-      setRecordingState('idle');
+      setErrorMessage('I could not play the voice response, but the answer is shown above.');
+    } finally {
+      setVoiceState('idle');
+      if (handsFreeRef.current) {
+        scheduleListeningRestart();
+      }
     }
   };
 
   const stopSpeaking = () => {
     ttsService.stop();
-    setRecordingState('idle');
+    setVoiceState('idle');
+    if (handsFreeRef.current) {
+      scheduleListeningRestart();
+    }
+  };
+
+  const submitPrompt = (prompt: string) => {
+    const cleanedPrompt = prompt.trim();
+    if (!cleanedPrompt || recordingState === 'processing') {
+      return;
+    }
+
+    setDraft('');
+    void processTranscript(cleanedPrompt);
+  };
+
+  const toggleVoicePlayback = () => {
+    const nextEnabled = !isTTSEnabled;
+    setIsTTSEnabled(nextEnabled);
+    if (nextEnabled) {
+      ttsService.unlock();
+      void ttsService.prepare();
+    } else if (recordingStateRef.current === 'speaking') {
+      stopSpeaking();
+    }
+  };
+
+  const startNewConversation = () => {
+    stopHandsFreeConversation();
+    messagesRef.current = [];
+    setMessages([]);
+    setDraft('');
+    setErrorMessage('');
+    try {
+      window.sessionStorage.removeItem(CONVERSATION_STORAGE_KEY);
+    } catch {
+      // Nothing else is required when storage is restricted.
+    }
   };
 
   const getStateDisplay = () => {
@@ -430,7 +548,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     case 'recording':
       return {
         text: 'Listening...',
-        color: '#ef4444',
+        color: AI_SECONDARY,
         icon: Mic,
         isLoadingSpinner: false,
         description: 'Speak now - I\'m listening',
@@ -438,15 +556,15 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     case 'processing':
       return {
         text: 'Thinking...',
-        color: '#f59e0b',
+        color: AI_PRIMARY,
         icon: null,
         isLoadingSpinner: true,
-        description: 'Processing your question',
+        description: 'Reviewing the conversation and nearby community context',
       };
     case 'speaking':
       return {
         text: 'Speaking...',
-        color: '#10b981',
+        color: AI_SECONDARY,
         icon: Volume2,
         isLoadingSpinner: false,
         description: 'Here\'s what I found',
@@ -461,11 +579,15 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       };
     default:
       return {
-        text: 'Tap to speak',
-        color: '#6b7280',
+        text: isHandsFreeMode ? 'Conversation active' : 'Ready when you are',
+        color: AI_PRIMARY,
         icon: Mic,
         isLoadingSpinner: false,
-        description: 'Ask me about safety in your area',
+        description: isHandsFreeMode
+          ? 'I will listen again after every reply'
+          : messages.length > 0
+            ? 'I remember this conversation'
+            : 'Ask about nearby safety and community reports',
       };
     }
   };
@@ -478,252 +600,157 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
   const isSpeaking = recordingState === 'speaking';
   const hasError = recordingState === 'error';
 
-  return (
-    <Modal isOpen={isOpen} onClose={onClose}>
-      <div style={{ padding: '24px', maxWidth: '500px' }}>
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          {/* Animated State Indicator */}
-          <div style={{
-            width: '120px',
-            height: '120px',
-            borderRadius: '50%',
-            background: `linear-gradient(135deg, ${stateDisplay.color}20, ${stateDisplay.color}10)`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 20px',
-            border: `3px solid ${stateDisplay.color}40`,
-            position: 'relative',
-            overflow: 'hidden',
-          }}>
-            {/* Background pulse animation */}
-            <div style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              width: '100px',
-              height: '100px',
-              borderRadius: '50%',
-              background: `${stateDisplay.color}30`,
-              transform: 'translate(-50%, -50%)',
-              animation: (isRecording || isProcessing || isSpeaking) ? 'pulse 2s infinite' : 'none',
-            }} />
+  const suggestions = [
+    'How safe is my area?',
+    'Are there recent alerts?',
+    'How do I submit a report?',
+  ];
 
-            {/* State-specific animated content */}
-            <div style={{ position: 'relative', zIndex: 1 }}>
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="md"
+      showCloseButton={false}
+      overlayClassName="ai-assistant-overlay"
+      containerClassName="ai-assistant-modal"
+    >
+      <section className="ai-assistant-shell" aria-labelledby="ai-assistant-title">
+        <button className="ai-assistant-close" type="button" onClick={onClose} aria-label="Close Hyper AI">
+          <X size={18} />
+        </button>
+
+        <header className="ai-assistant-header">
+          <div className="ai-assistant-brand-row">
+            <span className="ai-assistant-brand-mark" aria-hidden="true"><Sparkles size={18} /></span>
+            <div>
+              <span className="ai-assistant-kicker">Secure cloud intelligence</span>
+              <h2 id="ai-assistant-title">Hyper AI</h2>
+            </div>
+            <div className="ai-assistant-header-actions">
+              {messages.length > 0 && (
+                <button type="button" onClick={startNewConversation} aria-label="Start a new conversation" title="New conversation">
+                  <RotateCcw size={14} />
+                </button>
+              )}
+              <span className="ai-assistant-beta">Cloud</span>
+            </div>
+          </div>
+
+          <div className={isRecording || isProcessing || isSpeaking ? 'ai-assistant-orb is-active' : 'ai-assistant-orb'}>
+            <div className="ai-assistant-orb-inner">
               {isRecording ? (
-                <ListeningIndicator isActive={true} />
+                <ListeningIndicator isActive speechDetected />
               ) : isProcessing ? (
-                <ProcessingIndicator isActive={true} />
+                <ProcessingIndicator isActive />
               ) : isSpeaking ? (
-                <SpeakingIndicator isActive={true} />
+                <SpeakingIndicator isActive />
               ) : StateIcon ? (
-                <StateIcon size={32} color={stateDisplay.color} />
+                <StateIcon size={28} color={stateDisplay.color} />
               ) : null}
             </div>
           </div>
 
-          <h2 style={{
-            fontSize: '24px',
-            fontWeight: 'bold',
-            marginBottom: '8px',
-            color: 'var(--text-primary)',
-          }}>
-            Voice Chat
-          </h2>
-
-          <p style={{
-            color: stateDisplay.color,
-            fontWeight: '600',
-            fontSize: '16px',
-            marginBottom: '4px',
-          }}>
-            {stateDisplay.text}
-          </p>
-
-          <p style={{
-            color: 'var(--text-secondary)',
-            fontSize: '14px',
-            margin: 0,
-          }}>
-            {stateDisplay.description}
-          </p>
-
-          {/* Add pulse animation CSS */}
-          <style>
-            {`
-              @keyframes pulse {
-                0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-                50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.7; }
-                100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-              }
-            `}
-          </style>
-        </div>
-
-        {/* Recording Controls */}
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <button
-            onClick={isRecording ? stopRecording : startRecording}
-            disabled={isProcessing}
-            style={{
-              width: '100px',
-              height: '100px',
-              borderRadius: '50%',
-              background: isRecording ? '#ef4444' : 'var(--accent-primary)',
-              border: 'none',
-              color: 'white',
-              cursor: isProcessing ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              transition: 'all 0.3s ease',
-              boxShadow: `0 8px 24px ${stateDisplay.color}40`,
-              opacity: isProcessing ? 0.6 : 1,
-              margin: '0 auto',
-            }}
-          >
-            {isProcessing ? (
-              <LoadingSpinner size="lg" />
-            ) : isRecording ? (
-              <MicOff size={28} />
-            ) : (
-              <Mic size={28} />
-            )}
-            <span style={{ fontSize: '12px', fontWeight: '600' }}>
-              {isRecording ? 'Stop' : 'Start'}
-            </span>
-          </button>
-        </div>
-
-        {/* Transcript */}
-        {transcript && !hasError && (
-          <div style={{ marginBottom: '24px' }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              marginBottom: '8px',
-            }}>
-              <MessageCircle size={16} color="var(--text-secondary)" />
-              <span style={{
-                fontSize: '14px',
-                fontWeight: '600',
-                color: 'var(--text-secondary)',
-              }}>
-                You said:
-              </span>
-            </div>
-            <div style={{
-              padding: '12px',
-              background: 'var(--bg-tertiary)',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              fontStyle: 'italic',
-              color: 'var(--text-primary)',
-            }}>
-              "{transcript}"
-            </div>
+          <div className="ai-assistant-status">
+            <strong style={{ color: stateDisplay.color }}>{stateDisplay.text}</strong>
+            <span>{stateDisplay.description}</span>
           </div>
-        )}
+        </header>
 
-        {/* Response */}
-        {response && !hasError && (
-          <div style={{ marginBottom: '24px' }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              marginBottom: '8px',
-            }}>
-              <Volume2 size={16} color="var(--accent-primary)" />
-              <span style={{
-                fontSize: '14px',
-                fontWeight: '600',
-                color: 'var(--accent-primary)',
-              }}>
-                Voice Chat:
-              </span>
+        <div className="ai-assistant-body">
+          {messages.length === 0 && (
+            <div className="ai-assistant-suggestions" aria-label="Suggested questions">
+              {suggestions.map((suggestion) => (
+                <button key={suggestion} type="button" onClick={() => submitPrompt(suggestion)} disabled={isProcessing}>
+                  {suggestion}
+                </button>
+              ))}
             </div>
-            <div style={{
-              padding: '12px',
-              background: 'var(--accent-primary)',
-              color: 'white',
-              borderRadius: '8px',
-              lineHeight: '1.5',
-            }}>
-              {response}
-            </div>
-          </div>
-        )}
-
-        {/* Error Message */}
-        {hasError && errorMessage && (
-          <div style={{
-            padding: '12px',
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: '8px',
-            marginBottom: '24px',
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              color: '#dc2626',
-            }}>
-              <AlertTriangle size={16} />
-              <span style={{ fontWeight: '600' }}>Error</span>
-            </div>
-            <p style={{
-              margin: '8px 0 0 0',
-              color: '#dc2626',
-              fontSize: '14px',
-            }}>
-              {errorMessage}
-            </p>
-          </div>
-        )}
-
-        {/* TTS Toggle */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '8px',
-          marginBottom: '24px',
-        }}>
-          <button
-            onClick={() => setIsTTSEnabled(!isTTSEnabled)}
-            style={{
-              padding: '8px',
-              border: '1px solid var(--border-color)',
-              borderRadius: '6px',
-              background: 'var(--bg-primary)',
-              cursor: 'pointer',
-            }}
-          >
-            {isTTSEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
-          </button>
-          <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-            Voice responses {isTTSEnabled ? 'enabled' : 'disabled'}
-          </span>
-        </div>
-
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-          {isSpeaking && (
-            <Button onClick={stopSpeaking} variant="secondary">
-              Stop Speaking
-            </Button>
           )}
-          <Button onClick={onClose} variant="outline">
-            Close
-          </Button>
+
+          {messages.length > 0 && (
+            <div className="ai-assistant-conversation" aria-live="polite">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={message.role === 'user' ? 'ai-message ai-message--user' : 'ai-message ai-message--assistant'}
+                >
+                  <span>
+                    {message.role === 'assistant' && <Sparkles size={13} />}
+                    {message.role === 'user' ? 'You' : 'Hyper AI'}
+                  </span>
+                  <p>{message.content}</p>
+                </div>
+              ))}
+              {isProcessing && (
+                <div className="ai-message ai-message--assistant ai-message--thinking" aria-label="Hyper AI is thinking">
+                  <span><Sparkles size={13} /> Hyper AI</span>
+                  <ProcessingIndicator isActive />
+                </div>
+              )}
+              <div ref={conversationEndRef} />
+            </div>
+          )}
+
+          {hasError && errorMessage && (
+            <div className="ai-assistant-error" role="alert">
+              <AlertTriangle size={17} />
+              <div><strong>Something went wrong</strong><span>{errorMessage}</span></div>
+            </div>
+          )}
+
+          <form
+            className="ai-assistant-composer"
+            onSubmit={(event) => {
+              event.preventDefault();
+              submitPrompt(draft);
+            }}
+          >
+            <MessageCircle size={18} aria-hidden="true" />
+            <input
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder="Ask about your area..."
+              aria-label="Message Hyper AI"
+              disabled={isProcessing}
+            />
+            <button type="submit" disabled={!draft.trim() || isProcessing} aria-label="Send message">
+              {isProcessing ? <LoadingSpinner size="sm" /> : <Send size={17} />}
+            </button>
+          </form>
+
+          <div className="ai-assistant-controls">
+            <button
+              type="button"
+              className={isHandsFreeMode ? 'ai-voice-control is-recording' : 'ai-voice-control'}
+              onClick={isHandsFreeMode ? stopHandsFreeConversation : startHandsFreeConversation}
+              aria-pressed={isHandsFreeMode}
+            >
+              {isHandsFreeMode ? <MicOff size={17} /> : <Mic size={17} />}
+              <span>{isHandsFreeMode ? 'End conversation' : 'Start conversation'}</span>
+            </button>
+
+            <button
+              type="button"
+              className="ai-audio-toggle"
+              onClick={toggleVoicePlayback}
+              aria-pressed={isTTSEnabled}
+              aria-label={`${isTTSEnabled ? 'Disable' : 'Enable'} voice responses`}
+            >
+              {isTTSEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
+            </button>
+
+            {isSpeaking && (
+              <button type="button" className="ai-stop-speaking" onClick={stopSpeaking}>Stop audio</button>
+            )}
+          </div>
+
+          <p className="ai-assistant-disclaimer">
+            Hyper AI uses secure cloud inference and community-provided data, which may be incomplete.
+            Contact emergency services for urgent help.
+          </p>
         </div>
-      </div>
+      </section>
     </Modal>
   );
 };
