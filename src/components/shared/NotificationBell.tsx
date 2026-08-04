@@ -1,39 +1,97 @@
-import React, { useState, useEffect, useRef } from 'react';
+/* eslint-disable no-unused-vars -- the legacy base rule misreads TypeScript callback signatures */
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { AlertCircle, AlertTriangle, Bell, CheckCircle2, Inbox, Info } from 'lucide-react';
 
 import { useNotification } from '../../contexts/NotificationContext';
 
 interface NotificationBellProps {
   onNotificationClick?: (notificationId: string) => void;
   permissionStatus?: 'granted' | 'denied' | 'default' | 'unknown';
+  tone?: 'light' | 'dark';
 }
 
-const NotificationBell: React.FC<NotificationBellProps> = ({ onNotificationClick, permissionStatus }) => {
+interface DropdownPosition {
+  top: number;
+  left: number;
+  width: number;
+  maxHeight: number;
+}
+
+const NotificationBell: React.FC<NotificationBellProps> = ({
+  onNotificationClick,
+  permissionStatus,
+  tone = 'light',
+}) => {
   const { unreadCount, recentNotifications, markAsRead } = useNotification();
   const [isOpen, setIsOpen] = useState(false);
-  const bellRef = useRef<HTMLDivElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<DropdownPosition>({ top: 72, left: 12, width: 340, maxHeight: 420 });
+  const bellRef = useRef<React.ElementRef<'button'>>(null);
+  const dropdownRef = useRef<React.ElementRef<'div'>>(null);
 
-  // Close dropdown when clicking outside
+  const sortedNotifications = useMemo(
+    () => [...recentNotifications].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()),
+    [recentNotifications],
+  );
+
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        bellRef.current &&
-        dropdownRef.current &&
-        !bellRef.current.contains(event.target as Node) &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const handlePointerDown = (event: globalThis.PointerEvent) => {
+      const target = event.target as globalThis.Node;
+      if (!bellRef.current?.contains(target) && !dropdownRef.current?.contains(target)) {
         setIsOpen(false);
       }
     };
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+        bellRef.current?.focus();
+      }
+    };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
 
-  const handleBellClick = () => {
-    setIsOpen(!isOpen);
-  };
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const updatePosition = () => {
+      const rect = bellRef.current?.getBoundingClientRect();
+      if (!rect) {
+        return;
+      }
+
+      const edge = 12;
+      const gap = 10;
+      const width = Math.min(360, window.innerWidth - (edge * 2));
+      const left = Math.min(Math.max(edge, rect.right - width), window.innerWidth - width - edge);
+      const below = window.innerHeight - rect.bottom - gap - edge;
+      const above = rect.top - gap - edge;
+      const openBelow = below >= 260 || below >= above;
+      const maxHeight = Math.max(220, Math.min(440, openBelow ? below : above));
+      const top = openBelow ? rect.bottom + gap : Math.max(edge, rect.top - maxHeight - gap);
+
+      setPosition({ top, left, width, maxHeight });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [isOpen]);
 
   const handleNotificationClick = (notificationId: string) => {
     markAsRead(notificationId);
@@ -42,271 +100,84 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ onNotificationClick
   };
 
   const formatTimeAgo = (timestamp: Date): string => {
-    const now = new Date();
-    const diffInSeconds = Math.floor((now.getTime() - timestamp.getTime()) / 1000);
-
+    const diffInSeconds = Math.max(0, Math.floor((Date.now() - timestamp.getTime()) / 1000));
     if (diffInSeconds < 60) {
       return 'now';
     }
-
     const diffInMinutes = Math.floor(diffInSeconds / 60);
     if (diffInMinutes < 60) {
       return `${diffInMinutes}m`;
     }
-
     const diffInHours = Math.floor(diffInMinutes / 60);
     if (diffInHours < 24) {
       return `${diffInHours}h`;
     }
-
-    const diffInDays = Math.floor(diffInHours / 24);
-    return `${diffInDays}d`;
+    return `${Math.floor(diffInHours / 24)}d`;
   };
 
-  const getNotificationIcon = (type: string): string => {
+  const notificationIcon = (type: string) => {
     switch (type) {
-    case 'success': return '✅';
-    case 'error': return '❌';
-    case 'warning': return '⚠️';
-    case 'info': return 'ℹ️';
-    default: return '🔔';
+    case 'success': return <CheckCircle2 size={17} />;
+    case 'error': return <AlertCircle size={17} />;
+    case 'warning': return <AlertTriangle size={17} />;
+    default: return <Info size={17} />;
     }
   };
 
   return (
-    <div style={{ position: 'relative' }}>
-      {/* Bell Icon */}
-      <div
+    <div className={`notification-bell notification-bell--${tone}`}>
+      <button
         ref={bellRef}
-        onClick={handleBellClick}
-        style={{
-          position: 'relative',
-          width: '44px',
-          height: '44px',
-          borderRadius: '8px',
-          background: 'transparent',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          transition: 'all 0.2s ease',
-          padding: '8px',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'rgba(0, 0, 0, 0.05)';
-          e.currentTarget.style.transform = 'scale(1.05)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'transparent';
-          e.currentTarget.style.transform = 'scale(1)';
-        }}
+        type="button"
+        className="notification-bell__trigger"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-label="Notifications"
+        aria-expanded={isOpen}
       >
-        {/* Clean SVG Bell Icon */}
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{
-            color: permissionStatus === 'denied' ? 'var(--text-muted)' : 'var(--text-primary)',
-            position: 'relative',
-            opacity: permissionStatus === 'denied' ? 0.6 : 1,
-            transition: 'all 0.2s ease',
-          }}
-        >
-          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-        </svg>
+        <Bell size={19} aria-hidden="true" opacity={permissionStatus === 'denied' ? 0.55 : 1} />
+        {unreadCount > 0 && <span className="notification-bell__badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+      </button>
 
-        {/* Unread Badge */}
-        {unreadCount > 0 && (
-          <div style={{
-            position: 'absolute',
-            top: '6px',
-            right: '6px',
-            background: '#ef4444',
-            color: 'white',
-            borderRadius: '10px',
-            minWidth: '18px',
-            height: '18px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '11px',
-            fontWeight: '600',
-            border: '2px solid var(--bg-primary)',
-            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
-          }}>
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </div>
-        )}
-      </div>
-
-      {/* Dropdown - Rendered via Portal to ensure it's above everything */}
       {isOpen && createPortal(
         <div
           ref={dropdownRef}
-          style={{
-            position: 'fixed',
-            top: '92px', // Header height (80px) + some padding
-            right: '16px',
-            width: '320px',
-            maxWidth: 'calc(100vw - 32px)',
-            background: 'var(--bg-primary)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '12px',
-            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
-            zIndex: 2147483647,
-            maxHeight: '400px',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
+          className="notification-panel"
+          role="region"
+          aria-label="Notifications"
+          style={{ top: position.top, left: position.left, width: position.width, maxHeight: position.maxHeight }}
         >
-          {/* Header */}
-          <div style={{
-            padding: '16px',
-            borderBottom: '1px solid var(--border-color)',
-            background: 'var(--bg-secondary)',
-            borderRadius: '12px 12px 0 0',
-          }}>
-            <h3 style={{
-              fontSize: '16px',
-              fontWeight: '600',
-              color: 'var(--text-primary)',
-              margin: '0',
-            }}>
-              Notifications
-            </h3>
-            <p style={{
-              fontSize: '12px',
-              color: 'var(--text-muted)',
-              margin: '4px 0 0 0',
-            }}>
-              Past 12 hours
-            </p>
+          <div className="notification-panel__header">
+            <div><strong>Notifications</strong><span>Past 12 hours</span></div>
+            {unreadCount > 0 && <span>{unreadCount} new</span>}
           </div>
 
-          {/* Notifications List */}
-          <div style={{
-            flex: 1,
-            overflowY: 'auto',
-            maxHeight: '300px',
-          }}>
-            {recentNotifications.length === 0 ? (
-              <div style={{
-                padding: '40px 20px',
-                textAlign: 'center',
-                color: 'var(--text-muted)',
-              }}>
-                <span style={{ fontSize: '32px', marginBottom: '8px', display: 'block' }}>🔔</span>
-                <p style={{ fontSize: '14px', margin: '0' }}>No recent notifications</p>
+          <div className="notification-panel__list">
+            {sortedNotifications.length === 0 ? (
+              <div className="notification-panel__empty">
+                <Inbox size={25} />
+                <strong>All caught up</strong>
+                <span>No recent notifications</span>
               </div>
-            ) : (
-              recentNotifications
-                .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-                .map((notification) => (
-                  <div
-                    key={notification.id}
-                    onClick={() => handleNotificationClick(notification.id)}
-                    style={{
-                      padding: '12px 16px',
-                      borderBottom: '1px solid var(--border-color)',
-                      cursor: 'pointer',
-                      background: notification.read ? 'transparent' : 'rgba(59, 130, 246, 0.05)',
-                      transition: 'background-color 0.2s ease',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      minHeight: '48px',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = notification.read
-                        ? 'rgba(0, 0, 0, 0.02)'
-                        : 'rgba(59, 130, 246, 0.08)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = notification.read
-                        ? 'transparent'
-                        : 'rgba(59, 130, 246, 0.05)';
-                    }}
-                  >
-                    {/* Icon */}
-                    <div style={{
-                      fontSize: '16px',
-                      flexShrink: 0,
-                    }}>
-                      {getNotificationIcon(notification.type)}
-                    </div>
-
-                    {/* Content - Single Line Only */}
-                    <div style={{
-                      flex: 1,
-                      minWidth: 0, // Allow text to truncate
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'center',
-                    }}>
-                      <div style={{
-                        fontSize: '13px', // Slightly smaller for mobile
-                        fontWeight: notification.read ? '400' : '500',
-                        color: 'var(--text-primary)',
-                        lineHeight: '1.2', // Tighter line height
-                        whiteSpace: 'nowrap', // NO WRAPPING
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis', // Show ... when truncated
-                        marginBottom: notification.message ? '1px' : '0',
-                      }}>
-                        {notification.title}
-                      </div>
-                      {notification.message && (
-                        <div style={{
-                          fontSize: '11px', // Smaller secondary text
-                          color: 'var(--text-muted)',
-                          lineHeight: '1.1', // Very tight
-                          whiteSpace: 'nowrap', // NO WRAPPING
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis', // Show ... when truncated
-                        }}>
-                          {notification.message}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Time & Unread Dot */}
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'flex-end',
-                      gap: '2px',
-                      flexShrink: 0,
-                    }}>
-                      <span style={{
-                        fontSize: '11px',
-                        color: 'var(--text-muted)',
-                        whiteSpace: 'nowrap',
-                      }}>
-                        {formatTimeAgo(notification.timestamp)}
-                      </span>
-                      {!notification.read && (
-                        <div style={{
-                          width: '6px',
-                          height: '6px',
-                          borderRadius: '50%',
-                          background: '#ef4444',
-                        }} />
-                      )}
-                    </div>
-                  </div>
-                ))
-            )}
+            ) : sortedNotifications.map((notification) => (
+              <button
+                key={notification.id}
+                type="button"
+                className={notification.read ? 'notification-panel__item' : 'notification-panel__item is-unread'}
+                onClick={() => handleNotificationClick(notification.id)}
+              >
+                <span className={`notification-panel__type notification-panel__type--${notification.type}`}>
+                  {notificationIcon(notification.type)}
+                </span>
+                <span className="notification-panel__copy">
+                  <strong>{notification.title}</strong>
+                  {notification.message && <span>{notification.message}</span>}
+                </span>
+                <span className="notification-panel__time">{formatTimeAgo(notification.timestamp)}</span>
+              </button>
+            ))}
           </div>
         </div>,
-        document.body, // Portal target - renders at document root level
+        document.body,
       )}
     </div>
   );

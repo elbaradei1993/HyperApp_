@@ -37,7 +37,7 @@ import { hubService } from '../services/hub';
 import { reverseGeocode } from '../lib/geocoding';
 import { backgroundLocationService } from '../services/backgroundLocationService';
 import { supabase } from '../lib/supabase';
-import { formatNumber, formatPercentage, formatDistance, formatTemperature } from '../lib/arabicUtils';
+import { formatNumber, formatPercentage, formatDistance, formatTemperature } from '../lib/displayFormatters';
 
 interface HubViewProps {
   userLocation: [number, number] | null;

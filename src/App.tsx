@@ -2,11 +2,10 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Capacitor } from '@capacitor/core';
 import { Box, Text as ChakraText } from '@chakra-ui/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
 
 import { useAuth } from './contexts/AuthContext';
 import { useNotification } from './contexts/NotificationContext';
-import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import { VibeProvider } from './contexts/VibeContext';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { NotificationManager } from './components/shared/Notification';
@@ -19,7 +18,6 @@ import MagicLinkAuth from './components/MagicLinkAuth';
 import GuardianInvitationHandler from './components/GuardianInvitationHandler';
 import ReportTypeModal from './components/ReportTypeModal';
 import SplashScreen from './components/SplashScreen';
-import LanguageSelectionScreen from './components/LanguageSelectionScreen';
 import ErrorBoundary from './components/ErrorBoundary';
 import { LoadingSpinner } from './components/shared';
 import { reportsService } from './services/reports';
@@ -30,45 +28,42 @@ import { pushNotificationService } from './services/pushNotificationService';
 import { locationService } from './services/locationService';
 import { logger } from './lib/logger';
 import type { Vibe, SOS } from './types';
+import './styles/appShell.css';
 
 // Lazy load heavy components for better performance
 const MapComponent = React.lazy(() => import('./components/MapComponent'));
 const ProfileView = React.lazy(() => import('./components/ProfileView'));
 const SettingsView = React.lazy(() => import('./components/SettingsView'));
 const CommunityDashboard = React.lazy(() => import('./components/CommunityDashboard'));
-const GuardianView = React.lazy(() => import('./components/GuardianView'));
-const HubView = React.lazy(() => import('./components/HubView'));
+const DashboardView = React.lazy(() => import('./components/DashboardView'));
 
 // Additional lazy loading for even better performance
-const EditProfileModal = React.lazy(() => import('./components/EditProfileModal'));
 const EmergencyReportModal = React.lazy(() => import('./components/EmergencyReportModal'));
 const VibeReportModal = React.lazy(() => import('./components/VibeReportModal'));
 const LocationOverrideModal = React.lazy(() => import('./components/LocationOverrideModal'));
 const LocationPermissionModal = React.lazy(() => import('./components/LocationPermissionModal'));
 const GuardianEmergencyModal = React.lazy(() => import('./components/GuardianEmergencyModal'));
-const VoiceChatModal = React.lazy(() => import('./components/VoiceChatModal'));
 
 
 const AppContent: React.FC = () => {
   console.log('🎯 AppContent component rendering...');
-  const { user, isAuthenticated, isLoading, updateProfile } = useAuth();
-  const { currentLanguage } = useLanguage();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const { notifications, removeNotification, addNotification, markAsRead, markAllAsRead, clearAll } = useNotification();
   const { settings } = useSettings();
   console.log('📊 AppContent state:', { isAuthenticated, isLoading, user: !!user });
-  const [activeTab, setActiveTab] = useState<TabType>('map');
+  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const contentScrollRef = useRef<HTMLDivElement>(null);
   const [vibes, setVibes] = useState<Vibe[]>([]);
   const [sosAlerts, setSosAlerts] = useState<SOS[]>([]);
   const [nearbyUsers, setNearbyUsers] = useState<NearbyUser[]>([]);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [initialCenter, setInitialCenter] = useState<[number, number] | null>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [isHeatmapVisible, setIsHeatmapVisible] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [showLanguageSelection, setShowLanguageSelection] = useState(false);
   const [showReportTypeModal, setShowReportTypeModal] = useState(false);
   const [showVibeReportModal, setShowVibeReportModal] = useState(false);
   const [showEmergencyReportModal, setShowEmergencyReportModal] = useState(false);
-  const [showVoiceChatModal, setShowVoiceChatModal] = useState(false);
   const [showLocationOverride, setShowLocationOverride] = useState(false);
 
   const [locationInitialized, setLocationInitialized] = useState(false);
@@ -76,24 +71,24 @@ const AppContent: React.FC = () => {
   const [targetLocation, setTargetLocation] = useState<[number, number] | null>(null);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<'granted' | 'denied' | 'prompt' | 'unknown'>('unknown');
   const [showLocationPermissionModal, setShowLocationPermissionModal] = useState(false);
+
+  useEffect(() => {
+    contentScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [activeTab]);
   const [locationRefreshInterval, setLocationRefreshInterval] = useState<NodeJS.Timeout | null>(null);
   const [nearbyUsersRefreshInterval, setNearbyUsersRefreshInterval] = useState<NodeJS.Timeout | null>(null);
   const [lastLocationUpdate, setLastLocationUpdate] = useState<number>(0);
   const [lastNearbyUsersUpdate, setLastNearbyUsersUpdate] = useState<number>(0);
 
-  // Default center (Cairo, Egypt)
-  const center: [number, number] = [30.0444, 31.2357];
+  // Wait for the device's current location before rendering the map.
   const zoom = 10;
 
-  // Show language selection for non-authenticated users
+  // Open authentication directly now that English is the only supported language.
   useEffect(() => {
-    console.log('🔍 Language selection check:', { isLoading, isAuthenticated, user: !!user, onboardingCompleted: user?.onboarding_completed });
     if (!isLoading && !isAuthenticated) {
-      // Always show language selection for non-authenticated users
-      console.log('🌐 Showing language selection for non-authenticated user');
-      setShowLanguageSelection(true);
+      setShowAuthModal(true);
     }
-  }, [isLoading, isAuthenticated, user?.onboarding_completed]);
+  }, [isLoading, isAuthenticated]);
 
   // Handle post-authentication redirects (e.g., from guardian invitations)
   useEffect(() => {
@@ -228,6 +223,7 @@ const AppContent: React.FC = () => {
             const location: [number, number] = [position.latitude, position.longitude];
             console.log('✅ GPS location obtained:', location);
             setUserLocation(location);
+            setInitialCenter((current) => current ?? location);
             setLastLocationUpdate(Date.now());
             console.log(`📍 GPS location set: ${position.latitude.toFixed(6)}, ${position.longitude.toFixed(6)} (${Math.round(position.accuracy)}m)`);
             console.log('🎯 User location state should now be set - marker should appear on map');
@@ -292,67 +288,9 @@ const AppContent: React.FC = () => {
             // Check if this is a permission-related error
             const isPermissionError = (error as any)?.code === 1 || (error as any)?.message?.toLowerCase().includes('permission');
 
-            // Always try IP-based fallback for better UX
-            console.log('🔄 GPS failed, trying fallback methods...');
-            if (!Capacitor.isNativePlatform()) {
-              try {
-                console.log('🌐 Attempting IP-based geolocation fallback...');
-                // Use IP geolocation as fallback
-                const response = await fetch('https://ipapi.co/json/');
-                console.log('🌐 IP API response status:', response.status);
-                const data = await response.json();
-                console.log('🌐 IP API response data:', data);
+            console.log('GPS failed and no fallback will be used. Waiting for a real current-location fix.');
 
-                if (data.latitude && data.longitude) {
-                  const location: [number, number] = [data.latitude, data.longitude];
-                  console.log('✅ Setting IP location:', location);
-                  setUserLocation(location);
-                  console.log(`📍 IP Location fallback successful: ${data.latitude}, ${data.longitude} (${data.city || 'Unknown'}) - marker should appear`);
-                } else {
-                  console.log('❌ IP API returned invalid data:', data);
-                  throw new Error('Invalid IP geolocation response');
-                }
-              } catch (ipError: any) {
-                console.log('❌ IP geolocation fallback failed:', ipError instanceof Error ? ipError.message : ipError);
-                // Use default location as last resort
-                const defaultLocation: [number, number] = [30.0444, 31.2357]; // Cairo, Egypt
-                console.log('✅ Setting default location:', defaultLocation);
-                setUserLocation(defaultLocation);
-                console.log(`📍 Using default location: ${defaultLocation[0]}, ${defaultLocation[1]} - marker should appear on map`);
-              }
-            } else {
-              // On mobile, try IP fallback too
-              try {
-                console.log('📱 Mobile: Attempting IP-based geolocation fallback...');
-                const response = await fetch('https://ipapi.co/json/');
-                console.log('📱 Mobile IP API response status:', response.status);
-                const data = await response.json();
-                console.log('📱 Mobile IP API response data:', data);
-
-                if (data.latitude && data.longitude) {
-                  const location: [number, number] = [data.latitude, data.longitude];
-                  console.log('✅ Setting mobile IP location:', location);
-                  setUserLocation(location);
-                  console.log(`📍 Mobile IP Location fallback: ${data.latitude}, ${data.longitude} - marker should appear`);
-                } else {
-                  // Use default for mobile too
-                  const defaultLocation: [number, number] = [30.0444, 31.2357];
-                  logger.log('✅ Setting mobile default location:', defaultLocation);
-                  setUserLocation(defaultLocation);
-                  logger.log(`📍 Mobile using default location: ${defaultLocation[0]}, ${defaultLocation[1]} - marker should appear`);
-                }
-              } catch (mobileError) {
-                logger.log('❌ Mobile IP fallback failed:', (mobileError as Error)?.message || mobileError);
-                // Still show permission modal for mobile
-                if (isPermissionError) {
-                  logger.log('🚨 Showing permission modal for mobile due to permission error');
-                  setShowLocationPermissionModal(true);
-                }
-              }
-            }
-
-            // Show permission modal on web if it was a permission error
-            if (!Capacitor.isNativePlatform() && isPermissionError) {
+            if (isPermissionError) {
               setShowLocationPermissionModal(true);
             }
           }
@@ -685,32 +623,6 @@ const AppContent: React.FC = () => {
     setShowAuthModal(false);
   };
 
-  const handleLanguageSelect = async (language: 'en' | 'ar') => {
-    // Set language in localStorage
-    localStorage.setItem('language', language);
-
-    // Update i18n language directly
-    const i18n = (await import('./i18n')).default;
-    await i18n.changeLanguage(language);
-
-    // Set document direction and language
-    const direction = language === 'ar' ? 'rtl' : 'ltr';
-    document.documentElement.dir = direction;
-    document.documentElement.lang = language;
-
-    if (language === 'ar') {
-      document.body.classList.add('rtl');
-    } else {
-      document.body.classList.remove('rtl');
-    }
-
-    // Hide language selection and show auth modal
-    setShowLanguageSelection(false);
-    setShowAuthModal(true);
-  };
-
-
-
   const handleNewReport = () => {
     setShowReportTypeModal(true);
   };
@@ -808,22 +720,41 @@ const AppContent: React.FC = () => {
 
     const view = (() => {
       switch (activeTab) {
+      case 'dashboard':
+        return (
+          <ErrorBoundary>
+            <React.Suspense fallback={<LoadingFallback />}>
+              <DashboardView
+                vibes={vibes}
+                sosAlerts={sosAlerts}
+                userLocation={userLocation}
+                onNewReport={handleNewReport}
+                onNavigate={setActiveTab}
+                onNavigateToMap={handleNavigateToMap}
+              />
+            </React.Suspense>
+          </ErrorBoundary>
+        );
       case 'map':
         return (
           <ErrorBoundary>
             <React.Suspense fallback={<LoadingFallback />}>
-              <MapComponent
-                vibes={vibes}
-                sosAlerts={sosAlerts}
-                center={center}
-                zoom={zoom}
-                userLocation={userLocation}
-                nearbyUsers={nearbyUsers}
-                isHeatmapVisible={isHeatmapVisible}
-                onToggleHeatmap={handleToggleHeatmap}
-                userId={user?.id || 'demo-user'}
-                targetLocation={targetLocation}
-              />
+              {!initialCenter ? (
+                <LoadingFallback />
+              ) : (
+                <MapComponent
+                  vibes={vibes}
+                  sosAlerts={sosAlerts}
+                  center={initialCenter}
+                  zoom={zoom}
+                  userLocation={userLocation}
+                  nearbyUsers={nearbyUsers}
+                  isHeatmapVisible={isHeatmapVisible}
+                  onToggleHeatmap={handleToggleHeatmap}
+                  userId={user?.id || 'demo-user'}
+                  targetLocation={targetLocation}
+                />
+              )}
             </React.Suspense>
           </ErrorBoundary>
         );
@@ -850,22 +781,6 @@ const AppContent: React.FC = () => {
             </React.Suspense>
           </ErrorBoundary>
         );
-      case 'hub':
-        return (
-          <ErrorBoundary>
-            <React.Suspense fallback={<LoadingFallback />}>
-              <HubView userLocation={userLocation} />
-            </React.Suspense>
-          </ErrorBoundary>
-        );
-      case 'guardian':
-        return (
-          <ErrorBoundary>
-            <React.Suspense fallback={<LoadingFallback />}>
-              <GuardianView />
-            </React.Suspense>
-          </ErrorBoundary>
-        );
       case 'settings':
         return (
           <ErrorBoundary>
@@ -888,9 +803,11 @@ const AppContent: React.FC = () => {
           exit="out"
           variants={pageVariants}
           transition={pageTransition}
-          style={{ height: '100%', width: '100%' }}
+          style={{ height: '100%', width: '100%', minWidth: 0 }}
         >
-          {view}
+          <div className={activeTab === 'map' ? 'app-content-shell app-content-shell--map' : 'app-content-shell'}>
+            {view}
+          </div>
         </motion.div>
       </AnimatePresence>
     );
@@ -898,7 +815,6 @@ const AppContent: React.FC = () => {
 
   return (
     <div
-      key={currentLanguage}
       className="app-layout"
       style={{ backgroundColor: 'var(--bg-base)', overflowX: 'hidden' }}
     >
@@ -910,8 +826,8 @@ const AppContent: React.FC = () => {
             onNewReport={handleNewReport}
           />
           <div className="app-main">
-            <Header onNavigateToProfile={() => setActiveTab('profile')} />
-            <div className="app-content-desktop">
+            <Header />
+            <div ref={contentScrollRef} className="app-content-desktop">
               {renderActiveView()}
             </div>
           </div>
@@ -920,33 +836,7 @@ const AppContent: React.FC = () => {
             onTabChange={setActiveTab}
             onNewReport={handleNewReport}
           />
-          <button
-            type="button"
-            className="hyper-ai-launcher"
-            onClick={() => setShowVoiceChatModal(true)}
-            aria-label="Open Hyper AI voice assistant"
-          >
-            <Sparkles size={19} aria-hidden="true" />
-            <span>Hyper AI</span>
-          </button>
         </>
-      )}
-
-      {showVoiceChatModal && (
-        <React.Suspense fallback={null}>
-          <VoiceChatModal
-            isOpen
-            onClose={() => setShowVoiceChatModal(false)}
-            userLocation={userLocation}
-          />
-        </React.Suspense>
-      )}
-
-      {/* Language Selection Screen */}
-      {showLanguageSelection && (
-        <LanguageSelectionScreen
-          onLanguageSelect={handleLanguageSelect}
-        />
       )}
 
       {/* Auth Modal */}

@@ -1,3 +1,4 @@
+import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -87,9 +88,9 @@ describe('VoiceChatModal hands-free conversation', () => {
       recognition?.onresult?.({ results: [[{ transcript: 'What changed nearby?' }]] });
     });
 
-    expect(await screen.findByText('Thinking...')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'End conversation' })).toBeTruthy();
-    expect(screen.getByRole('textbox', { name: 'Message Hyper AI' })).toBeTruthy();
+    expect(await screen.findByText('Thinking...')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'End conversation' })).toBeVisible();
+    expect(screen.getByRole('textbox', { name: 'Message Hyper AI' })).toBeVisible();
 
     await act(async () => {
       resolveAnswer?.({ answer: 'There are no verified changes nearby.' });
@@ -97,6 +98,6 @@ describe('VoiceChatModal hands-free conversation', () => {
 
     await waitFor(() => expect(mocks.speak).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(recognition?.start).toHaveBeenCalledTimes(2), { timeout: 2000 });
-    expect(screen.getByRole('button', { name: 'End conversation' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'End conversation' })).toBeVisible();
   });
 });

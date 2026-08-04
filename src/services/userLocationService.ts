@@ -254,13 +254,24 @@ class UserLocationService {
     try {
       console.log('🔄 Updating location sharing preference:', { userId, enabled });
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('users')
         .update({ location_sharing: enabled })
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .select('user_id');
 
       if (error) {
         console.error('❌ Error updating location sharing preference:', error);
+        return false;
+      }
+
+      if (!data || data.length !== 1) {
+        console.error(
+          'Location sharing preference was not saved:',
+          data?.length === 0
+            ? 'no accessible profile record was found'
+            : 'duplicate profile records were found',
+        );
         return false;
       }
 

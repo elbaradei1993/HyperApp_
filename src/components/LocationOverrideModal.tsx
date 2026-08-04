@@ -40,6 +40,7 @@ const LocationOverrideModal: React.FC<LocationOverrideModalProps> = ({
 
   // Focus management and body scroll prevention
   useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
     if (isOpen) {
       // Prevent body scroll
       document.body.style.overflow = 'hidden';
@@ -48,12 +49,10 @@ const LocationOverrideModal: React.FC<LocationOverrideModalProps> = ({
       setTimeout(() => {
         firstLocationButtonRef.current?.focus();
       }, 100);
-    } else {
-      document.body.style.overflow = 'unset';
     }
 
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = previousOverflow;
     };
   }, [isOpen]);
 
@@ -152,6 +151,7 @@ const LocationOverrideModal: React.FC<LocationOverrideModalProps> = ({
 
   return (
     <Box
+      className="app-modal-overlay"
       position="fixed"
       top={0}
       left={0}
@@ -166,6 +166,7 @@ const LocationOverrideModal: React.FC<LocationOverrideModalProps> = ({
       onClick={onClose}
     >
       <Box
+        className="app-modal-dialog"
         ref={modalRef}
         bg="white"
         borderRadius="20px"

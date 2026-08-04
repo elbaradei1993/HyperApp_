@@ -2,124 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Box, VStack, HStack, Text, Button, Input } from '@chakra-ui/react';
 import { Geolocation } from '@capacitor/geolocation';
-import { User, MapPin, Phone, FileText, Camera, X } from 'lucide-react';
+import { User, Camera, X } from 'lucide-react';
 
 import { useAuth } from '../contexts/AuthContext';
 import { uploadService } from '../services/upload';
 import { userLocationService } from '../services/userLocationService';
 import { reverseGeocode } from '../lib/geocoding';
 import { INTEREST_CATEGORIES } from '../types';
-
-// Arabic translations for interests
-const INTEREST_TRANSLATIONS: { [key: string]: string } = {
-  // Sports & Fitness
-  'Running': 'الجري',
-  'Gym': 'النادي الرياضي',
-  'Yoga': 'اليوغا',
-  'Football': 'كرة القدم',
-  'Basketball': 'كرة السلة',
-  'Swimming': 'السباحة',
-  'Cycling': 'ركوب الدراجة',
-  'Tennis': 'التنس',
-  'Martial Arts': 'الفنون القتالية',
-  'Dance': 'الرقص',
-  // Music & Arts
-  'Concerts': 'الحفلات الموسيقية',
-  'Theater': 'المسرح',
-  'Painting': 'الرسم',
-  'Photography': 'التصوير',
-  'Music Production': 'إنتاج الموسيقى',
-  'Film': 'الأفلام',
-  'Writing': 'الكتابة',
-  'Sculpture': 'النحت',
-  'Design': 'التصميم',
-  'Crafts': 'الحرف اليدوية',
-  // Food & Dining
-  'Restaurants': 'المطاعم',
-  'Cooking': 'الطبخ',
-  'Baking': 'الخبز',
-  'Coffee Shops': 'مقاهي القهوة',
-  'Fine Dining': 'الطعام الفاخر',
-  'Street Food': 'طعام الشارع',
-  'Vegan': 'النباتي',
-  'Wine': 'النبيذ',
-  'Beer': 'البيرة',
-  'Cocktails': 'الكوكتيلات',
-  // Education & Learning
-  'Courses': 'الدورات',
-  'Workshops': 'ورش العمل',
-  'Books': 'الكتب',
-  'Online Learning': 'التعلم عبر الإنترنت',
-  'Languages': 'اللغات',
-  'Science': 'العلم',
-  'History': 'التاريخ',
-  'Technology': 'التكنولوجيا',
-  'Business': 'الأعمال',
-  'Art History': 'تاريخ الفن',
-  // Environment & Nature
-  'Hiking': 'التنزه',
-  'Camping': 'التخييم',
-  'Gardening': 'البستنة',
-  'Sustainability': 'الاستدامة',
-  'Wildlife': 'الحياة البرية',
-  'Conservation': 'الحفاظ على البيئة',
-  'Fishing': 'الصيد',
-  'Bird Watching': 'مراقبة الطيور',
-  'Eco-friendly Living': 'الحياة الصديقة للبيئة',
-  // Gaming & Tech
-  'Video Games': 'ألعاب الفيديو',
-  'Programming': 'البرمجة',
-  'Gadgets': 'الأدوات التقنية',
-  'AI/ML': 'الذكاء الاصطناعي/التعلم الآلي',
-  'Cybersecurity': 'الأمن السيبراني',
-  'Mobile Apps': 'تطبيقات الهاتف',
-  'Web Development': 'تطوير الويب',
-  'Hardware': 'الأجهزة',
-  'Virtual Reality': 'الواقع الافتراضي',
-  'Board Games': 'ألعاب الطاولة',
-  // Social & Community
-  'Meetups': 'اللقاءات',
-  'Volunteering': 'التطوع',
-  'Clubs': 'النوادي',
-  'Networking': 'التواصل',
-  'Charity': 'الجمعيات الخيرية',
-  'Community Events': 'فعاليات المجتمع',
-  'Book Clubs': 'نوادي الكتب',
-  'Sports Teams': 'الفرق الرياضية',
-  'Cultural Events': 'الفعاليات الثقافية',
-  'Religious Groups': 'المجموعات الدينية',
-  // Shopping & Lifestyle
-  'Markets': 'الأسواق',
-  'Fashion': 'الأزياء',
-  'Beauty': 'الجمال',
-  'Home Decor': 'ديكور المنزل',
-  'Antiques': 'القطع الأثرية',
-  'Vintage': 'العتيق',
-  'Luxury': 'الفاخر',
-  'Thrifting': 'التسوق الرخيص',
-  'Art Galleries': 'معارض الفن',
-  'Craft Markets': 'أسواق الحرف اليدوية',
-  // Transportation
-  'Public Transport': 'النقل العام',
-  'Electric Vehicles': 'المركبات الكهربائية',
-  'Motorcycles': 'الدراجات النارية',
-  'Car Sharing': 'مشاركة السيارات',
-  'Ride Sharing': 'مشاركة الركوب',
-  'Walking': 'المشي',
-  'Scooters': 'السكوترات',
-  'Boats': 'القوارب',
-  'Aviation': 'الطيران',
-  // Home & Garden
-  'DIY': 'الصنع بنفسك',
-  'Home Improvement': 'تحسين المنزل',
-  'Interior Design': 'تصميم الديكور الداخلي',
-  'Landscaping': 'تصميم الحدائق',
-  'Furniture': 'الأثاث',
-  'Tools': 'الأدوات',
-  'Renovation': 'التجديد',
-  'Smart Home': 'المنزل الذكي',
-  'Pets': 'الحيوانات الأليفة',
-};
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -142,12 +31,15 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
   const [profilePicture, setProfilePicture] = useState<File | null>(null);
   const [profilePicturePreview, setProfilePicturePreview] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [locationLoading, setLocationLoading] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [detectedCoordinates, setDetectedCoordinates] = useState<[number, number] | null>(null);
 
   // Load current user data when modal opens
   useEffect(() => {
     if (isOpen && user) {
+      setSaveError('');
+      setProfilePicture(null);
+      setDetectedCoordinates(null);
       setFormData({
         firstName: user.first_name || '',
         lastName: user.last_name || '',
@@ -169,8 +61,6 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
       console.log('Geolocation not supported');
       return;
     }
-
-    setLocationLoading(true);
 
     try {
       console.log('Requesting location permission and detection...');
@@ -204,8 +94,6 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
     } catch (error: any) {
       console.error('Location detection failed:', error);
       // Don't show error to user, just leave location field as is
-    } finally {
-      setLocationLoading(false);
     }
   };
 
@@ -240,6 +128,17 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
   };
 
   const handleSave = async () => {
+    if (!user) {
+      setSaveError('You need to be signed in to save profile changes.');
+      return;
+    }
+
+    if (!formData.email.trim()) {
+      setSaveError('Email address is required.');
+      return;
+    }
+
+    setSaveError('');
     setIsLoading(true);
     try {
       let profilePictureUrl = user?.profile_picture_url || '';
@@ -252,11 +151,11 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
 
       // Update profile
       await updateProfile({
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
-        location: formData.location,
+        first_name: formData.firstName.trim(),
+        last_name: formData.lastName.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        location: formData.location.trim(),
         interests: formData.interests,
         profile_picture_url: profilePictureUrl,
       });
@@ -279,6 +178,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
       onClose();
     } catch (error) {
       console.error('Error updating profile:', error);
+      setSaveError(error instanceof Error ? error.message : 'Profile changes could not be saved.');
     } finally {
       setIsLoading(false);
     }
@@ -552,7 +452,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
                             borderColor: formData.interests.includes(item) ? 'blue.600' : 'gray.300',
                           }}
                         >
-                          {INTEREST_TRANSLATIONS[item] || item}
+                          {item}
                         </Button>
                       ))}
                     </HStack>
@@ -570,6 +470,20 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
           borderColor="gray.200"
           bg="gray.50"
         >
+          {saveError && (
+            <Text
+              role="alert"
+              mb={3}
+              px={3}
+              py={2}
+              borderRadius="10px"
+              bg="red.50"
+              color="red.700"
+              fontSize="13px"
+            >
+              {saveError}
+            </Text>
+          )}
           <HStack gap={3}>
             <Button
               flex={1}

@@ -499,15 +499,16 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
   }
 
   return (
-    <Box maxW="500px" mx="auto" bg="var(--bg-base)" minH="100vh" position="relative" borderX="1px solid" borderColor="var(--wire)" style={{ color: 'var(--t1)' }}>
+    <Box className="page-view page-view--community" maxW="920px" w="full" mx="auto" bg="var(--bg-base)" minH="100%" position="relative" borderX="1px solid" borderColor="var(--wire)" style={{ color: 'var(--t1)' }}>
       {/* Header */}
       <Box
+        className="page-view__header"
         bg="var(--bg-surface)"
         color="var(--t1)"
         p={6}
         position="sticky"
         top={0}
-        zIndex={100}
+        zIndex={20}
         borderBottom="1px solid"
         borderColor="gray.200"
         boxShadow="0 1px 3px rgba(0, 0, 0, 0.05)"

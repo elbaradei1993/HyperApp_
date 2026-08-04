@@ -115,13 +115,35 @@
     }
   },
   "tabs": {
+    "dashboard": "Overview",
     "map": "Map",
     "reports": "Reports",
     "hub": "Hub",
     "guardian": "Guardian",
     "community": "Community",
     "profile": "Profile",
-    "settings": "Settings"
+    "settings": "Settings",
+    "more": "More"
+  },
+  "dashboard": {
+    "noData": "Waiting for data",
+    "neighbour": "Neighbour",
+    "liveOverview": "Live community overview",
+    "greetings": { "morning": "Good morning", "afternoon": "Good afternoon", "evening": "Good evening" },
+    "locationReady": "Your local safety pulse is ready.",
+    "locationUnavailable": "Enable location to see a more relevant community pulse.",
+    "openHub": "Open hub",
+    "newReport": "New report",
+    "overall": { "title": "Community pulse", "period": "Live overview" },
+    "metrics": { "reportsToday": "Reports today", "activeAlerts": "Active alerts", "safety": "Safety score", "contributors": "Contributors", "weeklyReports": "This week" },
+    "trend": { "title": "Weekly safety trend", "subtitle": "The last seven days", "chartLabel": "Weekly community safety chart", "empty": "Your trend will appear after the first report." },
+    "progress": { "title": "Monthly pulse", "subtitle": "Your community contribution", "reports": "reports shared", "empty": "No vibe reports this month." },
+    "viewCommunity": "View community",
+    "goals": { "title": "Monthly goals", "complete": "complete", "firstPulse": "Share your first pulse", "stayActive": "Share two local updates", "communityVoice": "Reach four monthly reports", "trustedProfile": "Complete profile verification" },
+    "attention": { "title": "Needs attention", "subtitle": "Recent alerts and safety signals", "emergency": "Emergency alert", "clearTitle": "Everything looks clear", "clearSubtitle": "No urgent signals nearby.", "add": "Add a community report" },
+    "viewAll": "View all",
+    "areas": { "title": "Recent areas", "subtitle": "Safety pulse by location", "reports": "reports", "updated": "Updated", "emptyTitle": "Create the first area pulse", "emptySubtitle": "Your reported locations will appear here." },
+    "openMap": "Open map"
   },
   "app": {
     "appName": "HyperApp",

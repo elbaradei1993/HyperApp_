@@ -66,7 +66,7 @@ describe('AuthModal', () => {
       </TestWrapper>,
     );
 
-    expect(screen.getByText('auth.login')).toBeInTheDocument();
+    expect(screen.getAllByText('auth.login')).toHaveLength(2);
     expect(screen.getByText('auth.signup')).toBeInTheDocument();
     expect(screen.getByText('auth.email')).toBeInTheDocument();
     expect(screen.getByText('auth.password')).toBeInTheDocument();

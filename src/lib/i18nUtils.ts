@@ -6,7 +6,6 @@ export class DateTimeFormatter {
     // Map language codes to locale codes
     const localeMap: { [key: string]: string } = {
       'en': 'en-US',
-      'ar': 'ar-SA',
       // Add more language-to-locale mappings as needed
     };
 
@@ -84,7 +83,6 @@ export class NumberFormatter {
   private static getLocale(language: string = i18n.language): string {
     const localeMap: { [key: string]: string } = {
       'en': 'en-US',
-      'ar': 'ar-SA',
     };
 
     return localeMap[language] || language;

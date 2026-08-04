@@ -110,7 +110,7 @@ class EventService {
       }
 
       // Call Supabase Edge Function to fetch Ticketmaster events (solves CORS issues)
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://nqwejzbayquzsvcodunl.supabase.co';
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const functionUrl = `${supabaseUrl}/functions/v1/fetch-ticketmaster-events`;
 
       console.log('🎫 Calling Supabase Edge Function for Ticketmaster events with params:', { latitude, longitude, radius });

@@ -93,18 +93,18 @@ export function MapMarker({ vibe, style, onClick, onVote }: MapMarkerProps) {
             initial={{ opacity: 0, y: 10, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.9 }}
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-80 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-4 border border-gray-200 dark:border-gray-800 z-50"
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-80 bg-white rounded-2xl shadow-2xl p-4 border border-gray-200 z-50"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header with user info */}
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                <span className="text-sm font-medium text-gray-600">
                   {vibe.profile?.username?.[0]?.toUpperCase() || 'U'}
                 </span>
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                <p className="text-sm font-medium text-gray-900">
                   {vibe.profile?.username || 'Anonymous'}
                 </p>
                 <div className="flex items-center gap-1 text-xs text-gray-500">
@@ -119,20 +119,20 @@ export function MapMarker({ vibe, style, onClick, onVote }: MapMarkerProps) {
 
             {/* Content */}
             {vibe.notes && (
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 leading-relaxed">
+              <p className="text-sm text-gray-600 mb-3 leading-relaxed">
                 {vibe.notes}
               </p>
             )}
 
             {/* Action buttons */}
-            <div className="flex items-center gap-4 pt-3 border-t border-gray-100 dark:border-gray-800">
+            <div className="flex items-center gap-4 pt-3 border-t border-gray-100">
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={handleVote}
                 className={`flex items-center gap-1 text-sm transition-colors min-h-[44px] px-2 py-1 rounded-lg ${
                   isVoted
                     ? 'text-red-500 hover:text-red-600'
-                    : 'text-gray-600 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400'
+                    : 'text-gray-600 hover:text-red-500'
                 }`}
               >
                 <Heart className={`w-4 h-4 ${isVoted ? 'fill-current' : ''}`} />
@@ -142,7 +142,7 @@ export function MapMarker({ vibe, style, onClick, onVote }: MapMarkerProps) {
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={handleComment}
-                className="flex items-center gap-1 text-sm text-gray-600 hover:text-blue-500 transition-colors min-h-[44px] px-2 py-1 rounded-lg dark:text-gray-400 dark:hover:text-blue-400"
+                className="flex items-center gap-1 text-sm text-gray-600 hover:text-blue-500 transition-colors min-h-[44px] px-2 py-1 rounded-lg"
               >
                 <MessageCircle className="w-4 h-4" />
                 <span>Comment</span>

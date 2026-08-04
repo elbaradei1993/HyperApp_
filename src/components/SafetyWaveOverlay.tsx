@@ -144,12 +144,12 @@ const SafetyWaveOverlay: React.FC<SafetyWaveOverlayProps> = ({ vibes, className 
     <div
       className={`safety-particle-overlay ${className}`}
       style={{
-        position: 'fixed',
-        bottom: '0', // At very bottom, overlaying everything
+        position: 'absolute',
+        bottom: 0,
         left: 0,
         right: 0,
-        height: '120px', // Increased height for better particle spread
-        zIndex: 100, // Above both map and tab navigation
+        height: '96px',
+        zIndex: 20,
         pointerEvents: 'none',
         overflow: 'hidden',
       }}
