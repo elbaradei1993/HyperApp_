@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Capacitor } from '@capacitor/core';
 import { Box, Text as ChakraText } from '@chakra-ui/react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles } from 'lucide-react';
 
 import { useAuth } from './contexts/AuthContext';
 import { useNotification } from './contexts/NotificationContext';
@@ -45,6 +46,7 @@ const VibeReportModal = React.lazy(() => import('./components/VibeReportModal'))
 const LocationOverrideModal = React.lazy(() => import('./components/LocationOverrideModal'));
 const LocationPermissionModal = React.lazy(() => import('./components/LocationPermissionModal'));
 const GuardianEmergencyModal = React.lazy(() => import('./components/GuardianEmergencyModal'));
+const VoiceChatModal = React.lazy(() => import('./components/VoiceChatModal'));
 
 
 const AppContent: React.FC = () => {
@@ -66,6 +68,7 @@ const AppContent: React.FC = () => {
   const [showReportTypeModal, setShowReportTypeModal] = useState(false);
   const [showVibeReportModal, setShowVibeReportModal] = useState(false);
   const [showEmergencyReportModal, setShowEmergencyReportModal] = useState(false);
+  const [showVoiceChatModal, setShowVoiceChatModal] = useState(false);
   const [showLocationOverride, setShowLocationOverride] = useState(false);
 
   const [locationInitialized, setLocationInitialized] = useState(false);
@@ -917,7 +920,26 @@ const AppContent: React.FC = () => {
             onTabChange={setActiveTab}
             onNewReport={handleNewReport}
           />
+          <button
+            type="button"
+            className="hyper-ai-launcher"
+            onClick={() => setShowVoiceChatModal(true)}
+            aria-label="Open Hyper AI voice assistant"
+          >
+            <Sparkles size={19} aria-hidden="true" />
+            <span>Hyper AI</span>
+          </button>
         </>
+      )}
+
+      {showVoiceChatModal && (
+        <React.Suspense fallback={null}>
+          <VoiceChatModal
+            isOpen
+            onClose={() => setShowVoiceChatModal(false)}
+            userLocation={userLocation}
+          />
+        </React.Suspense>
       )}
 
       {/* Language Selection Screen */}
