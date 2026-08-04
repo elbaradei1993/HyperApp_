@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 
 interface ModalProps {
   isOpen: boolean;
@@ -7,6 +8,8 @@ interface ModalProps {
   title?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   showCloseButton?: boolean;
+  overlayClassName?: string;
+  containerClassName?: string;
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -16,8 +19,10 @@ const Modal: React.FC<ModalProps> = ({
   title,
   size = 'lg',
   showCloseButton = true,
+  overlayClassName,
+  containerClassName,
 }) => {
-  if (!isOpen) {
+  if (!isOpen || typeof document === 'undefined') {
     return null;
   }
 
@@ -28,8 +33,9 @@ const Modal: React.FC<ModalProps> = ({
     xl: '800px',
   }[size];
 
-  return (
+  return createPortal((
     <div
+      className={overlayClassName}
       style={{
         position: 'fixed',
         top: 0,
@@ -51,6 +57,7 @@ const Modal: React.FC<ModalProps> = ({
       }}
     >
       <div
+        className={containerClassName}
         style={{
           backgroundColor: 'white',
           borderRadius: '16px',
@@ -121,7 +128,7 @@ const Modal: React.FC<ModalProps> = ({
         </div>
       </div>
     </div>
-  );
+  ), document.body);
 };
 
 export default Modal;
