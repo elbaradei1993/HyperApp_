@@ -9,6 +9,7 @@ interface LocationSearchButtonProps {
 const LocationSearchButton: React.FC<LocationSearchButtonProps> = ({ onClick, top = '20px' }) => {
   return (
     <button
+      className="location-search-button"
       onClick={onClick}
       style={{
         position: 'absolute',
@@ -24,7 +25,7 @@ const LocationSearchButton: React.FC<LocationSearchButtonProps> = ({ onClick, to
         justifyContent: 'center',
         cursor: 'pointer',
         boxShadow: '0 4px 12px rgba(0,200,150,0.2)',
-        zIndex: 1000,
+        zIndex: 40,
         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
         transform: 'translateY(0)',
       }}

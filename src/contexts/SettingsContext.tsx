@@ -1,13 +1,14 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 
 import { storageManager } from '../lib/storage';
-import { userLocationService } from '../services/userLocationService';
 import { supabase } from '../lib/supabase';
+import { userLocationService } from '../services/userLocationService';
 
-// Callback type for location sharing changes
+import { useAuth } from './AuthContext';
+
 export type LocationSharingChangeCallback = () => void;
 
-interface Settings {
+export interface Settings {
   notifications: boolean;
   locationSharing: boolean;
   notificationRadius: number;
@@ -16,15 +17,31 @@ interface Settings {
 
 interface SettingsContextType {
   settings: Settings;
-  updateSettings: (newSettings: Partial<Settings>) => void;
+  updateSettings: (newSettings: Partial<Settings>) => Promise<void>;
   isLoading: boolean;
 }
 
-const defaultSettings: Settings = {
+export const defaultSettings: Settings = {
   notifications: true,
   locationSharing: false,
   notificationRadius: 5,
   hideNearbyUsers: false,
+};
+
+export const getSettingsStorageKey = (userId?: string | null): string => (
+  `userSettings:${userId || 'guest'}`
+);
+
+export const parseStoredSettings = (value: string | null): Settings => {
+  if (!value) {
+    return defaultSettings;
+  }
+
+  try {
+    return { ...defaultSettings, ...JSON.parse(value) };
+  } catch {
+    return defaultSettings;
+  }
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -34,65 +51,103 @@ interface SettingsProviderProps {
 }
 
 export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) => {
+  const { user } = useAuth();
   const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const settingsRef = useRef<Settings>(defaultSettings);
   const [isLoading, setIsLoading] = useState(true);
+  const storageKey = getSettingsStorageKey(user?.id);
 
-  // Load settings from storage on mount
   useEffect(() => {
+    let isActive = true;
+
     const loadSettings = async () => {
+      setIsLoading(true);
+
       try {
-        const storedSettings = await storageManager.get('userSettings');
-        if (storedSettings) {
-          const parsedSettings = JSON.parse(storedSettings);
-          // Merge with defaults to handle new settings
-          setSettings({ ...defaultSettings, ...parsedSettings });
+        let storedSettings = await storageManager.get(storageKey);
+
+        // Migrate the previous unscoped key once, without leaking it to future accounts.
+        if (!storedSettings && user?.id) {
+          storedSettings = await storageManager.get('userSettings');
+          if (storedSettings) {
+            await storageManager.remove('userSettings');
+          }
+        }
+
+        const loadedSettings = parseStoredSettings(storedSettings);
+
+        if (user?.id) {
+          const { data, error } = await supabase
+            .from('users')
+            .select('location_sharing')
+            .eq('user_id', user.id)
+            .limit(2);
+
+          if (!error && data?.length === 1 && typeof data[0].location_sharing === 'boolean') {
+            loadedSettings.locationSharing = data[0].location_sharing;
+          } else if (!error && data && data.length > 1) {
+            console.error('Duplicate profile records found while loading settings.');
+          }
+        }
+
+        if (isActive) {
+          settingsRef.current = loadedSettings;
+          setSettings(loadedSettings);
+          await storageManager.set(storageKey, JSON.stringify(loadedSettings));
         }
       } catch (error) {
         console.error('Error loading settings:', error);
+        if (isActive) {
+          settingsRef.current = defaultSettings;
+          setSettings(defaultSettings);
+        }
       } finally {
-        setIsLoading(false);
+        if (isActive) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadSettings();
-  }, []);
 
-  // Save settings to storage whenever they change
-  const updateSettings = async (newSettings: Partial<Settings>) => {
-    const updatedSettings = { ...settings, ...newSettings };
+    return () => {
+      isActive = false;
+    };
+  }, [storageKey, user?.id]);
+
+  const updateSettings = async (newSettings: Partial<Settings>): Promise<void> => {
+    const previousSettings = settingsRef.current;
+    const updatedSettings = { ...previousSettings, ...newSettings };
+
+    settingsRef.current = updatedSettings;
     setSettings(updatedSettings);
+    await storageManager.set(storageKey, JSON.stringify(updatedSettings));
 
     try {
-      await storageManager.set('userSettings', JSON.stringify(updatedSettings));
-      console.log('Settings updated:', updatedSettings);
+      if (
+        user?.id &&
+        newSettings.locationSharing !== undefined &&
+        newSettings.locationSharing !== previousSettings.locationSharing
+      ) {
+        const success = await userLocationService.updateLocationSharingPreference(
+          user.id,
+          newSettings.locationSharing,
+        );
 
-      // Sync location sharing preference with server if it changed
-      if (newSettings.locationSharing !== undefined && newSettings.locationSharing !== settings.locationSharing) {
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            const success = await userLocationService.updateLocationSharingPreference(user.id, newSettings.locationSharing);
-            if (!success) {
-              console.error('Failed to sync location sharing preference with server');
-            }
-          }
-        } catch (error) {
-          console.error('Error syncing location sharing with server:', error);
+        if (!success) {
+          throw new Error('Location sharing could not be saved to your account.');
         }
       }
     } catch (error) {
-      console.error('Error saving settings:', error);
+      settingsRef.current = previousSettings;
+      setSettings(previousSettings);
+      await storageManager.set(storageKey, JSON.stringify(previousSettings));
+      throw error;
     }
   };
 
-  const value: SettingsContextType = {
-    settings,
-    updateSettings,
-    isLoading,
-  };
-
   return (
-    <SettingsContext.Provider value={value}>
+    <SettingsContext.Provider value={{ settings, updateSettings, isLoading }}>
       {children}
     </SettingsContext.Provider>
   );

@@ -1,15 +1,22 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import i18n from '../i18n';
+import type { User } from '../types';
+
+import { useAuth } from './AuthContext';
 
 interface LanguageContextType {
-  currentLanguage: string;
-  changeLanguage: (language: string, updateProfile?: (data: any) => Promise<void>, user?: any) => Promise<void>;
-  isRTL: boolean;
+  currentLanguage: 'en';
+  changeLanguage: (
+    language: string,
+    updateProfile?: (data: Partial<User>) => Promise<unknown>,
+    user?: User | null,
+  ) => Promise<void>;
+  isRTL: false;
   isInitialized: boolean;
   isChanging: boolean;
-  isTranslating: boolean;
+  isTranslating: false;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -18,137 +25,73 @@ interface LanguageProviderProps {
   children: ReactNode;
 }
 
+export const getLanguageStorageKey = (userId: string): string => `language:${userId}`;
+
+export const normalizeSupportedLanguage = (_language?: string | null): 'en' => 'en';
+
+const enforceEnglishDocument = async () => {
+  await i18n.changeLanguage('en');
+  localStorage.setItem('language', 'en');
+  localStorage.setItem('i18nextLng', 'en');
+  document.documentElement.lang = 'en';
+  document.documentElement.dir = 'ltr';
+  document.documentElement.classList.remove('rtl');
+  document.documentElement.classList.add('ltr');
+  document.body.classList.remove('rtl');
+};
+
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
-  const [currentLanguage, setCurrentLanguage] = useState('en');
+  const { user: authenticatedUser } = useAuth();
   const [isInitialized, setIsInitialized] = useState(false);
   const [isChanging, setIsChanging] = useState(false);
-  const [isTranslating, setIsTranslating] = useState(false);
-
-  // RTL languages
-  const rtlLanguages = ['ar'];
 
   useEffect(() => {
-    const initializeLanguage = async () => {
-      try {
-        // Load language from localStorage or default to 'en'
-        const savedLanguage = localStorage.getItem('language') || 'en';
-
-        // Change i18n language first
-        await i18n.changeLanguage(savedLanguage);
-
-        // Then update state and DOM after i18n is ready
-        setCurrentLanguage(savedLanguage);
-
-        // Set initial direction after i18n is ready
-        const direction = rtlLanguages.includes(savedLanguage) ? 'rtl' : 'ltr';
-        document.documentElement.dir = direction;
-        document.documentElement.lang = savedLanguage;
-
-        if (rtlLanguages.includes(savedLanguage)) {
-          document.body.classList.add('rtl');
-        } else {
-          document.body.classList.remove('rtl');
-        }
-
-        setIsInitialized(true);
-        console.log(`Language initialized to ${savedLanguage} with direction ${direction}`);
-      } catch (error) {
-        console.error('Error initializing language:', error);
-        // Fallback to English
-        setCurrentLanguage('en');
-        setIsInitialized(true);
-      }
-    };
-
-    initializeLanguage();
+    enforceEnglishDocument()
+      .catch((error) => console.error('Error initializing English language:', error))
+      .finally(() => setIsInitialized(true));
   }, []);
 
-  // Listen for translation events to update isTranslating state
   useEffect(() => {
-    const handleMissingKey = () => {
-      // Use setTimeout to avoid updating state during render
-      setTimeout(() => {
-        setIsTranslating(true);
-        // Reset translating state after a short delay
-        setTimeout(() => setIsTranslating(false), 1000);
-      }, 0);
-    };
+    if (!isInitialized || !authenticatedUser) {
+      return;
+    }
 
-    const handleLanguageChanged = () => {
-      setIsTranslating(false);
-    };
+    localStorage.setItem(getLanguageStorageKey(authenticatedUser.id), 'en');
+  }, [authenticatedUser, isInitialized]);
 
-    i18n.on('missingKey', handleMissingKey);
-    i18n.on('languageChanged', handleLanguageChanged);
-
-    return () => {
-      i18n.off('missingKey', handleMissingKey);
-      i18n.off('languageChanged', handleLanguageChanged);
-    };
-  }, []);
-
-  const changeLanguage = async (language: string, updateProfile?: (data: any) => Promise<void>, user?: any) => {
-    // Prevent changing to the same language or if already changing
-    if (language === currentLanguage || isChanging) {
+  const changeLanguage = async (
+    _language: string,
+    updateProfile?: (data: Partial<User>) => Promise<unknown>,
+    user?: User | null,
+  ) => {
+    if (isChanging) {
       return;
     }
 
     setIsChanging(true);
-
     try {
-      // Update document direction and language immediately for instant visual feedback
-      const direction = rtlLanguages.includes(language) ? 'rtl' : 'ltr';
-      document.documentElement.dir = direction;
-      document.documentElement.lang = language;
+      await enforceEnglishDocument();
 
-      // Update body class for RTL styling
-      if (rtlLanguages.includes(language)) {
-        document.body.classList.add('rtl');
-      } else {
-        document.body.classList.remove('rtl');
+      if (user?.id) {
+        localStorage.setItem(getLanguageStorageKey(user.id), 'en');
       }
 
-      // Now change the i18n language
-      await i18n.changeLanguage(language);
-
-      // Update state after successful language change
-      setCurrentLanguage(language);
-
-      // Save to localStorage
-      localStorage.setItem('language', language);
-
-      // Update user profile if authenticated and updateProfile function is provided
-      if (user && updateProfile) {
-        await updateProfile({ language });
-      }
-
-      console.log(`Language changed to ${language} with direction ${direction}`);
-    } catch (error) {
-      console.error('Error changing language:', error);
-      // Revert direction changes on error
-      const currentDirection = rtlLanguages.includes(currentLanguage) ? 'rtl' : 'ltr';
-      document.documentElement.dir = currentDirection;
-      document.documentElement.lang = currentLanguage;
-      if (rtlLanguages.includes(currentLanguage)) {
-        document.body.classList.add('rtl');
-      } else {
-        document.body.classList.remove('rtl');
+      if (user && updateProfile && user.language !== 'en') {
+        await updateProfile({ language: 'en' });
       }
     } finally {
       setIsChanging(false);
     }
   };
 
-  const isRTL = rtlLanguages.includes(currentLanguage);
-
   return (
     <LanguageContext.Provider value={{
-      currentLanguage,
+      currentLanguage: 'en',
       changeLanguage,
-      isRTL,
+      isRTL: false,
       isInitialized,
       isChanging,
-      isTranslating,
+      isTranslating: false,
     }}>
       {children}
     </LanguageContext.Provider>

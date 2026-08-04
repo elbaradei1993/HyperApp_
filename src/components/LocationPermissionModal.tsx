@@ -18,12 +18,13 @@ const LocationPermissionModal: React.FC<LocationPermissionModalProps> = ({
   const primaryActionRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
     if (isOpen) {
       document.body.style.overflow = 'hidden';
       primaryActionRef.current?.focus();
     }
     return () => {
-      document.body.style.overflow = 'auto';
+      document.body.style.overflow = previousOverflow;
     };
   }, [isOpen]);
 
@@ -52,23 +53,25 @@ const LocationPermissionModal: React.FC<LocationPermissionModalProps> = ({
 
   return (
     <div
+      className="app-modal-overlay"
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
         background: 'rgba(0,0,0,0.72)',
         backdropFilter: 'blur(6px)',
         WebkitBackdropFilter: 'blur(6px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '16px',
+        width: '100%', height: '100%', padding: 0, boxSizing: 'border-box',
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       onKeyDown={handleKeyDown}
     >
       <div
+        className="app-modal-dialog location-permission-dialog"
         style={{
           background: '#111318',
           border: '0.5px solid rgba(255,255,255,0.1)',
           borderRadius: '22px',
-          width: '100%', maxWidth: '480px',
+          width: 'calc(100% - 32px)', maxWidth: '480px', boxSizing: 'border-box',
           maxHeight: '90vh',
           overflow: 'hidden',
           display: 'flex', flexDirection: 'column',
@@ -82,7 +85,7 @@ const LocationPermissionModal: React.FC<LocationPermissionModalProps> = ({
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           flexShrink: 0,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
             <div style={{
               width: '40px', height: '40px', borderRadius: '10px',
               background: 'rgba(255,59,92,0.12)',
@@ -91,8 +94,8 @@ const LocationPermissionModal: React.FC<LocationPermissionModalProps> = ({
             }}>
               <AlertTriangle size={18} color="#ff3b5c" />
             </div>
-            <div>
-              <div style={{ fontSize: '16px', fontWeight: '700', color: '#f4f4f5', lineHeight: 1.2 }}>
+            <div style={{ minWidth: 0 }}>
+              <div id="location-permission-title" style={{ fontSize: '16px', fontWeight: '700', color: '#f4f4f5', lineHeight: 1.2 }}>
                 {t('location.permission.title', 'Location Access Required')}
               </div>
               <div style={{ fontSize: '11px', color: '#71717a', marginTop: '2px' }}>

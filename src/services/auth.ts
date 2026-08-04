@@ -4,9 +4,134 @@ import { AuthResponse, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { User as AppUser } from '../types';
 
-// Supabase configuration
-const supabaseUrl = 'https://nqwejzbayquzsvcodunl.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xd2VqemJheXF1enN2Y29kdW5sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzOTA0MjAsImV4cCI6MjA3Mzk2NjQyMH0.01yifC-tfEbBHD5u315fpb_nZrqMZCbma_UrMacMb78';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+type ProfileQueryError = {
+  code: 'PROFILE_NOT_FOUND' | 'PROFILE_DUPLICATE';
+  message: string;
+  details: string;
+};
+
+type ProfileQueryResult<T> = {
+  data: T | null;
+  error: ProfileQueryError | null;
+};
+
+const PROFILE_WRITE_FIELDS: ReadonlyArray<keyof AppUser> = [
+  'email',
+  'username',
+  'first_name',
+  'last_name',
+  'phone',
+  'profile_picture_url',
+  'location',
+  'interests',
+  'reputation',
+  'language',
+  'profile_completed_at',
+  'onboarding_completed',
+  'verification_level',
+  'verified_at',
+  'verification_badge_earned_at',
+  'email_verified',
+];
+
+export const sanitizeProfileUpdates = (updates: Partial<AppUser>): Partial<AppUser> =>
+  PROFILE_WRITE_FIELDS.reduce<Partial<AppUser>>((payload, field) => {
+    if (updates[field] !== undefined) {
+      (payload as Record<string, unknown>)[field] = updates[field];
+    }
+    return payload;
+  }, {});
+
+const AUTH_METADATA_FIELDS: ReadonlyArray<keyof AppUser> = [
+  'username',
+  'first_name',
+  'last_name',
+  'phone',
+  'profile_picture_url',
+  'location',
+  'interests',
+  'language',
+  'profile_completed_at',
+  'onboarding_completed',
+];
+
+export const buildAuthProfileMetadata = (updates: Partial<AppUser>): Partial<AppUser> =>
+  AUTH_METADATA_FIELDS.reduce<Partial<AppUser>>((metadata, field) => {
+    if (updates[field] !== undefined) {
+      (metadata as Record<string, unknown>)[field] = updates[field];
+    }
+    return metadata;
+  }, {});
+
+export const buildProfileUpsertPayload = (
+  userId: string,
+  updates: Partial<AppUser>,
+  authIdentity: { email?: string | null; username?: string | null },
+) => ({
+  user_id: userId,
+  username: authIdentity.username || authIdentity.email?.split('@')[0] || 'User',
+  email: authIdentity.email || '',
+  reputation: 0,
+  language: 'en',
+  ...sanitizeProfileUpdates(updates),
+});
+
+/**
+ * PostgREST's single-row coercion returns the opaque PGRST116 message when a
+ * query finds either zero rows or more than one row. Keep the response as an
+ * array and validate it here so callers receive an actionable error instead.
+ */
+export const resolveProfileRow = <T>(
+  rows: T[] | null | undefined,
+  operation: 'load' | 'create' | 'update',
+  allowMissing = false,
+): ProfileQueryResult<T> => {
+  const rowCount = rows?.length ?? 0;
+
+  if (rowCount === 0) {
+    if (allowMissing) {
+      return { data: null, error: null };
+    }
+
+    return {
+      data: null,
+      error: {
+        code: 'PROFILE_NOT_FOUND',
+        message: `Profile ${operation} failed because no accessible profile record was found.`,
+        details: 'The users query returned zero rows. The profile may be missing or blocked by row-level security.',
+      },
+    };
+  }
+
+  if (rowCount > 1) {
+    return {
+      data: null,
+      error: {
+        code: 'PROFILE_DUPLICATE',
+        message: 'This account has duplicate profile records. Please contact support so the account data can be repaired safely.',
+        details: `Expected one users row but received ${rowCount}.`,
+      },
+    };
+  }
+
+  return { data: rows![0], error: null };
+};
+
+export const mergeAuthIdentity = (
+  authUser: Pick<User, 'id' | 'email' | 'email_confirmed_at'>,
+  profile: Partial<AppUser>,
+): AppUser => ({
+  ...profile,
+  // Never allow a primary key from the public profile table to replace the
+  // auth ID used in every users.user_id filter.
+  id: authUser.id,
+  email: authUser.email || profile.email || '',
+  email_verified: Boolean(authUser.email_confirmed_at),
+  email_verified_at: authUser.email_confirmed_at,
+});
 
 class AuthService {
   // Authentication methods
@@ -186,39 +311,119 @@ class AuthService {
 
   // User profile methods
   async createUserProfile(userId: string, profileData: Partial<AppUser>): Promise<any> {
-    const { data, error } = await supabase
+    const payload = buildProfileUpsertPayload(userId, profileData, {
+      email: profileData.email,
+      username: profileData.username,
+    });
+    const { data: rows, error } = await supabase
       .from('users')
-      .insert([{
-        user_id: userId,
-        ...profileData,
-        reputation: 0,
-        language: 'en',
-      }])
-      .select()
-      .single();
+      .upsert(payload, { onConflict: 'user_id' })
+      .select();
 
-    return { data, error };
+    if (error) {
+      return { data: null, error };
+    }
+
+    return resolveProfileRow(rows, 'create');
   }
 
   async getUserProfile(userId: string): Promise<any> {
-    const { data, error } = await supabase
+    const { data: rows, error } = await supabase
       .from('users')
       .select('*')
       .eq('user_id', userId)
-      .maybeSingle();
+      .limit(2);
 
-    return { data, error };
+    if (error) {
+      return { data: null, error };
+    }
+
+    return resolveProfileRow(rows, 'load', true);
   }
 
   async updateUserProfile(userId: string, updates: Partial<AppUser>): Promise<any> {
-    const { data, error } = await supabase
-      .from('users')
-      .update(updates)
-      .eq('user_id', userId)
-      .select()
-      .single();
+    const { data: authData, error: authLookupError } = await supabase.auth.getUser();
+    if (authLookupError) {
+      return { data: null, error: authLookupError };
+    }
 
-    return { data, error };
+    let authenticatedUser = authData.user;
+    if (!authenticatedUser || authenticatedUser.id !== userId) {
+      return {
+        data: null,
+        error: {
+          code: 'PROFILE_NOT_FOUND',
+          message: 'The signed-in account does not match the profile being updated.',
+          details: 'The Auth user ID did not match users.user_id.',
+        },
+      };
+    }
+
+    if (updates.email) {
+      if (authenticatedUser.email && authenticatedUser.email !== updates.email) {
+        const { error: authEmailError } = await supabase.auth.updateUser({ email: updates.email });
+        if (authEmailError) {
+          return { data: null, error: authEmailError };
+        }
+      }
+    }
+
+    const safeUpdates = sanitizeProfileUpdates(updates);
+    const authMetadata = buildAuthProfileMetadata(safeUpdates);
+    let metadataSaved = Object.keys(authMetadata).length === 0;
+    let metadataError: unknown = null;
+
+    if (!metadataSaved) {
+      const { data: updatedAuthData, error: authMetadataError } = await supabase.auth.updateUser({
+        data: authMetadata,
+      });
+      metadataSaved = !authMetadataError;
+      metadataError = authMetadataError;
+      authenticatedUser = updatedAuthData.user || authenticatedUser;
+    }
+
+    const { data: rows, error } = await supabase
+      .from('users')
+      .update(safeUpdates)
+      .eq('user_id', userId)
+      .select();
+
+    if (error) {
+      if (metadataSaved) {
+        console.warn('Public profile update failed; changes were preserved in Auth metadata.', error);
+        return { data: safeUpdates, error: null, warning: error };
+      }
+      return { data: null, error };
+    }
+
+    const updateResult = resolveProfileRow(rows, 'update', true);
+    if (updateResult.data || updateResult.error) {
+      return updateResult;
+    }
+
+    // Older accounts can have a valid Auth identity but no public.users row.
+    // Repair that state during the save instead of asking the user to sign out.
+    const repairPayload = buildProfileUpsertPayload(userId, safeUpdates, {
+      email: authenticatedUser.email,
+      username: authenticatedUser.user_metadata?.username || authenticatedUser.user_metadata?.display_name,
+    });
+    const { data: repairedRows, error: repairError } = await supabase
+      .from('users')
+      .upsert(repairPayload, { onConflict: 'user_id' })
+      .select();
+
+    if (repairError) {
+      if (metadataSaved) {
+        console.warn('Public profile repair failed; changes were preserved in Auth metadata.', repairError);
+        return { data: safeUpdates, error: null, warning: repairError };
+      }
+      if (metadataError) {
+        console.error('Auth metadata backup also failed.', metadataError);
+      }
+      return { data: null, error: repairError };
+    }
+
+    return resolveProfileRow(repairedRows, 'update');
   }
 
 
@@ -229,10 +434,9 @@ class AuthService {
       // First check if profile exists
       const { data: profile, error } = await this.getUserProfile(authUser.id);
 
-      if (error && error.code !== 'PGRST116') {
-        // PGRST116 is "not found" error, which is expected for new users
-        console.warn('Profile fetch error:', error);
-        // Continue to create profile instead of throwing
+      if (error) {
+        console.error('Profile fetch error:', error);
+        throw new Error(error.message || 'The profile could not be loaded.');
       }
 
       // Check for pending profile data from signup
@@ -252,20 +456,18 @@ class AuthService {
         // Profile exists, merge with any pending data and update if needed
         console.log('Found existing profile for user:', authUser.id);
 
-        let mergedProfile = {
-          id: authUser.id,
-          email: authUser.email!,
-          email_verified: authUser.email_confirmed_at ? true : false,
-          email_verified_at: authUser.email_confirmed_at,
-          ...profile,
-        };
+        const metadataProfile = sanitizeProfileUpdates(authUser.user_metadata as Partial<AppUser>);
+        let mergedProfile = mergeAuthIdentity(authUser, { ...profile, ...metadataProfile });
 
         // If we have pending profile data and the profile is incomplete, update it
         if (pendingProfile && !profile.first_name) {
           console.log('Updating existing profile with pending data');
           try {
-            await this.updateUserProfile(authUser.id, pendingProfile);
-            mergedProfile = { ...mergedProfile, ...pendingProfile };
+            const pendingUpdate = await this.updateUserProfile(authUser.id, pendingProfile);
+            if (pendingUpdate.error || !pendingUpdate.data) {
+              throw new Error(pendingUpdate.error?.message || 'Pending profile data could not be saved.');
+            }
+            mergedProfile = mergeAuthIdentity(authUser, { ...mergedProfile, ...pendingProfile });
             // Clear the pending data
             if (typeof localStorage !== 'undefined') {
               localStorage.removeItem(pendingProfileKey);
@@ -285,12 +487,14 @@ class AuthService {
                         authUser.email?.split('@')[0] ||
                         'User';
 
+        const metadataProfile = sanitizeProfileUpdates(authUser.user_metadata as Partial<AppUser>);
         const profileData = {
           username,
           email: authUser.email,
           reputation: 0,
           language: authUser.user_metadata?.language || 'en',
           email_verified: authUser.email_confirmed_at ? true : false,
+          ...metadataProfile,
         };
 
         const { data: newProfile, error: createError } = await this.createUserProfile(authUser.id, profileData);
@@ -307,22 +511,18 @@ class AuthService {
             language: 'en',
             email_verified: authUser.email_confirmed_at ? true : false,
             email_verified_at: authUser.email_confirmed_at,
+            ...metadataProfile,
           };
           return minimalProfile;
         }
 
         console.log('Profile created successfully');
-        return {
-          id: authUser.id,
-          email: authUser.email!,
-          email_verified: authUser.email_confirmed_at ? true : false,
-          email_verified_at: authUser.email_confirmed_at,
-          ...newProfile,
-        };
+        return mergeAuthIdentity(authUser, newProfile);
       }
     } catch (error) {
       console.error('Profile sync failed:', error);
       // Return minimal user object to prevent auth failure
+      const metadataProfile = sanitizeProfileUpdates(authUser.user_metadata as Partial<AppUser>);
       const fallbackUser: AppUser = {
         id: authUser.id,
         email: authUser.email!,
@@ -331,6 +531,7 @@ class AuthService {
         language: 'en',
         email_verified: authUser.email_confirmed_at ? true : false,
         email_verified_at: authUser.email_confirmed_at,
+        ...metadataProfile,
       };
       console.log('Using fallback user profile');
       return fallbackUser;
@@ -339,7 +540,7 @@ class AuthService {
 
   // Auth state listener
   onAuthStateChange(callback: (user: User | null) => void) {
-    return supabase.auth.onAuthStateChange((event, session) => {
+    return supabase.auth.onAuthStateChange((_event, session) => {
       callback(session?.user || null);
     });
   }

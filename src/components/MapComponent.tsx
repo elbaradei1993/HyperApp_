@@ -94,29 +94,6 @@ const ControlButton: React.FC<{
   left?: string;
   variant?: 'default' | 'heatmap' | 'voice' | 'recenter';
 }> = ({ children, onClick, title, top, left, variant = 'default' }) => {
-  // Use theme variables for backgrounds
-  const getGradient = (variant: string) => {
-    switch (variant) {
-    case 'heatmap':
-      return 'linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%)';
-    case 'voice':
-      return 'linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%)';
-    case 'recenter':
-      return 'linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%)';
-    default:
-      return 'linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%)';
-    }
-  };
-
-  // Enhanced shadow with multiple layers using theme variables
-  const getShadow = (variant: string) => {
-    const baseShadow = 'var(--shadow-lg)';
-    if (variant === 'default') {
-      return `${baseShadow}, var(--shadow-sm)`;
-    }
-    return baseShadow;
-  };
-
   return (
     <button
       onClick={onClick}
@@ -128,43 +105,36 @@ const ControlButton: React.FC<{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: getGradient(variant),
-        border: variant === 'default' ? '1px solid rgba(0,0,0,0.08)' : 'none',
+        background: 'rgba(255,255,255,0.96)',
+        border: '1px solid rgba(15, 23, 42, 0.08)',
         cursor: 'pointer',
         borderRadius: '12px',
-        boxShadow: getShadow(variant),
-        // Mobile touch improvements
+        boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)',
         WebkitTapHighlightColor: 'transparent',
         WebkitAppearance: 'none',
         touchAction: 'manipulation',
-        // Better accessibility
         minWidth: '44px',
         minHeight: '44px',
-        // Positioning
         position: 'absolute',
         top,
         ...(left ? { left } : { right: '10px' }),
-        zIndex: 1000,
-        // Modern transitions
-        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-        // Hover effects
+        zIndex: 40,
+        transition: 'transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease',
         transform: 'translateY(0)',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-2px) scale(1.05)';
-        e.currentTarget.style.boxShadow = variant === 'default'
-          ? '0 8px 25px rgba(0,0,0,0.15), 0 4px 10px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.05)'
-          : '0 8px 25px rgba(0,0,0,0.2), 0 4px 10px rgba(0,0,0,0.15)';
+        e.currentTarget.style.transform = 'translateY(-1px) scale(1.02)';
+        e.currentTarget.style.boxShadow = '0 12px 26px rgba(15, 23, 42, 0.12)';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = 'translateY(0) scale(1)';
-        e.currentTarget.style.boxShadow = getShadow(variant);
+        e.currentTarget.style.boxShadow = '0 10px 24px rgba(15, 23, 42, 0.08)';
       }}
       onMouseDown={(e) => {
         e.currentTarget.style.transform = 'translateY(0) scale(0.98)';
       }}
       onMouseUp={(e) => {
-        e.currentTarget.style.transform = 'translateY(-2px) scale(1.05)';
+        e.currentTarget.style.transform = 'translateY(-1px) scale(1.02)';
       }}
     >
       {children}
@@ -181,19 +151,19 @@ const RecenterControl: React.FC<{ userLocation: [number, number] | null }> = ({ 
       top="48px"
       variant="recenter"
     >
-      <Crosshair size={20} color="black" />
+      <Crosshair size={20} color="#0f172a" />
     </ControlButton>
   );
 };
 
-const HeatmapToggleControl: React.FC<{ isVisible: boolean, onToggle: () => void }> = ({ isVisible, onToggle }) => (
+const HeatmapToggleControl: React.FC<{ isVisible: boolean; onToggle: () => void }> = ({ onToggle }) => (
   <ControlButton
     onClick={onToggle}
     title="Toggle Heatmap"
     top="133px"
     variant="heatmap"
   >
-    <Layers size={20} color="black" />
+    <Layers size={20} color="#0f172a" />
   </ControlButton>
 );
 
@@ -216,7 +186,7 @@ const ZoomInControl: React.FC = () => {
       left="10px"
       variant="default"
     >
-      <ZoomIn size={20} color="var(--text-primary)" />
+      <ZoomIn size={20} color="#0f172a" />
     </ControlButton>
   );
 };
@@ -231,7 +201,7 @@ const ZoomOutControl: React.FC = () => {
       left="10px"
       variant="default"
     >
-      <ZoomOut size={20} color="var(--text-primary)" />
+      <ZoomOut size={20} color="#0f172a" />
     </ControlButton>
   );
 };
@@ -592,7 +562,7 @@ const VibeMarker: React.FC<{
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.9 }}
             className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-72 rounded-2xl shadow-2xl p-4"
-            style={{ background: 'var(--bg-surface)', border: '0.5px solid var(--wire)' }}
+            style={{ background: 'rgba(255,255,255,0.98)', border: '0.5px solid var(--wire)' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -620,7 +590,7 @@ const VibeMarker: React.FC<{
             )}
 
             {/* Actions */}
-            <div className="flex items-center gap-4 pt-3 border-t border-gray-100 dark:border-gray-800">
+            <div className="flex items-center gap-4 pt-3 border-t border-gray-100">
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={() => {
@@ -663,7 +633,7 @@ const SOSMarker: React.FC<{
       icon={sosIcon}
     >
       <Popup>
-        <div style={{ color: 'var(--t1)', maxWidth: '320px', background: 'var(--bg-surface)', padding: '8px 0' }}>
+        <div style={{ color: 'var(--t1)', maxWidth: '320px', background: 'rgba(255,255,255,0.98)', padding: '8px 0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
             <div>
               <strong style={{ color: 'var(--t1)' }}>🚨 SOS Alert!</strong>
@@ -730,10 +700,10 @@ const OtherUserMarker: React.FC<{
       <Popup>
         <div style={{
           padding: '16px',
-          background: 'var(--bg-primary)',
+          background: 'rgba(255,255,255,0.98)',
           borderRadius: '8px',
           boxShadow: 'var(--shadow-lg)',
-          border: '1px solid var(--border-color)',
+          border: '1px solid rgba(15, 23, 42, 0.08)',
           maxWidth: '280px',
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -860,8 +830,8 @@ const MapComponent: React.FC<MapComponentProps> = React.memo(({
 
   return (
     <>
-
-      <MapContainer center={center} zoom={zoom} scrollWheelZoom={true} style={{ height: '100%', width: '100%', background: '#09090b' }}>
+      <div className="map-view-shell" style={{ position: 'relative', width: '100%', minHeight: 'calc(100dvh - 168px)', height: 'calc(100dvh - 168px)' }}>
+        <MapContainer center={center} zoom={zoom} scrollWheelZoom={true} style={{ height: '100%', width: '100%', minHeight: '100%', background: '#f6f7fb' }}>
         <MapFlyController center={center} zoom={zoom} />
         <SearchFlyController searchLocation={searchLocation} />
         <TargetLocationController targetLocation={targetLocation} />
@@ -874,7 +844,7 @@ const MapComponent: React.FC<MapComponentProps> = React.memo(({
 
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           maxZoom={20}
         />
         {userLocation && (
@@ -885,10 +855,10 @@ const MapComponent: React.FC<MapComponentProps> = React.memo(({
             <Popup>
               <div style={{
                 padding: '20px',
-                background: 'var(--bg-primary)',
+                background: 'rgba(255,255,255,0.98)',
                 borderRadius: '12px',
                 boxShadow: 'var(--shadow-lg)',
-                border: '1px solid var(--border-color)',
+                border: '1px solid rgba(15, 23, 42, 0.08)',
                 maxWidth: '280px',
                 whiteSpace: 'nowrap',
               }}>
@@ -925,10 +895,10 @@ const MapComponent: React.FC<MapComponentProps> = React.memo(({
             <Popup className="custom-popup">
               <div style={{
                 padding: '16px',
-                background: 'var(--bg-primary)',
+                background: 'rgba(255,255,255,0.98)',
                 borderRadius: '8px',
                 boxShadow: 'var(--shadow-lg)',
-                border: '1px solid var(--border-color)',
+                border: '1px solid rgba(15, 23, 42, 0.08)',
                 maxWidth: '320px',
               }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1004,16 +974,11 @@ const MapComponent: React.FC<MapComponentProps> = React.memo(({
       />
 
       {/* Vibe Legend */}
-      <VibeLegend />
+        <VibeLegend />
 
-      {/* Vibe Legend */}
-      <VibeLegend />
-
-      {/* Vibe Legend */}
-      <VibeLegend />
-
-      {/* Dynamic Safety Waves Overlay */}
-      <SafetyWaveOverlay vibes={validVibes} />
+        {/* Dynamic Safety Waves Overlay */}
+        <SafetyWaveOverlay vibes={validVibes} />
+      </div>
     </>
   );
 });

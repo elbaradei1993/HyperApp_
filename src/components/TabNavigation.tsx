@@ -1,18 +1,11 @@
-import React, { useRef, useEffect, useState } from 'react';
+/* eslint-disable no-unused-vars -- the legacy base rule misreads TypeScript callback signatures */
+import React, { useEffect, useRef, useState } from 'react';
+import { LayoutDashboard, Map, Menu, Plus, Settings, User, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import {
-  Map,
-  Users,
-  User,
-  Settings,
-  Plus,
-  Shield,
-  Activity,
-} from 'lucide-react';
 
 import i18n from '../i18n';
 
-export type TabType = 'map' | 'reports' | 'hub' | 'guardian' | 'profile' | 'settings';
+export type TabType = 'dashboard' | 'map' | 'reports' | 'profile' | 'settings';
 
 interface TabNavigationProps {
   activeTab: TabType;
@@ -23,158 +16,108 @@ interface TabNavigationProps {
 const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabChange, onNewReport }) => {
   const { t } = useTranslation();
   const [currentLanguage, setCurrentLanguage] = useState(i18n.language);
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const navigationRef = useRef<React.ElementRef<'nav'>>(null);
 
   const tabs = [
-    {
-      id: 'map' as TabType,
-      label: t('tabs.map'),
-      icon: Map,
-      ariaLabel: t('tabs.map'),
-    },
-    {
-      id: 'reports' as TabType,
-      label: t('tabs.community'),
-      icon: Users,
-      ariaLabel: t('tabs.community'),
-    },
-    {
-      id: 'hub' as TabType,
-      label: t('tabs.hub', 'Hub'),
-      icon: Activity,
-      ariaLabel: t('tabs.hub', 'Hub'),
-    },
-    {
-      id: 'guardian' as TabType,
-      label: t('tabs.guardian', 'Guardian'),
-      icon: Shield,
-      ariaLabel: t('tabs.guardian', 'Guardian'),
-    },
-    {
-      id: 'profile' as TabType,
-      label: t('tabs.profile'),
-      icon: User,
-      ariaLabel: t('tabs.profile'),
-    },
-    {
-      id: 'settings' as TabType,
-      label: t('tabs.settings'),
-      icon: Settings,
-      ariaLabel: t('tabs.settings'),
-    },
+    { id: 'dashboard' as TabType, label: t('tabs.dashboard', 'Overview'), icon: LayoutDashboard },
+    { id: 'map' as TabType, label: t('tabs.map'), icon: Map },
+    { id: 'reports' as TabType, label: t('tabs.community'), icon: Users },
   ];
 
-  useEffect(() => {
-    const handleLanguageChange = (lng: string) => {
-      setCurrentLanguage(lng);
-    };
+  const moreTabs = [
+    { id: 'profile' as TabType, label: t('tabs.profile'), icon: User },
+    { id: 'settings' as TabType, label: t('tabs.settings'), icon: Settings },
+  ];
 
+  const isMoreActive = moreTabs.some((tab) => tab.id === activeTab);
+
+  useEffect(() => {
+    const handleLanguageChange = (language: string) => setCurrentLanguage(language);
     i18n.on('languageChanged', handleLanguageChange);
-    return () => {
-      i18n.off('languageChanged', handleLanguageChange);
-    };
+    return () => i18n.off('languageChanged', handleLanguageChange);
   }, []);
 
-  return (
-    <>
-      <nav
-        style={{
-          display: 'flex',
-          position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          background: 'rgba(9,9,11,0.96)',
-          borderTop: '0.5px solid rgba(255,255,255,0.07)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          alignItems: 'center',
-          padding: '6px 4px',
-          paddingBottom: 'calc(6px + env(safe-area-inset-bottom, 0px))',
-          zIndex: 90,
-          height: '72px',
-        }}
-        aria-label="Main navigation"
-      >
-        {tabs.map((tab, index) => {
-          const isActive = activeTab === tab.id;
-          return (
-            <React.Fragment key={`${tab.id}-${currentLanguage}`}>
-              <button
-                data-tab={tab.id}
-                onClick={() => onTabChange(tab.id)}
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '3px',
-                  padding: '4px 0',
-                  border: 'none',
-                  background: 'transparent',
-                  cursor: 'pointer',
-                  minHeight: '52px',
-                  WebkitTapHighlightColor: 'transparent',
-                }}
-              >
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  <tab.icon
-                    size={20}
-                    color={isActive ? 'var(--accent)' : 'var(--t3)'}
-                    strokeWidth={isActive ? 2.5 : 1.8}
-                  />
-                </div>
-                <span style={{
-                  fontSize: '10px',
-                  fontWeight: isActive ? '600' : '400',
-                  color: isActive ? 'var(--accent)' : 'var(--t3)',
-                  lineHeight: 1,
-                }}>
-                  {tab.label}
-                </span>
-                {isActive && (
-                  <div style={{
-                    width: '3px',
-                    height: '3px',
-                    borderRadius: '50%',
-                    background: 'var(--accent)',
-                  }} />
-                )}
-              </button>
+  useEffect(() => {
+    if (!isMoreOpen) {
+      return undefined;
+    }
 
-              {index === 2 && onNewReport && (
-                <button
-                  onClick={onNewReport}
-                  style={{
-                    width: '42px',
-                    height: '42px',
-                    flexShrink: 0,
-                    borderRadius: '12px',
-                    background: 'var(--accent)',
-                    border: 'none',
-                    color: 'var(--accent-text)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    marginBottom: '4px',
-                    marginTop: '2px',
-                    boxShadow: '0 4px 16px rgba(0,200,150,0.35)',
-                    WebkitTapHighlightColor: 'transparent',
-                  }}
-                >
-                  <Plus size={20} />
-                </button>
-              )}
-            </React.Fragment>
-          );
-        })}
-      </nav>
-    </>
+    const closeMoreMenu = (event: globalThis.PointerEvent) => {
+      if (!navigationRef.current?.contains(event.target as globalThis.Node)) {
+        setIsMoreOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', closeMoreMenu);
+    return () => document.removeEventListener('pointerdown', closeMoreMenu);
+  }, [isMoreOpen]);
+
+  const selectTab = (tab: TabType) => {
+    onTabChange(tab);
+    setIsMoreOpen(false);
+  };
+
+  return (
+    <nav ref={navigationRef} className="tab-navigation" aria-label={t('app.mainNavigation', 'Main navigation')}>
+      {isMoreOpen && (
+        <div className="tab-more-menu" role="menu" aria-label={t('tabs.more', 'More')}>
+          {moreTabs.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              role="menuitem"
+              className={activeTab === id ? 'tab-more-menu__item is-active' : 'tab-more-menu__item'}
+              onClick={() => selectTab(id)}
+            >
+              <Icon size={18} aria-hidden="true" />
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tabs.map((tab, index) => {
+        const isActive = activeTab === tab.id;
+        return (
+          <React.Fragment key={`${tab.id}-${currentLanguage}`}>
+            <button
+              type="button"
+              data-tab={tab.id}
+              className={isActive ? 'tab-navigation__item is-active' : 'tab-navigation__item'}
+              aria-current={isActive ? 'page' : undefined}
+              onClick={() => selectTab(tab.id)}
+            >
+              <span className="tab-navigation__icon"><tab.icon size={19} /></span>
+              <span>{tab.label}</span>
+            </button>
+
+            {index === 1 && onNewReport && (
+              <button
+                type="button"
+                className="tab-navigation__create"
+                onClick={onNewReport}
+                aria-label={t('app.newReport', 'New report')}
+              >
+                <Plus size={20} />
+              </button>
+            )}
+          </React.Fragment>
+        );
+      })}
+
+      <button
+        type="button"
+        className={isMoreActive || isMoreOpen ? 'tab-more-toggle is-active' : 'tab-more-toggle'}
+        aria-expanded={isMoreOpen}
+        aria-haspopup="menu"
+        aria-label={t('tabs.more', 'More')}
+        onClick={() => setIsMoreOpen((open) => !open)}
+      >
+        <span className="tab-more-toggle__icon"><Menu size={19} aria-hidden="true" /></span>
+        <span>{t('tabs.more', 'More')}</span>
+      </button>
+    </nav>
   );
 };
 

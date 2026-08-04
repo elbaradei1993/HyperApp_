@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { AuthResponse } from '@supabase/supabase-js';
 
-import type { User, AuthState } from '../types';
+import type { User } from '../types';
 import { authService } from '../services/auth';
 import { logger } from '../lib/logger';
 
@@ -19,6 +19,18 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const requireProfileUpdateData = (response: any): Partial<User> => {
+  if (response?.error) {
+    throw new Error(response.error.message || 'Profile changes could not be saved.');
+  }
+
+  if (!response?.data) {
+    throw new Error('Profile changes were not returned by the server.');
+  }
+
+  return response.data;
+};
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -146,10 +158,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (!user) {
       throw new Error('No user logged in');
     }
+
     const response = await authService.updateUserProfile(user.id, updates);
-    if (response.data) {
-      setUser({ ...user, ...response.data });
-    }
+    const savedProfile = requireProfileUpdateData(response);
+
+    setUser((currentUser) => (
+      currentUser ? { ...currentUser, ...savedProfile } : currentUser
+    ));
     return response;
   };
 
