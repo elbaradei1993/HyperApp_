@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from 'react-leaflet';
-import { Crosshair, Layers, Mic, Heart, MapPin, Clock, MessageCircle, ZoomIn, ZoomOut, Users } from 'lucide-react';
+import { Crosshair, Layers, Heart, MapPin, Clock, MessageCircle, Search, ZoomIn, ZoomOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import L from 'leaflet';
 
@@ -11,13 +11,9 @@ import { userLocationService, NearbyUser } from '../services/userLocationService
 import { useAuth } from '../contexts/AuthContext';
 
 import { IconHeartPulse } from './Icons';
-import { getVibeIcon, sosIcon, userLocationIcon } from './MapIcons';
-import { MapMarker } from './MapMarker';
+import { createVibeMarkerIcon, sosIcon, userLocationIcon } from './MapIcons';
 import VibeReportModal from './VibeReportModal';
 import LocationSearchModal from './LocationSearchModal';
-import LocationSearchButton from './LocationSearchButton';
-import SafetyWaveOverlay from './SafetyWaveOverlay';
-import VibeLegend from './VibeLegend';
 
 import 'leaflet/dist/leaflet.css';
 // Import heatmap plugin
@@ -90,119 +86,68 @@ const ControlButton: React.FC<{
   children: React.ReactNode;
   onClick: () => void;
   title: string;
-  top: string;
-  left?: string;
-  variant?: 'default' | 'heatmap' | 'voice' | 'recenter';
-}> = ({ children, onClick, title, top, left, variant = 'default' }) => {
+  active?: boolean;
+  disabled?: boolean;
+}> = ({ children, onClick, title, active = false, disabled = false }) => {
   return (
     <button
-      onClick={onClick}
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
       title={title}
-      className="modern-map-control-button"
-      style={{
-        width: '44px',
-        height: '44px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(255,255,255,0.96)',
-        border: '1px solid rgba(15, 23, 42, 0.08)',
-        cursor: 'pointer',
-        borderRadius: '12px',
-        boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)',
-        WebkitTapHighlightColor: 'transparent',
-        WebkitAppearance: 'none',
-        touchAction: 'manipulation',
-        minWidth: '44px',
-        minHeight: '44px',
-        position: 'absolute',
-        top,
-        ...(left ? { left } : { right: '10px' }),
-        zIndex: 40,
-        transition: 'transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease',
-        transform: 'translateY(0)',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-1px) scale(1.02)';
-        e.currentTarget.style.boxShadow = '0 12px 26px rgba(15, 23, 42, 0.12)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'translateY(0) scale(1)';
-        e.currentTarget.style.boxShadow = '0 10px 24px rgba(15, 23, 42, 0.08)';
-      }}
-      onMouseDown={(e) => {
-        e.currentTarget.style.transform = 'translateY(0) scale(0.98)';
-      }}
-      onMouseUp={(e) => {
-        e.currentTarget.style.transform = 'translateY(-1px) scale(1.02)';
-      }}
+      aria-label={title}
+      aria-pressed={active || undefined}
+      className={active ? 'modern-map-control-button is-active' : 'modern-map-control-button'}
+      disabled={disabled}
     >
       {children}
     </button>
   );
 };
 
-const RecenterControl: React.FC<{ userLocation: [number, number] | null }> = ({ userLocation }) => {
+const MapControlDock: React.FC<{
+  userLocation: [number, number] | null;
+  isHeatmapVisible: boolean;
+  onToggleHeatmap: () => void;
+  onOpenLocationSearch: () => void;
+}> = ({ userLocation, isHeatmapVisible, onToggleHeatmap, onOpenLocationSearch }) => {
   const map = useMap();
+
   return (
-    <ControlButton
-      onClick={() => userLocation && map.flyTo(userLocation, 15)}
-      title="Refresh Location"
-      top="48px"
-      variant="recenter"
+    <div
+      className="map-control-dock"
+      role="group"
+      aria-label="Map controls"
+      onPointerDown={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
     >
-      <Crosshair size={20} color="#0f172a" />
-    </ControlButton>
-  );
-};
-
-const HeatmapToggleControl: React.FC<{ isVisible: boolean; onToggle: () => void }> = ({ onToggle }) => (
-  <ControlButton
-    onClick={onToggle}
-    title="Toggle Heatmap"
-    top="133px"
-    variant="heatmap"
-  >
-    <Layers size={20} color="#0f172a" />
-  </ControlButton>
-);
-
-
-
-const LocationSearchControl: React.FC<{ onOpenLocationSearch: () => void }> = ({ onOpenLocationSearch }) => (
-  <LocationSearchButton
-    onClick={onOpenLocationSearch}
-    top="218px"
-  />
-);
-
-const ZoomInControl: React.FC = () => {
-  const map = useMap();
-  return (
-    <ControlButton
-      onClick={() => map.zoomIn()}
-      title="Zoom In"
-      top="10px"
-      left="10px"
-      variant="default"
-    >
-      <ZoomIn size={20} color="#0f172a" />
-    </ControlButton>
-  );
-};
-
-const ZoomOutControl: React.FC = () => {
-  const map = useMap();
-  return (
-    <ControlButton
-      onClick={() => map.zoomOut()}
-      title="Zoom Out"
-      top="60px"
-      left="10px"
-      variant="default"
-    >
-      <ZoomOut size={20} color="#0f172a" />
-    </ControlButton>
+      <ControlButton
+        onClick={() => userLocation && map.flyTo(userLocation, 15)}
+        title="Center on my location"
+        disabled={!userLocation}
+      >
+        <Crosshair size={20} />
+      </ControlButton>
+      <ControlButton
+        onClick={onToggleHeatmap}
+        title={isHeatmapVisible ? 'Show vibe marks' : 'Show heatmap'}
+        active={!isHeatmapVisible}
+      >
+        {isHeatmapVisible ? <MapPin size={20} /> : <Layers size={20} />}
+      </ControlButton>
+      <ControlButton onClick={onOpenLocationSearch} title="Search location">
+        <Search size={20} />
+      </ControlButton>
+      <span className="map-control-dock__divider" aria-hidden="true" />
+      <ControlButton onClick={() => map.zoomIn()} title="Zoom in">
+        <ZoomIn size={20} />
+      </ControlButton>
+      <ControlButton onClick={() => map.zoomOut()} title="Zoom out">
+        <ZoomOut size={20} />
+      </ControlButton>
+    </div>
   );
 };
 
@@ -830,16 +775,17 @@ const MapComponent: React.FC<MapComponentProps> = React.memo(({
 
   return (
     <>
-      <div className="map-view-shell" style={{ position: 'relative', width: '100%', minHeight: 'calc(100dvh - 168px)', height: 'calc(100dvh - 168px)' }}>
+      <div className="map-view-shell">
         <MapContainer center={center} zoom={zoom} scrollWheelZoom={true} style={{ height: '100%', width: '100%', minHeight: '100%', background: '#f6f7fb' }}>
         <MapFlyController center={center} zoom={zoom} />
         <SearchFlyController searchLocation={searchLocation} />
         <TargetLocationController targetLocation={targetLocation} />
-        <RecenterControl userLocation={userLocation} />
-        <HeatmapToggleControl isVisible={isHeatmapVisible} onToggle={onToggleHeatmap} />
-        <LocationSearchControl onOpenLocationSearch={() => setIsLocationSearchModalOpen(true)} />
-        <ZoomInControl />
-        <ZoomOutControl />
+        <MapControlDock
+          userLocation={userLocation}
+          isHeatmapVisible={isHeatmapVisible}
+          onToggleHeatmap={onToggleHeatmap}
+          onOpenLocationSearch={() => setIsLocationSearchModalOpen(true)}
+        />
         <MapClickHandler onMapClick={handleMapClick} />
 
         <TileLayer
@@ -880,17 +826,10 @@ const MapComponent: React.FC<MapComponentProps> = React.memo(({
           <Marker
             key={`vibe-${vibe.id}`}
             position={[vibe.latitude!, vibe.longitude!]}
-            icon={L.divIcon({
-              html: `
-                <div style="position:relative;width:26px;height:26px;display:flex;align-items:center;justify-content:center;">
-                  <div style="position:absolute;width:26px;height:26px;border-radius:50%;background:${vibeColorsHex[vibe.vibe_type as VibeType] || '#00c896'};opacity:0.2;"></div>
-                  <div style="width:12px;height:12px;border-radius:50%;background:${vibeColorsHex[vibe.vibe_type as VibeType] || '#00c896'};border:2px solid rgba(9,9,11,0.6);box-shadow:0 0 8px ${vibeColorsHex[vibe.vibe_type as VibeType] || '#00c896'}55;"></div>
-                </div>
-              `,
-              className: 'custom-vibe-marker',
-              iconSize: [28, 40],
-              iconAnchor: [14, 40],
-            })}
+            icon={createVibeMarkerIcon(
+              vibe.vibe_type,
+              vibeColorsHex[vibe.vibe_type as VibeType] || '#00c896',
+            )}
           >
             <Popup className="custom-popup">
               <div style={{
@@ -973,11 +912,6 @@ const MapComponent: React.FC<MapComponentProps> = React.memo(({
         }}
       />
 
-      {/* Vibe Legend */}
-        <VibeLegend />
-
-        {/* Dynamic Safety Waves Overlay */}
-        <SafetyWaveOverlay vibes={validVibes} />
       </div>
     </>
   );

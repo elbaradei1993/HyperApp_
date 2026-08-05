@@ -28,6 +28,8 @@ import PremiumEmptyState from './PremiumEmptyState';
 import { CredibilityIndicator, UserVerificationBadge, ValidationButtons } from './CredibilityIndicator';
 import { LoadingSpinner, EmptyState, CircularProgress, MultiSegmentCircularProgress } from './shared';
 
+import './CommunityDashboard.css';
+
 interface CommunityDashboardProps {
   vibes: Vibe[];
   userLocation: [number, number] | null;
@@ -499,10 +501,10 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
   }
 
   return (
-    <Box className="page-view page-view--community" maxW="920px" w="full" mx="auto" bg="var(--bg-base)" minH="100%" position="relative" borderX="1px solid" borderColor="var(--wire)" style={{ color: 'var(--t1)' }}>
+    <Box className="page-view page-view--community community-overview" maxW="1180px" w="full" mx="auto" bg="var(--bg-base)" minH="100%" position="relative" borderX="1px solid" borderColor="var(--wire)" style={{ color: 'var(--t1)' }}>
       {/* Header */}
       <Box
-        className="page-view__header"
+        className="page-view__header community-overview__header"
         bg="var(--bg-surface)"
         color="var(--t1)"
         p={6}
@@ -513,29 +515,63 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
         borderColor="gray.200"
         boxShadow="0 1px 3px rgba(0, 0, 0, 0.05)"
       >
-        <VStack justify="center" align="center">
-          <Text fontSize="20px" fontWeight="700" letterSpacing="-0.5px" lineHeight="1.2">
+        <VStack justify="center" align="start" gap={1} w="full">
+          <Text className="community-overview__eyebrow" fontSize="10px" fontWeight="800">
+            {t('community.safetyOverview', 'Safety overview')}
+          </Text>
+          <Text fontSize="24px" fontWeight="750" letterSpacing="-0.7px" lineHeight="1.15">
             {t('tabs.community')}
           </Text>
-          <Text fontSize="12px" color="gray.700" mt={2} letterSpacing="0.5px" fontWeight="500">
+          <Text fontSize="12px" color="gray.600" letterSpacing="0.1px" fontWeight="500">
             {t('community.localSafetyInsights')}
           </Text>
         </VStack>
       </Box>
 
       {/* Main Content */}
-      <Box p={6} minH="calc(100vh - 180px)">
+      <Box className="community-overview__content" p={6} minH="calc(100vh - 180px)">
         <VStack gap={4} align="stretch">
+          <div className="community-summary-grid" role="list" aria-label={String(t('community.safetyOverview', 'Safety overview'))}>
+            <article className="community-summary-card community-summary-card--primary" role="listitem">
+              <span className="community-summary-card__icon" aria-hidden="true"><ShieldCheck size={18} /></span>
+              <div>
+                <span>{t('community.currentAtmosphere', 'Current atmosphere')}</span>
+                <strong>
+                  {localCurrentLocationVibe
+                    ? t(`vibes.${localCurrentLocationVibe.type}`, localCurrentLocationVibe.type)
+                    : t('community.awaitingReports', 'Awaiting reports')}
+                </strong>
+              </div>
+              <small>{localCurrentLocationVibe ? `${localCurrentLocationVibe.percentage}%` : '—'}</small>
+            </article>
+            <article className="community-summary-card" role="listitem">
+              <span className="community-summary-card__icon" aria-hidden="true"><Activity size={18} /></span>
+              <div>
+                <span>{t('community.visibleReports', 'Visible reports')}</span>
+                <strong>{vibes.length}</strong>
+              </div>
+              <small>{t('community.live', 'Live')}</small>
+            </article>
+            <article className="community-summary-card" role="listitem">
+              <span className="community-summary-card__icon" aria-hidden="true"><Users size={18} /></span>
+              <div>
+                <span>{t('community.communityMembers', 'Community members')}</span>
+                <strong>{communityCount}</strong>
+              </div>
+              <small>{lastRefreshTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+            </article>
+          </div>
+
           {/* Location Card */}
           {isGeocoding ? (
-            <Box bg="white" borderRadius="16px" p={8} border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)" textAlign="center">
+            <Box className="community-overview__card community-overview__location-card" bg="white" borderRadius="16px" p={8} border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)" textAlign="center">
               <LoadingSpinner size="lg" />
               <Text fontSize="14px" fontWeight="600" color="gray.600" mt={4}>
                 {t('community.loadingLocationData')}
               </Text>
             </Box>
           ) : userLocation && currentLocationAddress ? (
-            <Box bg="white" borderRadius="16px" p={6} border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)" mb={4}>
+            <Box className="community-overview__card community-overview__location-card" bg="white" borderRadius="16px" p={6} border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)" mb={4}>
               <VStack gap={4} align="center">
                 <HStack gap={3}>
                   <Box w="12" h="12" borderRadius="8px" bg="blue.100" display="flex" alignItems="center" justifyContent="center">
@@ -549,6 +585,7 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
                 {/* Vibe Analysis */}
                 {localCurrentLocationVibe ? (
                   <Box
+                    className="community-overview__pulse-card"
                     bg={`linear-gradient(135deg, ${getVibeColor(localCurrentLocationVibe.type)}08 0%, ${getVibeColor(localCurrentLocationVibe.type)}04 100%)`}
                     border={`1px solid ${getVibeColor(localCurrentLocationVibe.type)}20`}
                     borderRadius="16px"
@@ -556,46 +593,7 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
                     w="full"
                   >
                     <VStack gap={4} align="center">
-                      {/* Pulsing Animation Container */}
-                      <Box position="relative" display="flex" alignItems="center" justifyContent="center">
-                        {/* Animated pulsing rings */}
-                        <Box
-                          position="absolute"
-                          top="50%"
-                          left="50%"
-                          transform="translate(-50%, -50%)"
-                          w="140px"
-                          h="140px"
-                          borderRadius="50%"
-                          border={`1px solid ${getVibeColor(localCurrentLocationVibe.type)}30`}
-                          animation="pulseRing1 3s ease-in-out infinite"
-                          opacity={0.8}
-                        />
-                        <Box
-                          position="absolute"
-                          top="50%"
-                          left="50%"
-                          transform="translate(-50%, -50%)"
-                          w="160px"
-                          h="160px"
-                          borderRadius="50%"
-                          border={`1px solid ${getVibeColor(localCurrentLocationVibe.type)}25`}
-                          animation="pulseRing2 3s ease-in-out infinite 1s"
-                          opacity={0.6}
-                        />
-                        <Box
-                          position="absolute"
-                          top="50%"
-                          left="50%"
-                          transform="translate(-50%, -50%)"
-                          w="180px"
-                          h="180px"
-                          borderRadius="50%"
-                          border={`1px solid ${getVibeColor(localCurrentLocationVibe.type)}20`}
-                          animation="pulseRing3 3s ease-in-out infinite 2s"
-                          opacity={0.4}
-                        />
-
+                      <Box className="community-overview__pulse-chart" position="relative" display="flex" alignItems="center" justifyContent="center">
                         <MultiSegmentCircularProgress
                           segments={currentLocationVibeDistribution
                             .filter(vibe => vibe.percentage > 0)
@@ -619,42 +617,6 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
                           }
                         />
                       </Box>
-
-                      {/* CSS Animations */}
-                      <style>
-                        {`
-                          @keyframes pulseRing1 {
-                            0%, 100% {
-                              transform: translate(-50%, -50%) scale(1);
-                              opacity: 0.6;
-                            }
-                            50% {
-                              transform: translate(-50%, -50%) scale(1.1);
-                              opacity: 0.3;
-                            }
-                          }
-                          @keyframes pulseRing2 {
-                            0%, 100% {
-                              transform: translate(-50%, -50%) scale(1);
-                              opacity: 0.4;
-                            }
-                            50% {
-                              transform: translate(-50%, -50%) scale(1.15);
-                              opacity: 0.2;
-                            }
-                          }
-                          @keyframes pulseRing3 {
-                            0%, 100% {
-                              transform: translate(-50%, -50%) scale(1);
-                              opacity: 0.2;
-                            }
-                            50% {
-                              transform: translate(-50%, -50%) scale(1.2);
-                              opacity: 0.1;
-                            }
-                          }
-                        `}
-                      </style>
 
                       <Text fontSize="12px" color="gray.600" textAlign="center">
                         {t('community.sentimentDistribution')}
@@ -713,7 +675,7 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
               </VStack>
             </Box>
           ) : (
-            <Box bg="white" borderRadius="16px" p={8} border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)" textAlign="center">
+            <Box className="community-overview__card community-overview__location-card" bg="white" borderRadius="16px" p={8} border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)" textAlign="center">
               <MapPin size={48} color="#94a3b8" />
               <Text fontSize="16px" fontWeight="700" color="gray.600" mt={4}>
                 {t('community.locationNotAvailable')}
@@ -725,7 +687,7 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
           )}
 
           {/* Activity Feed */}
-          <Box bg="white" borderRadius="16px" border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)">
+          <Box className="community-overview__card community-overview__activity-card" bg="white" borderRadius="16px" border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)">
             <Box
               p={5}
               borderBottom={isActivityExpanded ? '1px solid' : 'none'}
@@ -761,6 +723,7 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
                   {activityFeed.map((activity) => (
                     <Box
                       key={activity.id}
+                      className="community-overview__activity-item"
                       bg="gray.50"
                       borderRadius="12px"
                       p={4}

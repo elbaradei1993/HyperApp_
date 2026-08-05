@@ -709,13 +709,14 @@ const AppContent: React.FC = () => {
     );
 
     const pageVariants = {
-      initial: { opacity: 0, y: 20 },
-      in: { opacity: 1, y: 0 },
-      out: { opacity: 0, y: -20 },
+      initial: { opacity: 0 },
+      in: { opacity: 1 },
+      out: { opacity: 0 },
     };
 
     const pageTransition = {
-      duration: 0.4,
+      duration: 0.18,
+      ease: 'easeOut' as const,
     };
 
     const view = (() => {
@@ -829,7 +830,10 @@ const AppContent: React.FC = () => {
           />
           <div className="app-main">
             <Header />
-            <div ref={contentScrollRef} className="app-content-desktop">
+            <div
+              ref={contentScrollRef}
+              className={activeTab === 'map' ? 'app-content-desktop app-content-desktop--map' : 'app-content-desktop'}
+            >
               {renderActiveView()}
             </div>
           </div>

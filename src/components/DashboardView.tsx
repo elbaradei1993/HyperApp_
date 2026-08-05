@@ -241,7 +241,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="dashboard-chart" aria-label={String(t('dashboard.trend.chartLabel'))}>
               {hasTrendData ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={weeklyTrend} margin={{ top: 14, right: 8, left: -24, bottom: 0 }}>
+                  <AreaChart data={weeklyTrend} margin={{ top: 14, right: 10, left: 2, bottom: 0 }}>
                     <defs>
                       <linearGradient id="dashboardSafetyFill" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#111318" stopOpacity={0.18} />
@@ -250,7 +250,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     </defs>
                     <CartesianGrid vertical={false} stroke="rgba(92, 99, 95, 0.14)" strokeDasharray="2 5" />
                     <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 11, fontWeight: 600 }} />
-                    <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa', fontSize: 10 }} tickFormatter={(value) => `${value}%`} />
+                    <YAxis width={34} domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa', fontSize: 10 }} tickFormatter={(value) => `${value}%`} />
                     <Tooltip
                       cursor={{ stroke: 'rgba(55, 65, 61, 0.35)', strokeDasharray: '3 3' }}
                       contentStyle={{

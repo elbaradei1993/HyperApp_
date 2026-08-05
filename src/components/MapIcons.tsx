@@ -1,5 +1,40 @@
 import L from 'leaflet';
 
+const VIBE_MATERIAL_SYMBOLS: Record<string, string> = {
+  safe: 'verified_user',
+  calm: 'spa',
+  lively: 'music_note',
+  festive: 'celebration',
+  crowded: 'groups',
+  suspicious: 'visibility',
+  dangerous: 'warning',
+  noisy: 'volume_up',
+  quiet: 'volume_off',
+};
+
+export const getVibeMaterialSymbol = (vibeType: string): string => (
+  VIBE_MATERIAL_SYMBOLS[vibeType] ?? 'location_on'
+);
+
+export const createVibeMarkerIcon = (vibeType: string, color: string): L.DivIcon => {
+  const symbol = getVibeMaterialSymbol(vibeType);
+
+  return L.divIcon({
+    html: `
+      <div class="vibe-map-marker" style="--vibe-marker-color:${color}">
+        <span class="vibe-map-marker__badge" aria-hidden="true">
+          <span class="material-symbols-rounded vibe-map-marker__symbol">${symbol}</span>
+        </span>
+        <span class="vibe-map-marker__tip" aria-hidden="true"></span>
+      </div>
+    `,
+    className: 'custom-vibe-marker',
+    iconSize: [42, 48],
+    iconAnchor: [21, 46],
+    popupAnchor: [0, -42],
+  });
+};
+
 // Vibe type icons
 export const getVibeIcon = (vibeType: string) => {
   const iconMap: Record<string, string> = {

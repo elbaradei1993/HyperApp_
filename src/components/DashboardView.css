@@ -217,6 +217,8 @@
 .dashboard-panel {
   position: relative;
   isolation: isolate;
+  box-sizing: border-box;
+  width: 100%;
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--dashboard-glass-border);
@@ -437,8 +439,10 @@
 
 .dashboard-chart {
   width: 100%;
+  min-width: 0;
   height: 225px;
   margin-top: 4px;
+  overflow: hidden;
 }
 
 .dashboard-chart-empty {
@@ -895,7 +899,16 @@
 }
 
 @media (max-width: 767px) {
+  .dashboard-view {
+    box-sizing: border-box;
+    width: 100%;
+    padding-inline: max(10px, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+    overflow: visible;
+  }
+
   .dashboard-workspace {
+    box-sizing: border-box;
+    width: 100%;
     padding: 14px 0 8px;
   }
 
@@ -972,24 +985,32 @@
   }
 
   .dashboard-progress-content {
-    width: 46%;
-    min-width: 140px;
-    float: left;
-    margin-inline-end: 12px;
+    width: 100%;
+    min-width: 0;
+    float: none;
+    margin: 12px 0 4px;
   }
 
-  .dashboard-progress-card::after {
-    content: '';
-    display: block;
-    clear: both;
+  .dashboard-progress-card {
+    display: grid;
+    grid-template-columns: minmax(130px, 0.9fr) minmax(0, 1.1fr);
+    column-gap: 14px;
+    align-items: center;
+  }
+
+  .dashboard-progress-card .dashboard-panel-heading,
+  .dashboard-progress-card .dashboard-text-action {
+    grid-column: 1 / -1;
   }
 
   .dashboard-vibe-legend {
-    padding-top: 28px;
+    width: 100%;
+    min-width: 0;
+    padding-top: 0;
   }
 
   .dashboard-text-action {
-    width: calc(54% - 12px);
+    width: 100%;
   }
 
   .dashboard-attention-grid {
@@ -1026,6 +1047,15 @@
 }
 
 @media (max-width: 390px) {
+  .dashboard-progress-card {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-progress-card .dashboard-panel-heading,
+  .dashboard-progress-card .dashboard-text-action {
+    grid-column: 1;
+  }
+
   .dashboard-page-header p,
   .dashboard-eyebrow {
     display: none;
