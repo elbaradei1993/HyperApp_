@@ -844,6 +844,18 @@ input[type='search']::-webkit-search-results-decoration {
   min-height: 100%;
   overflow: hidden;
   border-radius: 0;
+  touch-action: none;
+}
+
+.map-view-shell .leaflet-container {
+  touch-action: none;
+}
+
+.app-content-shell:not(.app-content-shell--map),
+.app-modal-overlay,
+.app-sidebar,
+.tab-navigation {
+  touch-action: pan-x pan-y;
 }
 
 .leaflet-container { z-index: 0; }
