@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from 'react-leaflet';
-import { Crosshair, Layers, Heart, MapPin, Clock, MessageCircle, Search, ZoomIn, ZoomOut } from 'lucide-react';
+import { Crosshair, Layers, Heart, MapPin, Clock, MessageCircle, Search, Loader2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import L from 'leaflet';
 
@@ -9,11 +9,11 @@ import { VibeType } from '../types';
 import { reportsService } from '../services/reports';
 import { userLocationService, NearbyUser } from '../services/userLocationService';
 import { useAuth } from '../contexts/AuthContext';
+import { formatSearchResult, getCoordinatesFromResult, searchPlaces, type SearchResult } from '../lib/geocoding';
 
 import { IconHeartPulse } from './Icons';
 import { createVibeMarkerIcon, sosIcon, userLocationIcon } from './MapIcons';
 import VibeReportModal from './VibeReportModal';
-import LocationSearchModal from './LocationSearchModal';
 
 import 'leaflet/dist/leaflet.css';
 // Import heatmap plugin
@@ -111,8 +111,7 @@ const MapControlDock: React.FC<{
   userLocation: [number, number] | null;
   isHeatmapVisible: boolean;
   onToggleHeatmap: () => void;
-  onOpenLocationSearch: () => void;
-}> = ({ userLocation, isHeatmapVisible, onToggleHeatmap, onOpenLocationSearch }) => {
+}> = ({ userLocation, isHeatmapVisible, onToggleHeatmap }) => {
   const map = useMap();
 
   return (
@@ -137,16 +136,169 @@ const MapControlDock: React.FC<{
       >
         {isHeatmapVisible ? <MapPin size={20} /> : <Layers size={20} />}
       </ControlButton>
-      <ControlButton onClick={onOpenLocationSearch} title="Search location">
-        <Search size={20} />
-      </ControlButton>
-      <span className="map-control-dock__divider" aria-hidden="true" />
-      <ControlButton onClick={() => map.zoomIn()} title="Zoom in">
-        <ZoomIn size={20} />
-      </ControlButton>
-      <ControlButton onClick={() => map.zoomOut()} title="Zoom out">
-        <ZoomOut size={20} />
-      </ControlButton>
+    </div>
+  );
+};
+
+export const MapSearchBar: React.FC<{
+  onLocationSelect: (coordinates: [number, number]) => void;
+}> = ({ onLocationSelect }) => {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRequestRef = useRef(0);
+
+  const runSearch = useCallback(async (value: string) => {
+    const normalizedQuery = value.trim();
+    const requestId = ++searchRequestRef.current;
+    if (normalizedQuery.length < 2) {
+      setResults([]);
+      setIsExpanded(false);
+      setIsLoading(false);
+      setActiveIndex(-1);
+      return;
+    }
+
+    setIsLoading(true);
+    setIsExpanded(true);
+    try {
+      const matches = await searchPlaces(normalizedQuery, 6);
+      if (requestId !== searchRequestRef.current) {
+        return;
+      }
+      setResults(matches);
+      setActiveIndex(matches.length ? 0 : -1);
+    } catch {
+      if (requestId === searchRequestRef.current) {
+        setResults([]);
+        setActiveIndex(-1);
+      }
+    } finally {
+      if (requestId === searchRequestRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => () => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    const focusSearch = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isEditing = target?.matches('input, textarea, select, [contenteditable="true"]');
+      if (event.key === '/' && !isEditing) {
+        event.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', focusSearch);
+    return () => document.removeEventListener('keydown', focusSearch);
+  }, []);
+
+  const selectResult = useCallback((result: SearchResult) => {
+    setQuery(formatSearchResult(result));
+    setResults([]);
+    setIsExpanded(false);
+    setActiveIndex(-1);
+    onLocationSelect(getCoordinatesFromResult(result));
+  }, [onLocationSelect]);
+
+  const handleQueryChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setQuery(value);
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = setTimeout(() => void runSearch(value), 280);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      setIsExpanded(false);
+      return;
+    }
+    if (!results.length) {
+      return;
+    }
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActiveIndex((current) => (current + 1) % results.length);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveIndex((current) => (current <= 0 ? results.length - 1 : current - 1));
+    } else if (event.key === 'Enter' && activeIndex >= 0) {
+      event.preventDefault();
+      selectResult(results[activeIndex]);
+    }
+  };
+
+  const clearSearch = () => {
+    searchRequestRef.current += 1;
+    setQuery('');
+    setResults([]);
+    setIsExpanded(false);
+    setActiveIndex(-1);
+  };
+
+  return (
+    <div className="map-search" role="search">
+      <div className="map-search__field">
+        <Search size={18} aria-hidden="true" />
+        <input
+          ref={inputRef}
+          type="search"
+          value={query}
+          onChange={handleQueryChange}
+          onKeyDown={handleKeyDown}
+          onFocus={() => results.length && setIsExpanded(true)}
+          placeholder="Search an address or place"
+          aria-label="Search the map"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={isExpanded}
+          aria-controls="map-search-results"
+          aria-activedescendant={activeIndex >= 0 ? `map-search-result-${activeIndex}` : undefined}
+          autoComplete="off"
+        />
+        {isLoading ? (
+          <Loader2 className="map-search__spinner" size={17} aria-label="Searching" />
+        ) : query ? (
+          <button type="button" onClick={clearSearch} aria-label="Clear map search"><X size={16} /></button>
+        ) : (
+          <kbd aria-label="Keyboard shortcut">/</kbd>
+        )}
+      </div>
+
+      {isExpanded && (
+        <div id="map-search-results" className="map-search__results" role="listbox" aria-label="Location results">
+          {!isLoading && results.length === 0 && (
+            <div className="map-search__empty">No matching places found</div>
+          )}
+          {results.map((result, index) => (
+            <button
+              id={`map-search-result-${index}`}
+              key={result.place_id}
+              type="button"
+              role="option"
+              aria-selected={index === activeIndex}
+              className={index === activeIndex ? 'is-active' : ''}
+              onPointerDown={(event) => event.preventDefault()}
+              onClick={() => selectResult(result)}
+            >
+              <span><MapPin size={16} aria-hidden="true" /></span>
+              <strong>{formatSearchResult(result)}</strong>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -747,27 +899,6 @@ const MapComponent: React.FC<MapComponentProps> = React.memo(({
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [clickedLocation, setClickedLocation] = useState<[number, number] | null>(null);
   const [searchLocation, setSearchLocation] = useState<[number, number] | null>(null);
-  const [isLocationSearchModalOpen, setIsLocationSearchModalOpen] = useState(false);
-
-  // Disable default Leaflet zoom controls and ensure they stay disabled
-  useEffect(() => {
-    const L = (window as any).L;
-    if (L && L.Map) {
-      // Disable zoom controls globally
-      L.Map.mergeOptions({
-        zoomControl: false,
-      });
-
-      // Also remove any existing zoom controls
-      const mapContainer = document.querySelector('.leaflet-container');
-      if (mapContainer) {
-        const zoomControls = mapContainer.querySelector('.leaflet-control-zoom');
-        if (zoomControls) {
-          zoomControls.remove();
-        }
-      }
-    }
-  }, []);
 
   // Memoize boost update handler
   const handleBoostUpdate = useCallback((id: number, type: 'vibe' | 'sos', newCount: number, isBoosted: boolean) => {
@@ -812,7 +943,8 @@ const MapComponent: React.FC<MapComponentProps> = React.memo(({
   return (
     <>
       <div className="map-view-shell">
-        <MapContainer center={center} zoom={zoom} scrollWheelZoom={true} style={{ height: '100%', width: '100%', minHeight: '100%', background: '#f6f7fb' }}>
+        <MapSearchBar onLocationSelect={setSearchLocation} />
+        <MapContainer center={center} zoom={zoom} zoomControl={false} scrollWheelZoom={true} style={{ height: '100%', width: '100%', minHeight: '100%', background: '#f6f7fb' }}>
         <MapFlyController center={center} zoom={zoom} />
         <SearchFlyController searchLocation={searchLocation} />
         <TargetLocationController targetLocation={targetLocation} />
@@ -820,7 +952,6 @@ const MapComponent: React.FC<MapComponentProps> = React.memo(({
           userLocation={userLocation}
           isHeatmapVisible={isHeatmapVisible}
           onToggleHeatmap={onToggleHeatmap}
-          onOpenLocationSearch={() => setIsLocationSearchModalOpen(true)}
         />
         <MapClickHandler onMapClick={handleMapClick} />
 
@@ -936,16 +1067,6 @@ const MapComponent: React.FC<MapComponentProps> = React.memo(({
         onClose={handleReportModalClose}
         onSuccess={handleReportSuccess}
         currentLocation={clickedLocation}
-      />
-
-      {/* Location Search Modal */}
-      <LocationSearchModal
-        isOpen={isLocationSearchModalOpen}
-        onClose={() => setIsLocationSearchModalOpen(false)}
-        onLocationSelect={(coordinates, address) => {
-          setSearchLocation(coordinates);
-          console.log('Location selected from modal:', address, coordinates);
-        }}
       />
 
       </div>

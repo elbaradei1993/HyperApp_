@@ -250,8 +250,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                   <AreaChart data={weeklyTrend} margin={{ top: 14, right: 12, left: 10, bottom: 2 }}>
                     <defs>
                       <linearGradient id="dashboardSafetyFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#111318" stopOpacity={0.18} />
-                        <stop offset="95%" stopColor="#111318" stopOpacity={0.01} />
+                        <stop offset="5%" stopColor="#0b7d66" stopOpacity={0.24} />
+                        <stop offset="95%" stopColor="#0b7d66" stopOpacity={0.015} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid vertical={false} stroke="rgba(92, 99, 95, 0.14)" strokeDasharray="2 5" />
@@ -273,12 +273,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     <Area
                       type="monotone"
                       dataKey="score"
-                      stroke="#111318"
+                      stroke="#0b7d66"
                       strokeWidth={2.25}
                       fill="url(#dashboardSafetyFill)"
                       connectNulls
-                      dot={{ r: 3, fill: '#ffffff', stroke: '#111318', strokeWidth: 2 }}
-                      activeDot={{ r: 5, fill: '#111318', stroke: '#ffffff', strokeWidth: 2 }}
+                      dot={{ r: 3, fill: '#ffffff', stroke: '#0b7d66', strokeWidth: 2 }}
+                      activeDot={{ r: 5, fill: '#0b7d66', stroke: '#ffffff', strokeWidth: 2 }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>

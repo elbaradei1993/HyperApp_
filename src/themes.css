@@ -10,9 +10,9 @@
   --wire:         rgba(0, 0, 0, 0.08);
   --wire2:        rgba(0, 0, 0, 0.14);
 
-  --accent:       #00a87d;
-  --accent-dim:   rgba(0, 168, 125, 0.1);
-  --accent-glow:  rgba(0, 168, 125, 0.08);
+  --accent:       #0b7d66;
+  --accent-dim:   rgba(11, 125, 102, 0.1);
+  --accent-glow:  rgba(11, 125, 102, 0.08);
   --accent-text:  #ffffff;
 
   --t1: #0f172a;

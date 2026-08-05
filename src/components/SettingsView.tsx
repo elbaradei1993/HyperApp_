@@ -16,7 +16,11 @@ import PrivacyPolicyModal from './PrivacyPolicyModal';
 import TermsOfServiceModal from './TermsOfServiceModal';
 
 
-const SettingsView: React.FC = () => {
+interface SettingsViewProps {
+  embedded?: boolean;
+}
+
+const SettingsView: React.FC<SettingsViewProps> = ({ embedded = false }) => {
   const { t } = useTranslation();
   const { user, signOut } = useAuth();
   const { settings, updateSettings, isLoading: settingsLoading } = useSettings();
@@ -240,9 +244,20 @@ const SettingsView: React.FC = () => {
   };
 
   return (
-    <Box className="page-view page-view--settings" maxW="920px" w="full" mx="auto" bg="#f4f5f2" minH="100%" position="relative" borderX="1px solid" borderColor="var(--wire)" style={{ color: 'var(--t1)' }}>
+    <Box
+      className={embedded ? 'settings-embedded' : 'page-view page-view--settings'}
+      maxW={embedded ? 'none' : '920px'}
+      w="full"
+      mx="auto"
+      bg={embedded ? 'transparent' : '#f4f5f2'}
+      minH={embedded ? 'auto' : '100%'}
+      position="relative"
+      borderX={embedded ? '0' : '1px solid'}
+      borderColor="var(--wire)"
+      style={{ color: 'var(--t1)' }}
+    >
       {/* Header */}
-      <Box
+      {!embedded && <Box
         className="page-view__header"
         bg="var(--bg-surface)"
         color="var(--t1)"
@@ -278,13 +293,13 @@ const SettingsView: React.FC = () => {
             </Text>
           </Box>
         </HStack>
-      </Box>
+      </Box>}
 
       {/* Main Content */}
       <Box
-        px={{ base: 3, md: 6 }}
-        pt={{ base: 4, md: 5 }}
-        pb={{ base: 'calc(var(--app-mobile-nav-height) + 20px)', lg: 5 }}
+        px={embedded ? { base: 0, md: 0 } : { base: 3, md: 6 }}
+        pt={embedded ? 0 : { base: 4, md: 5 }}
+        pb={embedded ? 0 : { base: 'calc(var(--app-mobile-nav-height) + 20px)', lg: 5 }}
         minH="calc(100vh - 180px)"
       >
         <VStack gap={4} align="stretch">

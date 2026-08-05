@@ -33,7 +33,6 @@ import './styles/appShell.css';
 // Lazy load heavy components for better performance
 const MapComponent = React.lazy(() => import('./components/MapComponent'));
 const ProfileView = React.lazy(() => import('./components/ProfileView'));
-const SettingsView = React.lazy(() => import('./components/SettingsView'));
 const CommunityDashboard = React.lazy(() => import('./components/CommunityDashboard'));
 const DashboardView = React.lazy(() => import('./components/DashboardView'));
 
@@ -663,8 +662,8 @@ const AppContent: React.FC = () => {
   }, []);
 
   const handleNavigateToProfile = useCallback((userId: string) => {
-    // Switch to profile tab (ProfileView currently only shows current user)
-    setActiveTab('profile');
+    // Profile and safety preferences now share one Account destination.
+    setActiveTab('settings');
   }, []);
 
   // Check for special routes
@@ -761,17 +760,6 @@ const AppContent: React.FC = () => {
             </React.Suspense>
           </ErrorBoundary>
         );
-      case 'profile':
-        return (
-          <ErrorBoundary>
-            <React.Suspense fallback={<LoadingFallback />}>
-              <ProfileView
-                onOpenSettings={() => setActiveTab('settings')}
-                onNewReport={handleNewReport}
-              />
-            </React.Suspense>
-          </ErrorBoundary>
-        );
       case 'reports':
         return (
           <ErrorBoundary>
@@ -791,7 +779,7 @@ const AppContent: React.FC = () => {
         return (
           <ErrorBoundary>
             <React.Suspense fallback={<LoadingFallback />}>
-              <SettingsView />
+              <ProfileView onNewReport={handleNewReport} />
             </React.Suspense>
           </ErrorBoundary>
         );

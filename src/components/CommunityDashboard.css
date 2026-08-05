@@ -1,5 +1,5 @@
 .community-dashboard {
-  --community-blue: #246bfd;
+  --community-blue: #0b7d66;
   --community-ink: #111827;
   --community-muted: #697586;
   --community-wire: #dde3ea;
@@ -11,9 +11,9 @@
   overflow: hidden;
   color: var(--community-ink);
   border: 1px solid #e0e5eb;
-  border-radius: 16px;
-  background: #f4f6f8;
-  box-shadow: 0 18px 45px rgb(15 23 42 / 7%);
+  border-radius: 26px;
+  background: #f2f4f1;
+  box-shadow: 0 24px 70px rgb(15 23 42 / 9%);
 }
 
 .community-dashboard *,
@@ -34,7 +34,9 @@
   gap: 24px;
   padding: 25px 28px 21px;
   border-bottom: 1px solid var(--community-wire);
-  background: #fff;
+  background:
+    radial-gradient(circle at 92% 0%, rgb(11 125 102 / 8%), transparent 34%),
+    #fff;
 }
 
 .community-dashboard__eyebrow,
@@ -63,17 +65,17 @@
 }
 
 .community-primary-button {
-  min-height: 38px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
   padding: 0 14px;
-  border: 1px solid #1758dc;
-  border-radius: 8px;
+  border: 1px solid #075f50;
+  border-radius: 12px;
   color: #fff;
   background: var(--community-blue);
-  box-shadow: 0 4px 10px rgb(36 107 253 / 20%);
+  box-shadow: 0 9px 22px rgb(11 125 102 / 20%);
   font-size: 12px;
   font-weight: 750;
   white-space: nowrap;
@@ -81,7 +83,7 @@
 }
 
 .community-primary-button:hover {
-  background: #1758dc;
+  background: #075f50;
 }
 
 .community-dashboard__body {
@@ -147,9 +149,9 @@
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--community-wire);
-  border-radius: 10px;
+  border-radius: 16px;
   background: #fff;
-  box-shadow: 0 2px 8px rgb(15 23 42 / 3%);
+  box-shadow: 0 8px 24px rgb(15 23 42 / 5%);
 }
 
 .community-panel__header {
@@ -483,20 +485,20 @@
 
 .community-search {
   width: min(250px, 45%);
-  min-height: 34px;
+  min-height: 40px;
   display: flex;
   align-items: center;
   gap: 7px;
   padding: 0 10px;
   border: 1px solid var(--community-wire);
-  border-radius: 7px;
+  border-radius: 11px;
   color: #8993a2;
   background: #fbfcfd;
 }
 
 .community-search:focus-within {
-  border-color: #7aa5ff;
-  box-shadow: 0 0 0 3px rgb(36 107 253 / 10%);
+  border-color: #5aa995;
+  box-shadow: 0 0 0 3px rgb(11 125 102 / 12%);
 }
 
 .community-search input {

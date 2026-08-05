@@ -17,12 +17,12 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-describe('TabNavigation More menu', () => {
+describe('TabNavigation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('opens from the More button and exposes Profile and Settings', () => {
+  it('exposes Account as a stable top-level destination without a More menu', () => {
     render(
       <TabNavigation
         activeTab="dashboard"
@@ -31,30 +31,18 @@ describe('TabNavigation More menu', () => {
       />,
     );
 
-    const moreButton = screen.getByRole('button', { name: 'More' });
-    expect(moreButton).toHaveAttribute('aria-expanded', 'false');
-
-    fireEvent.click(moreButton);
-
-    expect(moreButton).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('menu', { name: 'More' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'profile' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'settings' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Account' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'More' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New report' })).toBeInTheDocument();
   });
 
-  it('selects a menu destination and closes the menu', () => {
+  it('navigates directly to the merged account view', () => {
     const onTabChange = vi.fn();
-    render(
-      <TabNavigation
-        activeTab="dashboard"
-        onTabChange={onTabChange}
-      />,
-    );
+    render(<TabNavigation activeTab="dashboard" onTabChange={onTabChange} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'More' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'profile' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Account' }));
 
-    expect(onTabChange).toHaveBeenCalledWith('profile');
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(onTabChange).toHaveBeenCalledTimes(1);
+    expect(onTabChange).toHaveBeenCalledWith('settings');
   });
 });

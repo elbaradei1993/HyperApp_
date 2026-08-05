@@ -411,9 +411,12 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
                     <CartesianGrid vertical={false} stroke="#e6ebf1" strokeDasharray="3 4" />
                     <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#7c8798', fontSize: 11 }} />
                     <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} axisLine={false} tickLine={false} tick={{ fill: '#7c8798', fontSize: 10 }} />
-                    <Tooltip cursor={{ stroke: '#cbd5e1', strokeDasharray: '3 3' }} />
+                    <Tooltip
+                      cursor={{ stroke: '#9fb7b1', strokeDasharray: '3 3' }}
+                      contentStyle={{ border: '1px solid #dce5e1', borderRadius: 12, boxShadow: '0 14px 32px rgba(15, 23, 42, 0.1)', fontSize: 12 }}
+                    />
                     <ReferenceLine y={70} stroke="#f59e0b" strokeDasharray="5 5" />
-                    <Line type="monotone" dataKey="score" name={String(t('community.safetyScore', 'Safety score'))} stroke="#246bfd" strokeWidth={3} dot={{ r: 3, fill: '#246bfd', strokeWidth: 0 }} activeDot={{ r: 5 }} connectNulls={false} />
+                    <Line type="monotone" dataKey="score" name={String(t('community.safetyScore', 'Safety score'))} stroke="#0b7d66" strokeWidth={3} dot={{ r: 3, fill: '#fff', stroke: '#0b7d66', strokeWidth: 2 }} activeDot={{ r: 5, fill: '#0b7d66', stroke: '#fff', strokeWidth: 2 }} connectNulls={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>

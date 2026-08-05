@@ -1,5 +1,5 @@
 .profile-page {
-  --profile-blue: #246bfd;
+  --profile-blue: #0b7d66;
   --profile-ink: #111827;
   --profile-muted: #778294;
   --profile-wire: #e1e6ed;
@@ -11,7 +11,7 @@
   overflow: hidden;
   color: var(--profile-ink);
   border: 1px solid var(--profile-wire);
-  border-radius: 18px;
+  border-radius: 26px;
   background: #fff;
   box-shadow: 0 20px 48px rgb(15 23 42 / 7%);
 }
@@ -112,7 +112,7 @@
   background: #94a3b8;
 }
 
-.profile-verification-dot.is-verified { background: #246bfd; }
+.profile-verification-dot.is-verified { background: #0b7d66; }
 .profile-verification-dot.is-trusted { background: #13b76a; }
 
 .profile-hero h2 {
@@ -194,10 +194,10 @@
 }
 
 .profile-action--primary {
-  border: 1px solid #1758dc;
+  border: 1px solid #075f50;
   color: #fff;
   background: var(--profile-blue);
-  box-shadow: 0 4px 12px rgb(36 107 253 / 18%);
+  box-shadow: 0 8px 20px rgb(11 125 102 / 18%);
 }
 
 .profile-action--secondary {
@@ -218,7 +218,7 @@
 
 .profile-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   padding: 0 18px;
   border-top: 1px solid #edf0f4;
   border-bottom: 1px solid #e1e6ed;
@@ -248,7 +248,19 @@
 .profile-content {
   min-height: 310px;
   padding: 14px;
-  background: #f4f6f8;
+  background: #f2f4f1;
+}
+
+.profile-settings-panel {
+  width: 100%;
+}
+
+.settings-embedded {
+  width: 100%;
+}
+
+.settings-embedded > div {
+  min-height: auto !important;
 }
 
 .profile-report-grid {
@@ -375,7 +387,7 @@
   background: #f1f5f9;
 }
 
-.profile-safety-card__icon.is-blue { color: #246bfd; background: #edf3ff; }
+.profile-safety-card__icon.is-blue { color: #0b7d66; background: #e8f5f1; }
 .profile-safety-card__icon.is-green { color: #079455; background: #ecfdf3; }
 .profile-safety-card__icon.is-red { color: #dc2626; background: #fef2f2; }
 .profile-safety-card__icon.is-amber { color: #d97706; background: #fffbeb; }
@@ -408,10 +420,10 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
-  border: 1px solid #cedcfa;
+  border: 1px solid #b9ddd3;
   border-radius: 10px;
-  color: #1758dc;
-  background: #f3f7ff;
+  color: #075f50;
+  background: #edf7f4;
   font-size: 10px;
   font-weight: 730;
   cursor: pointer;
@@ -473,7 +485,7 @@
   gap: 6px;
   margin-top: 14px;
   padding: 0 13px;
-  border: 1px solid #1758dc;
+  border: 1px solid #075f50;
   border-radius: 9px;
   color: #fff;
   background: var(--profile-blue);

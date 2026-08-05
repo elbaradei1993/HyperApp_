@@ -39,14 +39,14 @@ import { reportsService } from '../services/reports';
 import type { Vibe } from '../types';
 
 import EditProfileModal from './EditProfileModal';
+import SettingsView from './SettingsView';
 import { LoadingSpinner } from './shared';
 
 import './ProfileView.css';
 
-type ProfileTab = 'activity' | 'safety' | 'credentials';
+type ProfileTab = 'activity' | 'safety' | 'credentials' | 'preferences';
 
 interface ProfileViewProps {
-  onOpenSettings?: () => void;
   onNewReport?: () => void;
 }
 
@@ -78,7 +78,7 @@ const VIBE_ICONS: Record<string, React.ReactNode> = {
   other: <Settings size={24} />,
 };
 
-const ProfileView: React.FC<ProfileViewProps> = ({ onOpenSettings, onNewReport }) => {
+const ProfileView: React.FC<ProfileViewProps> = ({ onNewReport }) => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const { settings, isLoading: settingsLoading } = useSettings();
@@ -275,8 +275,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onOpenSettings, onNewReport }
     <section className="profile-page page-view page-view--profile" dir={i18n.dir(locale)}>
       <header className="profile-topbar">
         <span aria-hidden="true" />
-        <h1>{t('profile.title', 'Profile')}</h1>
-        <button type="button" onClick={onOpenSettings} disabled={!onOpenSettings} aria-label={String(t('tabs.settings', 'Settings'))}>
+        <h1>{t('tabs.settings', 'Account')}</h1>
+        <button type="button" onClick={() => setActiveTab('preferences')} aria-label={String(t('tabs.settings', 'Settings'))}>
           <MoreHorizontal size={19} />
         </button>
       </header>
@@ -309,7 +309,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onOpenSettings, onNewReport }
           <button className="profile-action profile-action--primary" type="button" onClick={() => setShowEditModal(true)}>
             <Edit3 size={15} />{t('profile.editProfile', 'Edit profile')}
           </button>
-          <button className="profile-action profile-action--secondary" type="button" onClick={onOpenSettings} disabled={!onOpenSettings}>
+          <button className="profile-action profile-action--secondary" type="button" onClick={() => setActiveTab('preferences')}>
             <Settings size={15} />{t('profile.safetySettings', 'Safety settings')}
           </button>
         </div>
@@ -326,6 +326,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onOpenSettings, onNewReport }
         </button>
         <button type="button" role="tab" aria-selected={activeTab === 'credentials'} className={activeTab === 'credentials' ? 'is-active' : ''} onClick={() => setActiveTab('credentials')}>
           <Star size={14} />{t('profile.credentials', 'Credentials')}
+        </button>
+        <button type="button" role="tab" aria-selected={activeTab === 'preferences'} className={activeTab === 'preferences' ? 'is-active' : ''} onClick={() => setActiveTab('preferences')}>
+          <Settings size={14} />{t('tabs.settings', 'Settings')}
         </button>
       </div>
 
@@ -369,11 +372,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onOpenSettings, onNewReport }
                 <div><small>{item.label}</small><strong>{item.value}</strong></div>
               </article>
             ))}
-            {onOpenSettings && (
-              <button className="profile-safety-link" type="button" onClick={onOpenSettings}>
-                <Settings size={15} />{t('profile.manageSafetySettings', 'Manage safety settings')}
-              </button>
-            )}
+            <button className="profile-safety-link" type="button" onClick={() => setActiveTab('preferences')}>
+              <Settings size={15} />{t('profile.manageSafetySettings', 'Manage safety settings')}
+            </button>
           </div>
         )}
 
@@ -386,6 +387,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onOpenSettings, onNewReport }
                 {credential.active && <CheckCircle2 size={16} className="profile-credential__check" aria-label={String(t('profile.verified', 'Verified'))} />}
               </article>
             ))}
+          </div>
+        )}
+
+        {activeTab === 'preferences' && (
+          <div className="profile-settings-panel" role="tabpanel">
+            <SettingsView embedded />
           </div>
         )}
       </div>
