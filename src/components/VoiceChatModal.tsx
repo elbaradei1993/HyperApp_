@@ -440,6 +440,41 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     setVoiceState('idle');
   };
 
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const resetAfterResume = () => {
+      if (document.visibilityState === 'visible') {
+        ttsService.resetAudioOutput();
+      }
+    };
+    const pauseConversation = () => {
+      if (document.visibilityState !== 'hidden') {
+        return;
+      }
+      handsFreeRef.current = false;
+      setIsHandsFreeMode(false);
+      isListeningRef.current = false;
+      if (restartTimerRef.current !== null) {
+        window.clearTimeout(restartTimerRef.current);
+        restartTimerRef.current = null;
+      }
+      recognitionRef.current?.abort();
+      ttsService.stop();
+      ttsService.releaseAudioSession();
+      setVoiceState('idle');
+    };
+
+    document.addEventListener('visibilitychange', pauseConversation);
+    window.addEventListener('pageshow', resetAfterResume);
+    return () => {
+      document.removeEventListener('visibilitychange', pauseConversation);
+      window.removeEventListener('pageshow', resetAfterResume);
+    };
+  }, [isOpen]);
+
   const processTranscript = async (transcriptText: string) => {
     const cleanedText = transcriptText.trim();
     if (!cleanedText) {
@@ -510,6 +545,25 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     setVoiceState('idle');
     if (handsFreeRef.current) {
       scheduleListeningRestart();
+    }
+  };
+
+  const testSound = async () => {
+    stopHandsFreeConversation();
+    setErrorMessage('');
+    setVoiceState('speaking');
+    try {
+      await ttsService.unlock(true);
+      await ttsService.speak('Hyper AI sound is working.', {
+        speed: 1.02,
+        pitch: 1.02,
+        volume: 1,
+      });
+      setVoiceState('idle');
+    } catch (error) {
+      console.error('Sound test failed:', error);
+      setErrorMessage('Sound is blocked. Turn up media volume, disable Silent Mode, then tap Test sound again.');
+      setVoiceState('error');
     }
   };
 
@@ -747,6 +801,15 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
               aria-label={`${isTTSEnabled ? 'Disable' : 'Enable'} voice responses`}
             >
               {isTTSEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
+            </button>
+
+            <button
+              type="button"
+              className="ai-test-sound"
+              onClick={() => void testSound()}
+              disabled={isProcessing || isSpeaking}
+            >
+              Test sound
             </button>
 
             {isSpeaking && (
