@@ -56,7 +56,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({ activeTab, onTabChange, onNewRe
               className={isActive ? 'app-sidebar__nav-item is-active' : 'app-sidebar__nav-item'}
               aria-current={isActive ? 'page' : undefined}
             >
-              <span className="app-sidebar__nav-icon"><Icon size={22} strokeWidth={2.1} /></span>
+              <span className="app-sidebar__nav-icon"><Icon size={24} strokeWidth={2.2} /></span>
               <span>{t(labelKey, id)}</span>
             </button>
           );

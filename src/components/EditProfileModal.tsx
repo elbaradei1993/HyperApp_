@@ -190,7 +190,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
 
   return (
     <Box
-      className="app-modal-overlay"
+      className="app-modal-overlay app-modal-overlay--profile"
       position="fixed"
       top={0}
       left={0}
@@ -215,6 +215,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
       >
         {/* Header */}
         <Box
+          className="edit-profile-modal__header"
           bg="white"
           p={6}
           borderBottom="1px solid"
@@ -223,21 +224,22 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
           top={0}
           zIndex={10}
         >
-          <HStack justify="space-between" align="center">
-            <HStack gap={3}>
-              <Box w="10" h="10" borderRadius="8px" bg="blue.100" display="flex" alignItems="center" justifyContent="center">
+          <HStack className="edit-profile-modal__header-row" justify="space-between" align="center">
+            <HStack className="edit-profile-modal__heading" gap={3}>
+              <Box className="edit-profile-modal__icon" w="10" h="10" borderRadius="8px" bg="blue.100" display="flex" alignItems="center" justifyContent="center">
                 <User size={20} color="#2563eb" />
               </Box>
-              <VStack align="start" gap={0}>
-                <Text fontSize="18px" fontWeight="700" color="gray.900">
+              <VStack className="edit-profile-modal__heading-copy" align="start" gap={0}>
+                <Text className="edit-profile-modal__title" fontSize="18px" fontWeight="700" color="gray.900">
                   {t('profile.editProfileModal.title')}
                 </Text>
-                <Text fontSize="12px" color="gray.600">
+                <Text className="edit-profile-modal__subtitle" fontSize="12px" color="gray.600">
                   {t('profile.editProfileModal.subtitle')}
                 </Text>
               </VStack>
             </HStack>
             <Button
+              className="edit-profile-modal__close"
               aria-label="Close modal"
               variant="ghost"
               size="sm"
@@ -467,6 +469,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
 
         {/* Actions */}
         <Box
+          className="edit-profile-modal__footer"
           p={6}
           borderTop="1px solid"
           borderColor="gray.200"
