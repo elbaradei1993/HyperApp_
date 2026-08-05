@@ -26,6 +26,7 @@ class TestAudio {
   onerror: (() => void) | null = null;
   setAttribute = vi.fn();
   pause = vi.fn();
+  load = vi.fn();
   play = vi.fn(() => {
     void Promise.resolve().then(() => this.onended?.());
     return Promise.resolve();
@@ -188,7 +189,7 @@ describe('TTSService', () => {
     });
 
     const service = new TTSService();
-    service.unlock();
+    await service.unlock();
     await service.speak('This should play on an iPhone.', { speed: 1.1, volume: 0.8 });
 
     expect(decodeAudioData).toHaveBeenCalledTimes(1);
@@ -196,5 +197,25 @@ describe('TTSService', () => {
     expect(sources[1].playbackRate.value).toBe(1.1);
     expect(sources[1].start).toHaveBeenCalledWith(0);
     expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it('uses the iPhone media route and switches the Safari audio session to playback', async () => {
+    const audioBlob = new Blob(['mp3-data'], { type: 'audio/mpeg' });
+    invokeFunction.mockResolvedValue({ data: audioBlob, error: null });
+    const audioSession = { type: 'ambient' };
+    Object.defineProperty(window.navigator, 'userAgent', {
+      configurable: true,
+      value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)',
+    });
+    Object.defineProperty(window.navigator, 'audioSession', {
+      configurable: true,
+      value: audioSession,
+    });
+
+    const service = new TTSService();
+    await service.speak('Use the iPhone speaker.');
+
+    expect(audioSession.type).toBe('playback');
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
   });
 });

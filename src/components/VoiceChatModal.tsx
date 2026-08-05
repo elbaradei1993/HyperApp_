@@ -407,6 +407,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     }
 
     try {
+      ttsService.prepareForListening();
       isListeningRef.current = true;
       setVoiceState('recording');
       recognition.start();
@@ -417,10 +418,12 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
   };
 
   const startHandsFreeConversation = () => {
-    ttsService.unlock();
     handsFreeRef.current = true;
     setIsHandsFreeMode(true);
-    beginListening();
+    // On iPhone, activate the speaker from this direct tap before handing the
+    // audio session to speech recognition. The short tone also confirms that
+    // sound is routed correctly before the first AI response.
+    void ttsService.unlock(true).finally(() => beginListening());
   };
 
   const stopHandsFreeConversation = () => {
@@ -433,6 +436,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     }
     recognitionRef.current?.abort();
     ttsService.stop();
+    ttsService.releaseAudioSession();
     setVoiceState('idle');
   };
 
