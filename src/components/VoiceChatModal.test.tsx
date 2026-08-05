@@ -1,12 +1,22 @@
 /* global Event */
-import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { ConversationState, ConversationTurnResult } from '../services/ai/types';
 
 import VoiceChatModal from './VoiceChatModal';
 
 const mocks = vi.hoisted(() => ({
-  askHyperAi: vi.fn(),
+  initialize: vi.fn(),
+  createConversation: vi.fn(),
+  generate: vi.fn(),
+  getState: vi.fn(),
+  cancel: vi.fn(),
+  setPersistence: vi.fn(),
+  deleteConversation: vi.fn(),
+  clearHistory: vi.fn(),
+  recordActionOutcome: vi.fn(),
+  updateSettings: vi.fn(),
   prepare: vi.fn(() => Promise.resolve()),
   speak: vi.fn(() => Promise.resolve()),
   stop: vi.fn(),
@@ -16,21 +26,36 @@ const mocks = vi.hoisted(() => ({
   resetAudioOutput: vi.fn(),
 }));
 
-vi.mock('../services/hyperAi', () => ({
-  askHyperAi: mocks.askHyperAi,
-  buildHyperAiReportContext: vi.fn(() => ({ hasLocation: false })),
-  createHyperAiMessage: vi.fn((role: 'user' | 'assistant', content: string) => ({
-    id: `${role}-${content}`,
-    role,
-    content,
-    createdAt: new Date().toISOString(),
-  })),
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: { language: 'en-CA', dir: () => 'ltr' },
+  }),
 }));
-
-vi.mock('../services/reports', () => ({
-  reportsService: { getReports: vi.fn(() => Promise.resolve([])) },
+vi.mock('../contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 'user-a', first_name: 'Fatehi', language: 'en' } }),
 }));
-
+vi.mock('../contexts/SettingsContext', () => ({
+  useSettings: () => ({ settings: { locationSharing: false }, updateSettings: mocks.updateSettings }),
+}));
+vi.mock('../services/ai/conversationEngine', () => ({
+  conversationEngine: {
+    initialize: mocks.initialize,
+    createConversation: mocks.createConversation,
+    getState: mocks.getState,
+    cancel: mocks.cancel,
+    setPersistence: mocks.setPersistence,
+    deleteConversation: mocks.deleteConversation,
+    clearHistory: mocks.clearHistory,
+    recordActionOutcome: mocks.recordActionOutcome,
+  },
+  generateAssistantResponse: mocks.generate,
+}));
+vi.mock('../services/ai/conversationRepository', () => ({
+  conversationRepository: { hasPersistenceWarning: () => false },
+}));
+vi.mock('../services/reports', () => ({ reportsService: { getReports: vi.fn(() => Promise.resolve([])) } }));
+vi.mock('../services/guardian', () => ({ guardianService: { getUserGuardians: vi.fn(() => Promise.resolve([])) } }));
 vi.mock('../services/tts', () => ({
   ttsService: {
     prepare: mocks.prepare,
@@ -38,118 +63,184 @@ vi.mock('../services/tts', () => ({
     stop: mocks.stop,
     unlock: mocks.unlock,
     prepareForListening: mocks.prepareForListening,
+    prepareForPlayback: vi.fn(),
     releaseAudioSession: mocks.releaseAudioSession,
     resetAudioOutput: mocks.resetAudioOutput,
   },
 }));
 
-interface MockRecognitionResult {
-  results: Array<Array<{ transcript: string }>>;
+function state(messages: ConversationState['recentMessages'] = []): ConversationState {
+  return {
+    conversationId: 'conversation-a',
+    userId: 'user-a',
+    recentMessages: messages,
+    knownFacts: [],
+    userPreferences: [],
+    unresolvedTopics: [],
+    currentSafetyState: 'LOW',
+    lastQuestionsAsked: [],
+    lastActionsSuggested: [],
+    lastAdviceTopics: [],
+    appContext: { availableAppActions: [] },
+    persistenceEnabled: true,
+    createdAt: '2026-08-05T00:00:00Z',
+    updatedAt: '2026-08-05T00:00:00Z',
+  };
 }
 
-class MockSpeechRecognition {
-  static current: MockSpeechRecognition | null = null;
-
-  continuous = false;
-  interimResults = false;
-  lang = '';
-  // eslint-disable-next-line no-unused-vars
-  onresult: ((event: MockRecognitionResult) => void) | null = null;
-  // eslint-disable-next-line no-unused-vars
-  onerror: ((event: { error: string }) => void) | null = null;
-  onend: (() => void) | null = null;
-  start = vi.fn();
-  stop = vi.fn();
-  abort = vi.fn();
-
-  constructor() {
-    MockSpeechRecognition.current = this;
-  }
+function result(message = 'Move toward the staffed entrance.'): ConversationTurnResult {
+  const assistantMessage = {
+    id: 'assistant-1',
+    role: 'assistant' as const,
+    content: message,
+    timestamp: '2026-08-05T00:00:02Z',
+    deliveryStatus: 'sent' as const,
+  };
+  return {
+    assistantMessage,
+    response: {
+      message,
+      safetyLevel: 'LOW',
+      suggestedActions: [],
+      requiresImmediateAttention: false,
+      followUpNeeded: false,
+      memoryUpdates: [],
+    },
+    state: state([assistantMessage]),
+  };
 }
 
-describe('VoiceChatModal hands-free conversation', () => {
+const defaultProps = {
+  isOpen: true,
+  onClose: vi.fn(),
+  userLocation: null,
+  onNavigate: vi.fn(),
+  onNewReport: vi.fn(),
+};
+
+describe('VoiceChatModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    MockSpeechRecognition.current = null;
-    Object.defineProperty(window, 'SpeechRecognition', {
-      configurable: true,
-      value: MockSpeechRecognition,
-    });
+    const initial = state();
+    mocks.initialize.mockResolvedValue(initial);
+    mocks.createConversation.mockResolvedValue(initial);
+    mocks.getState.mockReturnValue(initial);
+    mocks.generate.mockResolvedValue(result());
+    mocks.setPersistence.mockResolvedValue(initial);
+    mocks.deleteConversation.mockResolvedValue(true);
+    mocks.clearHistory.mockResolvedValue(true);
+    mocks.updateSettings.mockResolvedValue(undefined);
   });
 
-  it('keeps controls visible and listens again after voice playback', async () => {
-    // eslint-disable-next-line no-unused-vars
-    let resolveAnswer: ((value: { answer: string }) => void) | undefined;
-    mocks.askHyperAi.mockReturnValue(new Promise((resolve) => {
-      resolveAnswer = resolve;
-    }));
-
-    render(<VoiceChatModal isOpen onClose={vi.fn()} userLocation={null} />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Start conversation' }));
-    const recognition = MockSpeechRecognition.current;
-    await waitFor(() => expect(recognition?.start).toHaveBeenCalledTimes(1));
-    expect(mocks.unlock).toHaveBeenCalledWith(true);
-    expect(mocks.prepareForListening).toHaveBeenCalledTimes(1);
-
-    act(() => {
-      recognition?.onresult?.({ results: [[{ transcript: 'What changed nearby?' }]] });
-    });
-
-    expect(await screen.findByText('Thinking...')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'End conversation' })).toBeVisible();
-    expect(screen.getByRole('textbox', { name: 'Message Hyper AI' })).toBeVisible();
-
-    await act(async () => {
-      resolveAnswer?.({ answer: 'There are no verified changes nearby.' });
-    });
-
-    await waitFor(() => expect(mocks.speak).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(recognition?.start).toHaveBeenCalledTimes(2), { timeout: 2000 });
-    expect(screen.getByRole('button', { name: 'End conversation' })).toBeVisible();
-  });
-
-  it('unlocks delayed audio from the typed-message user gesture', async () => {
-    mocks.askHyperAi.mockResolvedValue({ answer: 'The voice response is ready.' });
-
-    render(<VoiceChatModal isOpen onClose={vi.fn()} userLocation={null} />);
-
-    fireEvent.change(screen.getByRole('textbox', { name: 'Message Hyper AI' }), {
-      target: { value: 'Tell me what is nearby.' },
-    });
+  it('submits once, announces generation, and plays the returned response', async () => {
+    let resolveTurn: ((value: ConversationTurnResult) => void) | undefined;
+    mocks.generate.mockReturnValue(new Promise((resolve) => { resolveTurn = resolve; }));
+    mocks.getState.mockReturnValue(state([{
+      id: 'user-pending',
+      role: 'user',
+      content: 'He is still there.',
+      timestamp: '2026-08-05T00:00:01Z',
+      deliveryStatus: 'pending',
+    }]));
+    render(<VoiceChatModal {...defaultProps} />);
+    const input = await screen.findByRole('textbox', { name: 'Message Hyper AI' });
+    fireEvent.change(input, { target: { value: 'He is still there.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
     fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
 
-    expect(mocks.unlock).toHaveBeenCalledTimes(1);
+    expect(mocks.generate).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('He is still there.')).toBeInTheDocument();
+    expect(screen.getByText('Sending…')).toBeInTheDocument();
+    expect(screen.getByLabelText('Hyper AI is generating a response')).toBeInTheDocument();
+    resolveTurn?.(result('Go inside the staffed store now.'));
     await waitFor(() => expect(mocks.speak).toHaveBeenCalledWith(
-      'The voice response is ready.',
+      'Go inside the staffed store now.',
       expect.objectContaining({ volume: 1 }),
     ));
   });
 
-  it('offers a direct sound test that unlocks and plays from the user tap', async () => {
-    render(<VoiceChatModal isOpen onClose={vi.fn()} userLocation={null} />);
+  it('keeps emergency controls usable when generation fails', async () => {
+    mocks.generate.mockRejectedValue(new Error('Hyper AI took too long to respond. Your conversation is still available.'));
+    render(<VoiceChatModal {...defaultProps} />);
+    const input = await screen.findByRole('textbox', { name: 'Message Hyper AI' });
+    fireEvent.change(input, { target: { value: 'Help me' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
 
+    expect(await screen.findByRole('alert')).toHaveTextContent('took too long');
+    expect(screen.getByRole('button', { name: 'Emergency call' })).toBeEnabled();
+  });
+
+  it('shows and retries a failed user message', async () => {
+    const pendingState = state([{
+      id: 'failed-user',
+      role: 'user',
+      content: 'Use the other location.',
+      timestamp: '2026-08-05T00:00:01Z',
+      deliveryStatus: 'pending',
+    }]);
+    const failedState = state([{ ...pendingState.recentMessages[0], deliveryStatus: 'failed' }]);
+    mocks.getState
+      .mockReturnValueOnce(pendingState)
+      .mockReturnValueOnce(failedState)
+      .mockReturnValue(failedState);
+    mocks.generate
+      .mockRejectedValueOnce(new Error('I could not generate a response right now.'))
+      .mockResolvedValueOnce(result('Using the corrected location.'));
+    render(<VoiceChatModal {...defaultProps} />);
+    const input = await screen.findByRole('textbox', { name: 'Message Hyper AI' });
+    fireEvent.change(input, { target: { value: 'Use the other location.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(mocks.generate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ retryMessageId: 'failed-user' }),
+    ));
+  });
+
+  it('shows stale location context and preserves the direct sound test', async () => {
+    render(
+      <VoiceChatModal
+        {...defaultProps}
+        userLocation={[49.19, -122.83]}
+        locationCapturedAt="2020-01-01T00:00:00Z"
+        locationPermissionStatus="granted"
+      />,
+    );
+
+    expect(await screen.findByText(/Location context may be outdated/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Test sound' }));
-
     expect(mocks.unlock).toHaveBeenCalledWith(true);
     await waitFor(() => expect(mocks.speak).toHaveBeenCalledWith(
-      'Hyper AI sound is working.',
+      'Hyper AI voice is ready.',
       expect.objectContaining({ volume: 1 }),
     ));
   });
 
-  it('stops hands-free mode when the app is backgrounded and resets audio after resume', async () => {
-    render(<VoiceChatModal isOpen onClose={vi.fn()} userLocation={null} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Start conversation' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'End conversation' })).toBeVisible());
+  it('renders only validated actions returned by the engine and invokes navigation', async () => {
+    const turn = result();
+    turn.response.suggestedActions = [{
+      type: 'OPEN_MAP',
+      label: 'Open map',
+      requiresConfirmation: false,
+    }];
+    mocks.generate.mockResolvedValue(turn);
+    const onNavigate = vi.fn();
+    render(<VoiceChatModal {...defaultProps} onNavigate={onNavigate} />);
+    const input = await screen.findByRole('textbox', { name: 'Message Hyper AI' });
+    fireEvent.change(input, { target: { value: 'Show me the map' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
 
-    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
-    fireEvent(document, new Event('visibilitychange'));
-    expect(screen.getByRole('button', { name: 'Start conversation' })).toBeVisible();
-    expect(mocks.releaseAudioSession).toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('button', { name: 'Open map' }));
+    expect(onNavigate).toHaveBeenCalledWith('map');
+  });
 
-    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
-    fireEvent(window, new Event('pageshow'));
-    expect(mocks.resetAudioOutput).toHaveBeenCalled();
+  it('stops an active request through the conversation engine', async () => {
+    mocks.generate.mockReturnValue(new Promise(() => undefined));
+    render(<VoiceChatModal {...defaultProps} />);
+    const input = await screen.findByRole('textbox', { name: 'Message Hyper AI' });
+    fireEvent.change(input, { target: { value: 'Generate something' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Stop generating' }));
+    expect(mocks.cancel).toHaveBeenCalledWith('conversation-a');
   });
 });

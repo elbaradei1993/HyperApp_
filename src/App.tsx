@@ -215,18 +215,17 @@ const AppContent: React.FC = () => {
 
             // Try to get current position first
             console.log('📡 Attempting to get GPS location...');
+            setLocationPermissionStatus('prompt');
             const position = await locationService.getCurrentPosition({
               enableHighAccuracy: true,
               timeout: 30000,
             });
 
             const location: [number, number] = [position.latitude, position.longitude];
-            console.log('✅ GPS location obtained:', location);
             setUserLocation(location);
+            setLocationPermissionStatus('granted');
             setInitialCenter((current) => current ?? location);
             setLastLocationUpdate(Date.now());
-            console.log(`📍 GPS location set: ${position.latitude.toFixed(6)}, ${position.longitude.toFixed(6)} (${Math.round(position.accuracy)}m)`);
-            console.log('🎯 User location state should now be set - marker should appear on map');
 
             // Save location to database only if location sharing is enabled
             if (isAuthenticated && user?.id && settings?.locationSharing) {
@@ -283,6 +282,7 @@ const AppContent: React.FC = () => {
             console.log('📍 Location initialized successfully - marker should appear on map');
 
           } catch (error) {
+            setLocationPermissionStatus((error as { code?: number })?.code === 1 ? 'denied' : 'unknown');
             console.log('❌ GPS location failed:', error instanceof Error ? error.message : error, 'Code:', (error as any)?.code);
 
             // Check if this is a permission-related error
@@ -728,6 +728,8 @@ const AppContent: React.FC = () => {
                 vibes={vibes}
                 sosAlerts={sosAlerts}
                 userLocation={userLocation}
+                locationCapturedAt={lastLocationUpdate ? new Date(lastLocationUpdate).toISOString() : undefined}
+                locationPermissionStatus={locationPermissionStatus === 'unknown' ? 'unavailable' : locationPermissionStatus}
                 onNewReport={handleNewReport}
                 onNavigate={setActiveTab}
                 onNavigateToMap={handleNavigateToMap}

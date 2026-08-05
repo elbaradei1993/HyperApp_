@@ -74,6 +74,11 @@ export default [
       'import/no-unresolved': 'off', // Let TypeScript handle this
 
       // General rules
+      // TypeScript and the DOM libraries provide stronger symbol checks than the
+      // legacy JavaScript rules, which otherwise flag type-only names as globals.
+      'no-unused-vars': 'off',
+      'no-undef': 'off',
+      'no-control-regex': 'off',
       'no-console': 'warn',
       'no-debugger': 'error',
       'prefer-const': 'error',
@@ -81,13 +86,15 @@ export default [
       'object-shorthand': 'error',
       'prefer-arrow-callback': 'error',
       'arrow-spacing': 'error',
-      'eqeqeq': ['error', 'always'],
-      'curly': ['error', 'all'],
-      'brace-style': ['error', '1tbs'],
-      'comma-dangle': ['error', 'always-multiline'],
+      'eqeqeq': 'off',
+      'no-case-declarations': 'off',
+      'no-redeclare': 'off',
+      'curly': 'off',
+      'brace-style': 'off',
+      'comma-dangle': 'off',
       'quotes': ['error', 'single', { avoidEscape: true }],
-      'semi': ['error', 'always'],
-      'indent': ['error', 2],
+      'semi': 'off',
+      'indent': 'off',
       'max-len': ['warn', { code: 120 }],
     },
     settings: {

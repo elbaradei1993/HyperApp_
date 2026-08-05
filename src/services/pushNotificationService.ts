@@ -327,8 +327,9 @@ class PushNotificationService {
 
   // Check if push notifications are enabled
   async isEnabled(): Promise<boolean> {
-    const permissionStatus = await fcmService.getPermissionStatus();
-    return permissionStatus === 'granted' && !!this.currentToken;
+    if (!Capacitor.isNativePlatform()) return false;
+    const permissionStatus = await PushNotifications.checkPermissions();
+    return permissionStatus.receive === 'granted' && !!this.currentToken;
   }
 
   // Get current FCM token

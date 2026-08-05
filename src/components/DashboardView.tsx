@@ -47,6 +47,8 @@ interface DashboardViewProps {
   vibes: Vibe[];
   sosAlerts: SOS[];
   userLocation: [number, number] | null;
+  locationCapturedAt?: string;
+  locationPermissionStatus?: 'granted' | 'denied' | 'prompt' | 'unavailable';
   onNewReport: () => void;
   onNavigate: (tab: 'map' | 'reports') => void;
   onNavigateToMap: (latitude: number, longitude: number) => void;
@@ -105,6 +107,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   vibes,
   sosAlerts,
   userLocation,
+  locationCapturedAt,
+  locationPermissionStatus,
   onNewReport,
   onNavigate,
   onNavigateToMap,
@@ -439,6 +443,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             isOpen
             onClose={() => setIsAssistantOpen(false)}
             userLocation={userLocation}
+            locationCapturedAt={locationCapturedAt}
+            locationPermissionStatus={locationPermissionStatus}
+            onNavigate={(tab) => {
+              setIsAssistantOpen(false);
+              onNavigate(tab);
+            }}
+            onNewReport={() => {
+              setIsAssistantOpen(false);
+              onNewReport();
+            }}
           />
         </React.Suspense>
       )}

@@ -1,12 +1,38 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { AlertTriangle, MessageCircle, Mic, MicOff, RotateCcw, Send, Sparkles, Volume2, VolumeX, X } from 'lucide-react';
-
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-  askHyperAi,
-  buildHyperAiReportContext,
-  createHyperAiMessage,
-  type HyperAiMessage,
-} from '../services/hyperAi';
+  AlertTriangle,
+  Check,
+  MessageCircle,
+  Mic,
+  MicOff,
+  RotateCcw,
+  Send,
+  Sparkles,
+  Square,
+  Trash2,
+  Volume2,
+  VolumeX,
+  X,
+} from 'lucide-react';
+
+import { useAuth } from '../contexts/AuthContext';
+import { useSettings } from '../contexts/SettingsContext';
+import {
+  buildHyperAppContext,
+  DEFAULT_ASSISTANT_ACTIONS,
+  isLocationContextStale,
+} from '../services/ai/contextBuilder';
+import { conversationEngine, generateAssistantResponse } from '../services/ai/conversationEngine';
+import { conversationRepository } from '../services/ai/conversationRepository';
+import type {
+  AssistantActionType,
+  ConversationMessage,
+  ConversationState,
+  SuggestedAction,
+  UserPreference,
+} from '../services/ai/types';
+import { guardianService } from '../services/guardian';
 import { reportsService } from '../services/reports';
 import { ttsService } from '../services/tts';
 import type { Report } from '../types';
@@ -16,186 +42,15 @@ import './VoiceChatModal.css';
 
 const AI_PRIMARY = '#7065f0';
 const AI_SECONDARY = '#38cfc3';
-const CONVERSATION_STORAGE_KEY = 'hyper-ai-conversation-v2';
-
-function loadStoredConversation(): HyperAiMessage[] {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(window.sessionStorage.getItem(CONVERSATION_STORAGE_KEY) || '[]');
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed
-      .filter((message) => (
-        message &&
-        (message.role === 'user' || message.role === 'assistant') &&
-        typeof message.content === 'string'
-      ))
-      .slice(-20);
-  } catch {
-    return [];
-  }
-}
-
-
-// Animated Listening Indicator Component with Speech Detection
-const ListeningIndicator: React.FC<{ isActive: boolean; speechDetected?: boolean }> = ({ isActive, speechDetected = false }) => {
-  const [bars, setBars] = useState([0.2, 0.4, 0.6, 0.8, 0.6, 0.4, 0.2]);
-  const [intensity, setIntensity] = useState(1);
-
-  useEffect(() => {
-    if (!isActive) {
-      return;
-    }
-
-    // Increase intensity when speech is detected
-    setIntensity(speechDetected ? 1.5 : 1);
-
-    const interval = setInterval(() => {
-      setBars(prev => prev.map((_, i) => {
-        // Create wave-like animation with speech detection boost
-        const time = Date.now() * 0.005;
-        const baseHeight = 0.2 + 0.8 * Math.sin(time + i * 0.5) ** 2;
-        return Math.min(1, baseHeight * intensity);
-      }));
-    }, 50);
-
-    return () => clearInterval(interval);
-  }, [isActive, speechDetected, intensity]);
-
-  return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '2px',
-      height: '40px',
-    }}>
-      {bars.map((height, i) => (
-        <div
-          key={i}
-          style={{
-            width: '4px',
-            height: `${height * 40}px`,
-            backgroundColor: speechDetected ? AI_SECONDARY : AI_PRIMARY,
-            borderRadius: '2px',
-            transition: 'all 0.2s ease',
-            opacity: isActive ? 1 : 0.3,
-            boxShadow: speechDetected ? '0 0 10px rgba(56, 207, 195, 0.62)' : 'none',
-          }}
-        />
-      ))}
-    </div>
-  );
-};
-
-// Animated Processing Indicator Component
-const ProcessingIndicator: React.FC<{ isActive: boolean }> = ({ isActive }) => {
-  const [dots, setDots] = useState([0, 0, 0]);
-
-  useEffect(() => {
-    if (!isActive) {
-      return;
-    }
-
-    const interval = setInterval(() => {
-      setDots(prev => prev.map((_, i) => {
-        const time = Date.now() * 0.008;
-        return Math.sin(time + i * 2) * 0.5 + 0.5;
-      }));
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [isActive]);
-
-  return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '8px',
-      height: '40px',
-    }}>
-      {dots.map((opacity, i) => (
-        <div
-          key={i}
-          style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            backgroundColor: i === 1 ? AI_SECONDARY : AI_PRIMARY,
-            opacity: isActive ? opacity : 0.3,
-            transition: 'opacity 0.3s ease',
-            animation: isActive ? `bounce 1.4s ease-in-out ${i * 0.16}s infinite both` : 'none',
-          }}
-        />
-      ))}
-      <style>
-        {`
-          @keyframes bounce {
-            0%, 80%, 100% { transform: scale(0); }
-            40% { transform: scale(1); }
-          }
-        `}
-      </style>
-    </div>
-  );
-};
-
-// Animated Speaking Indicator Component
-const SpeakingIndicator: React.FC<{ isActive: boolean }> = ({ isActive }) => {
-  const [waveform, setWaveform] = useState([0.3, 0.7, 0.5, 0.9, 0.2, 0.8, 0.4, 0.6]);
-
-  useEffect(() => {
-    if (!isActive) {
-      return;
-    }
-
-    const interval = setInterval(() => {
-      setWaveform(prev => prev.map((_, i) => {
-        // Create dynamic waveform animation
-        const time = Date.now() * 0.01;
-        const baseHeight = 0.3 + Math.sin(time * 0.5 + i * 0.3) * 0.3;
-        const variation = Math.sin(time * 2 + i * 0.7) * 0.2;
-        return Math.max(0.1, Math.min(1, baseHeight + variation));
-      }));
-    }, 50);
-
-    return () => clearInterval(interval);
-  }, [isActive]);
-
-  return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '1px',
-      height: '40px',
-    }}>
-      {waveform.map((height, i) => (
-        <div
-          key={i}
-          style={{
-            width: '3px',
-            height: `${height * 35}px`,
-            backgroundColor: i % 2 === 0 ? AI_PRIMARY : AI_SECONDARY,
-            borderRadius: '1px',
-            transition: 'height 0.05s ease',
-            opacity: isActive ? 1 : 0.3,
-          }}
-        />
-      ))}
-    </div>
-  );
-};
 
 interface VoiceChatModalProps {
   isOpen: boolean;
   onClose: () => void;
   userLocation: [number, number] | null;
+  locationCapturedAt?: string;
+  locationPermissionStatus?: 'granted' | 'denied' | 'prompt' | 'unavailable';
+  onNavigate: (tab: 'map' | 'reports') => void;
+  onNewReport: () => void;
 }
 
 interface SpeechRecognitionResultEventLike {
@@ -216,458 +71,447 @@ interface SpeechRecognitionLike {
   onerror: ((_event: SpeechRecognitionErrorEventLike) => void) | null;
   onend: (() => void) | null;
   start: () => void;
-  stop: () => void;
   abort: () => void;
 }
 
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+type VoiceState = 'idle' | 'recording' | 'processing' | 'speaking' | 'error';
 
-type RecordingState = 'idle' | 'recording' | 'processing' | 'speaking' | 'error';
+const StatusAnimation: React.FC<{ state: VoiceState }> = ({ state }) => {
+  if (state === 'processing') return <LoadingSpinner size="sm" />;
+  if (state === 'recording') return <Mic size={27} color={AI_SECONDARY} />;
+  if (state === 'speaking') return <Volume2 size={27} color={AI_SECONDARY} />;
+  if (state === 'error') return <AlertTriangle size={27} color="#ef4444" />;
+  return <Sparkles size={27} color={AI_PRIMARY} />;
+};
+
+function formatMessageTime(timestamp: string, locale: string): string {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' }).format(date);
+}
 
 const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
   isOpen,
   onClose,
   userLocation,
+  locationCapturedAt,
+  locationPermissionStatus,
+  onNavigate,
+  onNewReport,
 }) => {
-  const [recordingState, setRecordingState] = useState<RecordingState>('idle');
+  const { user } = useAuth();
+  const { settings, updateSettings } = useSettings();
+  const { i18n } = useTranslation();
+  const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [draft, setDraft] = useState('');
-  const [messages, setMessages] = useState<HyperAiMessage[]>(loadStoredConversation);
+  const [conversation, setConversation] = useState<ConversationState | null>(null);
   const [nearbyReports, setNearbyReports] = useState<Report[]>([]);
+  const [guardianCount, setGuardianCount] = useState(0);
+  const [suggestedActions, setSuggestedActions] = useState<SuggestedAction[]>([]);
+  const [completedActions, setCompletedActions] = useState<AssistantActionType[]>([]);
   const [isTTSEnabled, setIsTTSEnabled] = useState(true);
   const [isHandsFreeMode, setIsHandsFreeMode] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isLoadingConversation, setIsLoadingConversation] = useState(false);
+  const [showDataControls, setShowDataControls] = useState(false);
+  const [isTestingSound, setIsTestingSound] = useState(false);
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const conversationEndRef = useRef<React.ElementRef<'div'> | null>(null);
-  const messagesRef = useRef<HyperAiMessage[]>(messages);
-  const recordingStateRef = useRef<RecordingState>('idle');
-  const handsFreeRef = useRef(false);
+  const conversationRef = useRef<ConversationState | null>(null);
+  const conversationListRef = useRef<HTMLDivElement | null>(null);
+  const isNearBottomRef = useRef(true);
   const isOpenRef = useRef(isOpen);
-  const isListeningRef = useRef(false);
+  const handsFreeRef = useRef(false);
+  const listeningRef = useRef(false);
   const restartTimerRef = useRef<number | null>(null);
+  const generationControllerRef = useRef<AbortController | null>(null);
+  const voiceStateRef = useRef<VoiceState>('idle');
+  const processingRef = useRef(false);
 
-  const setVoiceState = (nextState: RecordingState) => {
-    recordingStateRef.current = nextState;
-    setRecordingState(nextState);
-  };
+  const transitionVoiceState = useCallback((state: VoiceState) => {
+    voiceStateRef.current = state;
+    processingRef.current = state === 'processing';
+    setVoiceState(state);
+  }, []);
+
+  const locale = i18n.language || user?.language || 'en';
+  const messages = conversation?.recentMessages || [];
+  const isProcessing = voiceState === 'processing';
+  const isSpeaking = voiceState === 'speaking';
+  const availableActions = useMemo(() => DEFAULT_ASSISTANT_ACTIONS.filter((action) => (
+    !(action.type === 'SHARE_LOCATION' && settings.locationSharing)
+  )), [settings.locationSharing]);
+
+  const appContext = useMemo(() => buildHyperAppContext({
+    currentScreen: 'dashboard',
+    locale,
+    preferredLanguage: user?.language || locale,
+    userLocation,
+    locationCapturedAt,
+    locationPermissionStatus: locationPermissionStatus || (userLocation ? 'granted' : 'unavailable'),
+    nearbyReports,
+    guardianCount,
+    availableAppActions: availableActions,
+  }), [
+    availableActions,
+    guardianCount,
+    locale,
+    locationCapturedAt,
+    locationPermissionStatus,
+    nearbyReports,
+    user?.language,
+    userLocation,
+  ]);
+
+  const preferences = useMemo<UserPreference[]>(() => {
+    const now = new Date().toISOString();
+    return [
+      ...(user?.first_name ? [{ key: 'preferred_name', value: user.first_name, source: 'profile' as const, updatedAt: now }] : []),
+      { key: 'preferred_language', value: user?.language || locale, source: 'profile', updatedAt: now },
+      { key: 'location_sharing', value: String(settings.locationSharing), source: 'app_setting', updatedAt: now },
+    ];
+  }, [locale, settings.locationSharing, user?.first_name, user?.language]);
+
+  const updateConversation = useCallback((state: ConversationState) => {
+    conversationRef.current = state;
+    setConversation(state);
+  }, []);
 
   useEffect(() => {
-    messagesRef.current = messages;
-    try {
-      window.sessionStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify(messages.slice(-20)));
-    } catch {
-      // Conversation memory remains available in React state when storage is restricted.
-    }
-    conversationEndRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
-  }, [messages]);
+    if (!isOpen || !user?.id) return undefined;
+    let active = true;
+    isOpenRef.current = true;
+    setIsLoadingConversation(true);
+    setErrorMessage('');
 
-  useEffect(() => {
-    isOpenRef.current = isOpen;
-    if (isOpen) {
-      handsFreeRef.current = false;
-      setIsHandsFreeMode(false);
-      setVoiceState('idle');
-      setDraft('');
-      setErrorMessage('');
-      loadNearbyReports();
-      void ttsService.prepare();
+    const initialize = async () => {
+      const bounds = userLocation ? {
+        northEast: [userLocation[0] + 0.02, userLocation[1] + 0.02] as [number, number],
+        southWest: [userLocation[0] - 0.02, userLocation[1] - 0.02] as [number, number],
+      } : undefined;
+      const [reports, guardians] = await Promise.all([
+        bounds ? reportsService.getReports({ bounds, limit: 50 }).catch(() => []) : Promise.resolve([]),
+        guardianService.getUserGuardians(user.id).catch(() => []),
+      ]);
+      if (!active) return;
+      setNearbyReports(reports);
+      setGuardianCount(guardians.length);
+      const initialContext = buildHyperAppContext({
+        currentScreen: 'dashboard',
+        locale,
+        preferredLanguage: user.language || locale,
+        userLocation,
+        locationCapturedAt,
+        locationPermissionStatus: locationPermissionStatus || (userLocation ? 'granted' : 'unavailable'),
+        nearbyReports: reports,
+        guardianCount: guardians.length,
+        availableAppActions: availableActions,
+      });
+      const state = await conversationEngine.initialize(user.id, initialContext, preferences, true);
+      if (active) updateConversation(state);
+    };
 
-      // Initialize speech recognition if available
-      initializeSpeechRecognition();
-    }
-
+    void initialize().finally(() => active && setIsLoadingConversation(false));
+    void ttsService.prepare();
     return () => {
+      active = false;
       isOpenRef.current = false;
-      handsFreeRef.current = false;
-      isListeningRef.current = false;
-      if (restartTimerRef.current !== null) {
-        window.clearTimeout(restartTimerRef.current);
-        restartTimerRef.current = null;
-      }
+      generationControllerRef.current?.abort();
+      if (restartTimerRef.current !== null) window.clearTimeout(restartTimerRef.current);
       recognitionRef.current?.abort();
-      recognitionRef.current = null;
       ttsService.stop();
     };
-  }, [isOpen, userLocation]);
+  }, [
+    isOpen,
+    availableActions,
+    locale,
+    locationCapturedAt,
+    locationPermissionStatus,
+    preferences,
+    updateConversation,
+    user?.id,
+    user?.language,
+    userLocation,
+  ]);
 
-  const initializeSpeechRecognition = () => {
-    // Check for Web Speech API support
+  useEffect(() => {
+    if (!conversationListRef.current || !isNearBottomRef.current) return;
+    const list = conversationListRef.current;
+    if (typeof list.scrollTo === 'function') {
+      list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' });
+    } else {
+      list.scrollTop = list.scrollHeight;
+    }
+  }, [messages.length, voiceState]);
+
+  const scheduleListeningRestart = useCallback((delayMs = 250) => {
+    if (restartTimerRef.current !== null) window.clearTimeout(restartTimerRef.current);
+    restartTimerRef.current = window.setTimeout(() => {
+      restartTimerRef.current = null;
+      const recognition = recognitionRef.current;
+      if (!recognition || !handsFreeRef.current || !isOpenRef.current || listeningRef.current) return;
+      try {
+        ttsService.prepareForListening();
+        listeningRef.current = true;
+        transitionVoiceState('recording');
+        recognition.start();
+      } catch {
+        scheduleListeningRestart(500);
+      }
+    }, delayMs);
+  }, [transitionVoiceState]);
+
+  const speakText = useCallback(async (text: string) => {
+    if (!isTTSEnabled) {
+      transitionVoiceState('idle');
+      if (handsFreeRef.current) scheduleListeningRestart();
+      return;
+    }
+    try {
+      transitionVoiceState('speaking');
+      await ttsService.speak(text, { speed: 1.02, pitch: 1.02, volume: 1 });
+    } catch {
+      setErrorMessage('The response is shown, but audio playback was unavailable.');
+    } finally {
+      transitionVoiceState('idle');
+      if (handsFreeRef.current) scheduleListeningRestart();
+    }
+  }, [isTTSEnabled, scheduleListeningRestart, transitionVoiceState]);
+
+  const processMessage = useCallback(async (text: string, retryMessageId?: string) => {
+    const state = conversationRef.current;
+    if (!user?.id || !state || processingRef.current) return;
+    const cleaned = text.replace(/\s+/g, ' ').trim();
+    if (!cleaned) return;
+
+    const generationController = new AbortController();
+    generationControllerRef.current = generationController;
+    transitionVoiceState('processing');
+    setErrorMessage('');
+    setSuggestedActions([]);
+    listeningRef.current = false;
+    recognitionRef.current?.abort();
+    try {
+      const pendingTurn = generateAssistantResponse({
+        conversationId: state.conversationId,
+        userMessage: cleaned,
+        userId: user.id,
+        appContext,
+        signal: generationController.signal,
+        retryMessageId,
+      });
+      const pendingState = conversationEngine.getState(state.conversationId);
+      if (pendingState) updateConversation(pendingState);
+      const result = await pendingTurn;
+      updateConversation(result.state);
+      setSuggestedActions(result.response.suggestedActions);
+      await speakText(result.response.message);
+    } catch (error) {
+      const latestState = conversationEngine.getState(state.conversationId);
+      if (latestState) updateConversation(latestState);
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setErrorMessage('Generation stopped. You can retry the message.');
+        transitionVoiceState('idle');
+      } else {
+        setErrorMessage(error instanceof Error
+          ? error.message
+          : 'I couldn’t generate a response right now. Your previous messages are still available. Try again.');
+        transitionVoiceState('error');
+      }
+    } finally {
+      generationControllerRef.current = null;
+    }
+  }, [appContext, speakText, transitionVoiceState, updateConversation, user?.id]);
+
+  useEffect(() => {
     const speechWindow = window as typeof window & {
       SpeechRecognition?: SpeechRecognitionConstructor;
       webkitSpeechRecognition?: SpeechRecognitionConstructor;
     };
     const SpeechRecognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
-
-    if (SpeechRecognition) {
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
-      recognitionRef.current.lang = 'en-US'; // Default to English, could be made configurable
-
-      recognitionRef.current.onresult = (event) => {
-        isListeningRef.current = false;
-        const transcript = event.results[0][0].transcript;
-        void processTranscript(transcript);
-      };
-
-      recognitionRef.current.onerror = (event) => {
-        isListeningRef.current = false;
-        if (event.error === 'aborted') {
-          return;
-        }
-        if (event.error === 'no-speech' && handsFreeRef.current) {
-          setVoiceState('recording');
-          return;
-        }
-
-        let friendlyMessage = 'Speech recognition failed. Please try again.';
-
-        // Provide more specific error messages
-        switch (event.error) {
-        case 'network':
-          friendlyMessage = 'Network error. Please check your internet connection.';
-          break;
-        case 'not-allowed':
-          friendlyMessage = 'Microphone access denied. Please allow microphone permissions and try again.';
-          break;
-        case 'no-speech':
-          friendlyMessage = 'I did not hear anything. Tap Start conversation and try again.';
-          break;
-        case 'audio-capture':
-          friendlyMessage = 'Microphone error. Please check your audio settings.';
-          break;
-        case 'service-not-allowed':
-          friendlyMessage = 'Speech recognition service unavailable. Please try again later.';
-          break;
-        }
-
-        setErrorMessage(friendlyMessage);
-        handsFreeRef.current = false;
-        setIsHandsFreeMode(false);
-        setVoiceState('error');
-      };
-
-      recognitionRef.current.onend = () => {
-        isListeningRef.current = false;
-        if (
-          handsFreeRef.current &&
-          isOpenRef.current &&
-          recordingStateRef.current === 'recording'
-        ) {
-          scheduleListeningRestart(350);
-        }
-      };
-    }
-  };
-
-  const loadNearbyReports = async () => {
-    if (!userLocation) {
-      return;
-    }
-
-    try {
-      // Get reports within 2km radius for better context
-      const bounds = {
-        northEast: [userLocation[0] + 0.02, userLocation[1] + 0.02] as [number, number],
-        southWest: [userLocation[0] - 0.02, userLocation[1] - 0.02] as [number, number],
-      };
-
-      const reports = await reportsService.getReports({ bounds, limit: 200 });
-      setNearbyReports(reports);
-    } catch (error) {
-      console.error('Error loading nearby reports:', error);
-    }
-  };
-
-  const scheduleListeningRestart = (delayMs = 250) => {
-    if (restartTimerRef.current !== null) {
-      window.clearTimeout(restartTimerRef.current);
-    }
-    restartTimerRef.current = window.setTimeout(() => {
-      restartTimerRef.current = null;
-      beginListening();
-    }, delayMs);
-  };
-
-  const beginListening = () => {
-    setErrorMessage('');
-    const recognition = recognitionRef.current;
-    if (!recognition) {
+    if (!isOpen || !SpeechRecognition) return undefined;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = user?.language === 'ar' ? 'ar' : 'en-US';
+    recognition.onresult = (event) => {
+      listeningRef.current = false;
+      void processMessage(event.results[0][0].transcript);
+    };
+    recognition.onerror = (event) => {
+      listeningRef.current = false;
+      if (event.error === 'aborted') return;
+      const permissionError = event.error === 'not-allowed' || event.error === 'service-not-allowed';
+      setErrorMessage(permissionError
+        ? 'Microphone access is unavailable. You can still type your message.'
+        : 'I could not hear that clearly. Tap Start conversation and try again.');
       handsFreeRef.current = false;
       setIsHandsFreeMode(false);
-      setErrorMessage('Voice input is not supported in this browser. You can still type your question below.');
-      setVoiceState('error');
-      return;
-    }
-    if (!handsFreeRef.current || !isOpenRef.current || isListeningRef.current) {
-      return;
-    }
-    if (recordingStateRef.current === 'processing' || recordingStateRef.current === 'speaking') {
-      return;
-    }
+      transitionVoiceState('error');
+    };
+    recognition.onend = () => {
+      listeningRef.current = false;
+      if (handsFreeRef.current && voiceStateRef.current === 'recording') scheduleListeningRestart(350);
+    };
+    recognitionRef.current = recognition;
+    return () => {
+      recognition.abort();
+      if (recognitionRef.current === recognition) recognitionRef.current = null;
+    };
+  }, [isOpen, processMessage, scheduleListeningRestart, transitionVoiceState, user?.language]);
 
-    try {
-      ttsService.prepareForListening();
-      isListeningRef.current = true;
-      setVoiceState('recording');
-      recognition.start();
-    } catch {
-      isListeningRef.current = false;
-      scheduleListeningRestart(500);
-    }
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const pause = () => {
+      if (document.visibilityState !== 'hidden') return;
+      handsFreeRef.current = false;
+      setIsHandsFreeMode(false);
+      recognitionRef.current?.abort();
+      ttsService.stop();
+      transitionVoiceState('idle');
+    };
+    const resume = () => document.visibilityState === 'visible' && ttsService.resetAudioOutput();
+    document.addEventListener('visibilitychange', pause);
+    window.addEventListener('pageshow', resume);
+    return () => {
+      document.removeEventListener('visibilitychange', pause);
+      window.removeEventListener('pageshow', resume);
+    };
+  }, [isOpen, transitionVoiceState]);
+
+  const submitDraft = () => {
+    if (!draft.trim() || isProcessing) return;
+    if (isTTSEnabled) void ttsService.unlock();
+    const value = draft;
+    setDraft('');
+    void processMessage(value);
   };
 
-  const startHandsFreeConversation = () => {
+  const startHandsFree = () => {
+    if (!recognitionRef.current) {
+      setErrorMessage('Voice input is not supported by this browser. You can still type, and voice responses can still play.');
+      return;
+    }
     handsFreeRef.current = true;
     setIsHandsFreeMode(true);
-    // On iPhone, activate the speaker from this direct tap before handing the
-    // audio session to speech recognition. The short tone also confirms that
-    // sound is routed correctly before the first AI response.
-    void ttsService.unlock(true).finally(() => beginListening());
+    void ttsService.unlock(true).finally(() => scheduleListeningRestart(0));
   };
 
-  const stopHandsFreeConversation = () => {
+  const stopHandsFree = () => {
     handsFreeRef.current = false;
     setIsHandsFreeMode(false);
-    isListeningRef.current = false;
-    if (restartTimerRef.current !== null) {
-      window.clearTimeout(restartTimerRef.current);
-      restartTimerRef.current = null;
-    }
     recognitionRef.current?.abort();
     ttsService.stop();
     ttsService.releaseAudioSession();
-    setVoiceState('idle');
-  };
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    const resetAfterResume = () => {
-      if (document.visibilityState === 'visible') {
-        ttsService.resetAudioOutput();
-      }
-    };
-    const pauseConversation = () => {
-      if (document.visibilityState !== 'hidden') {
-        return;
-      }
-      handsFreeRef.current = false;
-      setIsHandsFreeMode(false);
-      isListeningRef.current = false;
-      if (restartTimerRef.current !== null) {
-        window.clearTimeout(restartTimerRef.current);
-        restartTimerRef.current = null;
-      }
-      recognitionRef.current?.abort();
-      ttsService.stop();
-      ttsService.releaseAudioSession();
-      setVoiceState('idle');
-    };
-
-    document.addEventListener('visibilitychange', pauseConversation);
-    window.addEventListener('pageshow', resetAfterResume);
-    return () => {
-      document.removeEventListener('visibilitychange', pauseConversation);
-      window.removeEventListener('pageshow', resetAfterResume);
-    };
-  }, [isOpen]);
-
-  const processTranscript = async (transcriptText: string) => {
-    const cleanedText = transcriptText.trim();
-    if (!cleanedText) {
-      return;
-    }
-
-    const userMessage = createHyperAiMessage('user', cleanedText);
-    const nextMessages = [...messagesRef.current, userMessage].slice(-20);
-    messagesRef.current = nextMessages;
-    setMessages(nextMessages);
-
-    try {
-      setVoiceState('processing');
-      if (isListeningRef.current) {
-        isListeningRef.current = false;
-        recognitionRef.current?.abort();
-      }
-      setErrorMessage('');
-
-      const reportContext = buildHyperAiReportContext(nearbyReports, Boolean(userLocation));
-      const { answer } = await askHyperAi(nextMessages, reportContext);
-      setMessages((currentMessages) => {
-        const updatedMessages = [
-          ...currentMessages,
-          createHyperAiMessage('assistant', answer),
-        ].slice(-20);
-        messagesRef.current = updatedMessages;
-        return updatedMessages;
-      });
-      setVoiceState('speaking');
-
-      if (isTTSEnabled) {
-        await speakText(answer);
-      } else {
-        setVoiceState('idle');
-        if (handsFreeRef.current) {
-          scheduleListeningRestart();
-        }
-      }
-    } catch (error) {
-      console.error('Error processing transcript:', error);
-      setErrorMessage(error instanceof Error ? error.message : 'I could not process that request. Please try again.');
-      setVoiceState('error');
-    }
-  };
-
-  const speakText = async (text: string) => {
-    try {
-      // Use more human-like speech parameters
-      await ttsService.speak(text, {
-        speed: 1.02,
-        pitch: 1.02,
-        volume: 1,
-      });
-    } catch (error) {
-      console.error('TTS error:', error);
-      setErrorMessage('I could not play the voice response, but the answer is shown above.');
-    } finally {
-      setVoiceState('idle');
-      if (handsFreeRef.current) {
-        scheduleListeningRestart();
-      }
-    }
-  };
-
-  const stopSpeaking = () => {
-    ttsService.stop();
-    setVoiceState('idle');
-    if (handsFreeRef.current) {
-      scheduleListeningRestart();
-    }
+    transitionVoiceState('idle');
   };
 
   const testSound = async () => {
-    stopHandsFreeConversation();
+    if (isTestingSound) return;
+    setIsTestingSound(true);
     setErrorMessage('');
-    setVoiceState('speaking');
     try {
       await ttsService.unlock(true);
-      await ttsService.speak('Hyper AI sound is working.', {
-        speed: 1.02,
-        pitch: 1.02,
-        volume: 1,
-      });
-      setVoiceState('idle');
-    } catch (error) {
-      console.error('Sound test failed:', error);
-      setErrorMessage('Sound is blocked. Turn up media volume, disable Silent Mode, then tap Test sound again.');
-      setVoiceState('error');
+      await ttsService.speak('Hyper AI voice is ready.', { speed: 1, pitch: 1, volume: 1 });
+    } catch {
+      setErrorMessage('Audio could not play. Check that the phone is not muted, raise media volume, then tap Test sound again.');
+    } finally {
+      setIsTestingSound(false);
     }
   };
 
-  const submitPrompt = (prompt: string) => {
-    const cleanedPrompt = prompt.trim();
-    if (!cleanedPrompt || recordingState === 'processing') {
+  const startNewConversation = async () => {
+    if (!user?.id) return;
+    stopHandsFree();
+    const state = await conversationEngine.createConversation(
+      user.id,
+      appContext,
+      preferences,
+      conversation?.persistenceEnabled ?? true,
+    );
+    updateConversation(state);
+    setSuggestedActions([]);
+    setErrorMessage('');
+  };
+
+  const deleteCurrentConversation = async () => {
+    if (!user?.id || !conversation) return;
+    const deleted = await conversationEngine.deleteConversation(user.id, conversation.conversationId);
+    if (!deleted) {
+      setErrorMessage('The conversation could not be deleted from your account. Try again.');
       return;
     }
-
-    // This handler runs inside the user's click/submit gesture, which is the
-    // reliable moment to unlock delayed audio on desktop and mobile browsers.
-    if (isTTSEnabled) {
-      ttsService.unlock();
-    }
-    setDraft('');
-    void processTranscript(cleanedPrompt);
+    await startNewConversation();
   };
 
-  const toggleVoicePlayback = () => {
-    const nextEnabled = !isTTSEnabled;
-    setIsTTSEnabled(nextEnabled);
-    if (nextEnabled) {
-      ttsService.unlock();
-      void ttsService.prepare();
-    } else if (recordingStateRef.current === 'speaking') {
-      stopSpeaking();
+  const clearAllHistory = async () => {
+    if (!user?.id) return;
+    const cleared = await conversationEngine.clearHistory(user.id);
+    if (!cleared) {
+      setErrorMessage('Saved AI history could not be cleared. Try again.');
+      return;
     }
+    await startNewConversation();
   };
 
-  const startNewConversation = () => {
-    stopHandsFreeConversation();
-    messagesRef.current = [];
-    setMessages([]);
-    setDraft('');
-    setErrorMessage('');
+  const togglePersistence = async () => {
+    if (!conversation) return;
     try {
-      window.sessionStorage.removeItem(CONVERSATION_STORAGE_KEY);
-    } catch {
-      // Nothing else is required when storage is restricted.
+      updateConversation(await conversationEngine.setPersistence(
+        conversation.conversationId,
+        !conversation.persistenceEnabled,
+      ));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Conversation persistence could not be changed.');
     }
   };
 
-  const getStateDisplay = () => {
-    switch (recordingState) {
-    case 'recording':
-      return {
-        text: 'Listening...',
-        color: AI_SECONDARY,
-        icon: Mic,
-        isLoadingSpinner: false,
-        description: 'Speak now - I\'m listening',
-      };
-    case 'processing':
-      return {
-        text: 'Thinking...',
-        color: AI_PRIMARY,
-        icon: null,
-        isLoadingSpinner: true,
-        description: 'Reviewing the conversation and nearby community context',
-      };
-    case 'speaking':
-      return {
-        text: 'Speaking...',
-        color: AI_SECONDARY,
-        icon: Volume2,
-        isLoadingSpinner: false,
-        description: 'Here\'s what I found',
-      };
-    case 'error':
-      return {
-        text: 'Error',
-        color: '#ef4444',
-        icon: AlertTriangle,
-        isLoadingSpinner: false,
-        description: errorMessage || 'Something went wrong',
-      };
-    default:
-      return {
-        text: isHandsFreeMode ? 'Conversation active' : 'Ready when you are',
-        color: AI_PRIMARY,
-        icon: Mic,
-        isLoadingSpinner: false,
-        description: isHandsFreeMode
-          ? 'I will listen again after every reply'
-          : messages.length > 0
-            ? 'I remember this conversation'
-            : 'Ask about nearby safety and community reports',
-      };
+  const runAction = async (action: SuggestedAction) => {
+    if (!appContext.availableAppActions.some((available) => available.type === action.type)) return;
+    if (action.type === 'OPEN_MAP') {
+      onClose();
+      onNavigate('map');
     }
+    if (action.type === 'OPEN_NEARBY_REPORTS') {
+      onClose();
+      onNavigate('reports');
+    }
+    if (action.type === 'REPORT_INCIDENT') {
+      onClose();
+      onNewReport();
+      return;
+    }
+    if (action.type === 'CALL_EMERGENCY_SERVICES') {
+      window.location.assign('tel:911');
+      return;
+    }
+    if (action.type === 'SHARE_LOCATION') {
+      try {
+        await updateSettings({ locationSharing: true });
+      } catch {
+        if (conversation) {
+          void conversationEngine.recordActionOutcome(conversation.conversationId, action.type, 'failed');
+        }
+        setErrorMessage('Location sharing did not turn on. Call local emergency services directly if you are in immediate danger.');
+        return;
+      }
+    }
+    if (conversation) {
+      void conversationEngine.recordActionOutcome(conversation.conversationId, action.type, 'completed');
+    }
+    setCompletedActions((current) => [...new Set([...current, action.type])]);
   };
 
-  const stateDisplay = getStateDisplay();
-  const StateIcon = stateDisplay.icon;
-
-  const isRecording = recordingState === 'recording';
-  const isProcessing = recordingState === 'processing';
-  const isSpeaking = recordingState === 'speaking';
-  const hasError = recordingState === 'error';
-
-  const suggestions = [
-    'How safe is my area?',
-    'Are there recent alerts?',
-    'How do I submit a report?',
-  ];
+  const status = voiceState === 'recording'
+    ? ['Listening…', 'Speak now']
+    : voiceState === 'processing'
+      ? ['Thinking…', 'Using this conversation and current HyperApp context']
+      : voiceState === 'speaking'
+        ? ['Speaking…', 'Voice response is playing']
+        : voiceState === 'error'
+          ? ['Response unavailable', errorMessage]
+          : ['Ready when you are', messages.length ? 'This conversation has context' : 'Ask about safety or nearby reports'];
 
   return (
     <Modal
@@ -678,7 +522,12 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       overlayClassName="ai-assistant-overlay"
       containerClassName="ai-assistant-modal"
     >
-      <section className="ai-assistant-shell" aria-labelledby="ai-assistant-title">
+      <section
+        className="ai-assistant-shell"
+        aria-labelledby="ai-assistant-title"
+        aria-busy={isProcessing}
+        dir={i18n.dir()}
+      >
         <button className="ai-assistant-close" type="button" onClick={onClose} aria-label="Close Hyper AI">
           <X size={18} />
         </button>
@@ -686,141 +535,146 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
         <header className="ai-assistant-header">
           <div className="ai-assistant-brand-row">
             <span className="ai-assistant-brand-mark" aria-hidden="true"><Sparkles size={18} /></span>
-            <div>
-              <span className="ai-assistant-kicker">Secure cloud intelligence</span>
-              <h2 id="ai-assistant-title">Hyper AI</h2>
-            </div>
+            <div><span className="ai-assistant-kicker">Context-aware safety support</span><h2 id="ai-assistant-title">Hyper AI</h2></div>
             <div className="ai-assistant-header-actions">
-              {messages.length > 0 && (
-                <button type="button" onClick={startNewConversation} aria-label="Start a new conversation" title="New conversation">
-                  <RotateCcw size={14} />
-                </button>
-              )}
-              <span className="ai-assistant-beta">Cloud</span>
+              <button type="button" onClick={() => void startNewConversation()} aria-label="Start a new conversation" title="New conversation">
+                <RotateCcw size={14} />
+              </button>
+              <button type="button" onClick={() => setShowDataControls((shown) => !shown)} aria-label="Conversation data controls" title="Data controls">
+                <Trash2 size={14} />
+              </button>
+              <span className="ai-assistant-beta">AI</span>
             </div>
           </div>
 
-          <div className={isRecording || isProcessing || isSpeaking ? 'ai-assistant-orb is-active' : 'ai-assistant-orb'}>
-            <div className="ai-assistant-orb-inner">
-              {isRecording ? (
-                <ListeningIndicator isActive speechDetected />
-              ) : isProcessing ? (
-                <ProcessingIndicator isActive />
-              ) : isSpeaking ? (
-                <SpeakingIndicator isActive />
-              ) : StateIcon ? (
-                <StateIcon size={28} color={stateDisplay.color} />
-              ) : null}
-            </div>
+          <div className={voiceState !== 'idle' ? 'ai-assistant-orb is-active' : 'ai-assistant-orb'}>
+            <div className="ai-assistant-orb-inner"><StatusAnimation state={voiceState} /></div>
           </div>
-
-          <div className="ai-assistant-status">
-            <strong style={{ color: stateDisplay.color }}>{stateDisplay.text}</strong>
-            <span>{stateDisplay.description}</span>
+          <div className="ai-assistant-status" role="status" aria-live="polite">
+            <strong>{status[0]}</strong><span>{status[1]}</span>
           </div>
         </header>
 
         <div className="ai-assistant-body">
-          {messages.length === 0 && (
+          {showDataControls && (
+            <div className="ai-data-controls">
+              <label>
+                <input type="checkbox" checked={conversation?.persistenceEnabled ?? true} onChange={() => void togglePersistence()} />
+                Save this conversation to my account
+              </label>
+              <button type="button" onClick={() => void deleteCurrentConversation()}>Delete this conversation</button>
+              <button type="button" onClick={() => void clearAllHistory()}>Clear all AI history</button>
+            </div>
+          )}
+
+          {conversationRepository.hasPersistenceWarning() && (
+            <div className="ai-context-warning" role="status">
+              This conversation is available on this device, but account sync is temporarily unavailable.
+            </div>
+          )}
+          {isLocationContextStale(appContext) && (
+            <div className="ai-context-warning" role="status">
+              Location context may be outdated. Open the map to refresh it before relying on nearby information.
+            </div>
+          )}
+          {appContext.approximateLocation?.permissionStatus === 'denied' && (
+            <div className="ai-context-warning" role="status">
+              Location access is denied. Hyper AI can still help, but it cannot use your current area or nearby reports.
+            </div>
+          )}
+
+          {messages.length === 0 && !isLoadingConversation && (
             <div className="ai-assistant-suggestions" aria-label="Suggested questions">
-              {suggestions.map((suggestion) => (
-                <button key={suggestion} type="button" onClick={() => submitPrompt(suggestion)} disabled={isProcessing}>
-                  {suggestion}
+              {['What should I set up before going out?', 'Are there recent nearby reports?', 'Help me make a safety plan.'].map((suggestion) => (
+                <button key={suggestion} type="button" onClick={() => void processMessage(suggestion)} disabled={isProcessing}>{suggestion}</button>
+              ))}
+            </div>
+          )}
+
+          <div
+            ref={conversationListRef}
+            className="ai-assistant-conversation"
+            aria-live="polite"
+            onScroll={(event) => {
+              const element = event.currentTarget;
+              isNearBottomRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < 80;
+            }}
+          >
+            {isLoadingConversation && <div className="ai-message-loading"><LoadingSpinner size="sm" /> Loading conversation…</div>}
+            {messages.map((message: ConversationMessage) => (
+              <article key={message.id} className={message.role === 'user' ? 'ai-message ai-message--user' : 'ai-message ai-message--assistant'}>
+                <span>{message.role === 'assistant' && <Sparkles size={13} />} {message.role === 'user' ? 'You' : 'Hyper AI'}</span>
+                <p>{message.content}</p>
+                <footer>
+                  <time dateTime={message.timestamp}>{formatMessageTime(message.timestamp, locale)}</time>
+                  {message.deliveryStatus === 'pending' && <span>Sending…</span>}
+                  {message.deliveryStatus === 'failed' && message.role === 'user' && (
+                    <button type="button" onClick={() => void processMessage(message.content, message.id)}>Retry</button>
+                  )}
+                </footer>
+              </article>
+            ))}
+            {isProcessing && (
+              <div className="ai-message ai-message--assistant ai-message--thinking" aria-label="Hyper AI is generating a response">
+                <span><Sparkles size={13} /> Hyper AI</span><LoadingSpinner size="sm" />
+              </div>
+            )}
+          </div>
+
+          {suggestedActions.length > 0 && (
+            <div className="ai-suggested-actions" aria-label="Suggested HyperApp actions">
+              {suggestedActions.map((action) => (
+                <button
+                  key={action.type}
+                  type="button"
+                  onClick={() => void runAction(action)}
+                  disabled={completedActions.includes(action.type)}
+                >
+                  {completedActions.includes(action.type) ? <Check size={14} /> : <Sparkles size={14} />}
+                  {completedActions.includes(action.type) ? `${action.label} completed` : action.label}
                 </button>
               ))}
             </div>
           )}
 
-          {messages.length > 0 && (
-            <div className="ai-assistant-conversation" aria-live="polite">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={message.role === 'user' ? 'ai-message ai-message--user' : 'ai-message ai-message--assistant'}
-                >
-                  <span>
-                    {message.role === 'assistant' && <Sparkles size={13} />}
-                    {message.role === 'user' ? 'You' : 'Hyper AI'}
-                  </span>
-                  <p>{message.content}</p>
-                </div>
-              ))}
-              {isProcessing && (
-                <div className="ai-message ai-message--assistant ai-message--thinking" aria-label="Hyper AI is thinking">
-                  <span><Sparkles size={13} /> Hyper AI</span>
-                  <ProcessingIndicator isActive />
-                </div>
-              )}
-              <div ref={conversationEndRef} />
-            </div>
-          )}
+          {errorMessage && <div className="ai-assistant-error" role="alert"><AlertTriangle size={17} /><span>{errorMessage}</span></div>}
 
-          {hasError && errorMessage && (
-            <div className="ai-assistant-error" role="alert">
-              <AlertTriangle size={17} />
-              <div><strong>Something went wrong</strong><span>{errorMessage}</span></div>
-            </div>
-          )}
-
-          <form
-            className="ai-assistant-composer"
-            onSubmit={(event) => {
-              event.preventDefault();
-              submitPrompt(draft);
-            }}
-          >
+          <form className="ai-assistant-composer" onSubmit={(event) => { event.preventDefault(); submitDraft(); }}>
             <MessageCircle size={18} aria-hidden="true" />
             <input
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              placeholder="Ask about your area..."
+              placeholder="Message Hyper AI…"
               aria-label="Message Hyper AI"
-              disabled={isProcessing}
+              disabled={isProcessing || isLoadingConversation}
+              maxLength={1500}
             />
-            <button type="submit" disabled={!draft.trim() || isProcessing} aria-label="Send message">
+            <button type="submit" disabled={!draft.trim() || isProcessing || isLoadingConversation} aria-label="Send message">
               {isProcessing ? <LoadingSpinner size="sm" /> : <Send size={17} />}
             </button>
           </form>
 
           <div className="ai-assistant-controls">
-            <button
-              type="button"
-              className={isHandsFreeMode ? 'ai-voice-control is-recording' : 'ai-voice-control'}
-              onClick={isHandsFreeMode ? stopHandsFreeConversation : startHandsFreeConversation}
-              aria-pressed={isHandsFreeMode}
-            >
+            <button type="button" className={isHandsFreeMode ? 'ai-voice-control is-recording' : 'ai-voice-control'} onClick={isHandsFreeMode ? stopHandsFree : startHandsFree}>
               {isHandsFreeMode ? <MicOff size={17} /> : <Mic size={17} />}
               <span>{isHandsFreeMode ? 'End conversation' : 'Start conversation'}</span>
             </button>
-
-            <button
-              type="button"
-              className="ai-audio-toggle"
-              onClick={toggleVoicePlayback}
-              aria-pressed={isTTSEnabled}
-              aria-label={`${isTTSEnabled ? 'Disable' : 'Enable'} voice responses`}
-            >
+            <button type="button" className="ai-audio-toggle" onClick={() => { setIsTTSEnabled((enabled) => !enabled); ttsService.stop(); }} aria-label={`${isTTSEnabled ? 'Disable' : 'Enable'} voice responses`}>
               {isTTSEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
             </button>
-
-            <button
-              type="button"
-              className="ai-test-sound"
-              onClick={() => void testSound()}
-              disabled={isProcessing || isSpeaking}
-            >
-              Test sound
-            </button>
-
-            {isSpeaking && (
-              <button type="button" className="ai-stop-speaking" onClick={stopSpeaking}>Stop audio</button>
+            {isProcessing && (
+              <button type="button" className="ai-stop-speaking" onClick={() => conversation && conversationEngine.cancel(conversation.conversationId)}>
+                <Square size={13} /> Stop generating
+              </button>
             )}
+            {isSpeaking && <button type="button" className="ai-stop-speaking" onClick={() => { ttsService.stop(); transitionVoiceState('idle'); }}>Stop audio</button>}
+            <button type="button" className="ai-test-sound" onClick={() => void testSound()} disabled={isTestingSound}>
+              {isTestingSound ? 'Testing sound...' : 'Test sound'}
+            </button>
+            <button type="button" className="ai-emergency-action" onClick={() => window.location.assign('tel:911')}>Emergency call</button>
           </div>
 
-          <p className="ai-assistant-disclaimer">
-            Hyper AI uses secure cloud inference and community-provided data, which may be incomplete.
-            Contact emergency services for urgent help.
-          </p>
+          <p className="ai-assistant-disclaimer">Hyper is an AI assistant, not an emergency dispatcher. Community reports may be incomplete or unverified.</p>
         </div>
       </section>
     </Modal>
