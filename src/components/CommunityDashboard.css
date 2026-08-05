@@ -179,13 +179,14 @@
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 20px;
   background:
-    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.055), transparent 34%),
-    radial-gradient(circle at 22% 12%, rgba(32, 242, 85, 0.06), transparent 30%),
-    linear-gradient(145deg, #282b2a, #1f2221);
+    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.055), transparent 33%),
+    radial-gradient(circle at 25% 18%, rgba(83, 200, 233, 0.08), transparent 30%),
+    radial-gradient(circle at 78% 76%, rgba(215, 162, 92, 0.07), transparent 30%),
+    linear-gradient(145deg, #252927 0%, #1a1d1c 100%);
   box-shadow:
-    0 24px 48px rgba(15, 18, 17, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 -24px 60px rgba(0, 0, 0, 0.16);
+    0 28px 58px rgba(15, 18, 17, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -28px 70px rgba(0, 0, 0, 0.22);
 }
 
 .community-pulse-chart::before {
@@ -202,7 +203,38 @@
 .community-pulse-donut {
   position: relative;
   z-index: 1;
-  filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.28));
+  filter: drop-shadow(0 20px 34px rgba(0, 0, 0, 0.34));
+}
+
+.community-pulse-donut::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: -18px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from -105deg,
+    #22e36f 0deg 44deg,
+    transparent 44deg 57deg,
+    #ffe20a 57deg 101deg,
+    transparent 101deg 114deg,
+    #fff 114deg 183deg,
+    transparent 183deg 196deg,
+    #d7a25c 196deg 245deg,
+    transparent 245deg 258deg,
+    #c63df1 258deg 305deg,
+    transparent 305deg 318deg,
+    #53c8e9 318deg 360deg
+  );
+  opacity: 0.28;
+  filter: blur(18px) saturate(135%);
+  -webkit-mask: radial-gradient(circle, transparent 47%, #000 58%, #000 71%, transparent 82%);
+  mask: radial-gradient(circle, transparent 47%, #000 58%, #000 71%, transparent 82%);
+  pointer-events: none;
+}
+
+.community-pulse-progress svg {
+  filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.34)) !important;
 }
 
 .community-pulse-center {
@@ -219,7 +251,7 @@
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.045em;
-  text-shadow: 0 4px 18px rgba(255, 255, 255, 0.14);
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.18), 0 5px 18px rgba(0, 0, 0, 0.32);
 }
 
 .community-pulse-center span {

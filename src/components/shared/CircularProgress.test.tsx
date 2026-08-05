@@ -12,6 +12,7 @@ describe('MultiSegmentCircularProgress', () => {
           { percentage: 40, color: '#f59e0b', label: 'lively' },
         ]}
         glow
+        startAngle={-105}
         centerContent={<span>60% Safe</span>}
       />,
     );
@@ -22,6 +23,7 @@ describe('MultiSegmentCircularProgress', () => {
     expect(chart).toBeInTheDocument();
     expect(segments).toHaveLength(2);
     expect(container.querySelectorAll('filter')).toHaveLength(2);
+    expect(segments[0]).toHaveAttribute('transform', expect.stringContaining('rotate(-105'));
     expect(container).toHaveTextContent('60% Safe');
   });
 });

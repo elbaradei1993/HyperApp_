@@ -25,6 +25,7 @@ interface MultiSegmentCircularProgressProps {
   animationDuration?: number;
   segmentGap?: number;
   glow?: boolean;
+  startAngle?: number;
   className?: string;
 }
 
@@ -127,6 +128,7 @@ const MultiSegmentCircularProgress: React.FC<MultiSegmentCircularProgressProps> 
   animationDuration = 2000,
   segmentGap = 2.4,
   glow = false,
+  startAngle = -90,
   className = '',
 }) => {
   const filterId = useId().replace(/:/g, '');
@@ -173,6 +175,7 @@ const MultiSegmentCircularProgress: React.FC<MultiSegmentCircularProgressProps> 
         focusable="false"
         style={{
           filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))',
+          overflow: 'visible',
         }}
       >
         {glow && (
@@ -186,11 +189,15 @@ const MultiSegmentCircularProgress: React.FC<MultiSegmentCircularProgressProps> 
                 width="220%"
                 height="220%"
               >
-                <feGaussianBlur stdDeviation="3.2" result="blur" />
-                <feFlood floodColor={segment.color} floodOpacity="0.72" result="color" />
-                <feComposite in="color" in2="blur" operator="in" result="coloredBlur" />
+                <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="outerBlur" />
+                <feFlood floodColor={segment.color} floodOpacity="0.42" result="outerColor" />
+                <feComposite in="outerColor" in2="outerBlur" operator="in" result="outerGlow" />
+                <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="innerBlur" />
+                <feFlood floodColor={segment.color} floodOpacity="0.9" result="innerColor" />
+                <feComposite in="innerColor" in2="innerBlur" operator="in" result="innerGlow" />
                 <feMerge>
-                  <feMergeNode in="coloredBlur" />
+                  <feMergeNode in="outerGlow" />
+                  <feMergeNode in="innerGlow" />
                   <feMergeNode in="SourceGraphic" />
                 </feMerge>
               </filter>
@@ -231,7 +238,7 @@ const MultiSegmentCircularProgress: React.FC<MultiSegmentCircularProgressProps> 
               pathLength={100}
               strokeDasharray={`${visiblePercentage} ${100 - visiblePercentage}`}
               strokeDashoffset={-startPercentage}
-              transform={`rotate(-90 ${size / 2} ${size / 2})`}
+              transform={`rotate(${startAngle} ${size / 2} ${size / 2})`}
               filter={glow ? `url(#${filterId}-glow-${index})` : undefined}
               style={{
                 transition: `stroke-dasharray ${animationDuration}ms cubic-bezier(0.22, 1, 0.36, 1)`,

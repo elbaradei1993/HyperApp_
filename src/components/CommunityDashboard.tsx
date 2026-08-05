@@ -72,6 +72,16 @@ const VIBE_ICONS: Record<string, React.ReactNode> = {
   quiet: <VolumeX size={18} />,
 };
 
+/* Positional palette from the approved glowing segmented-ring reference. */
+const COMMUNITY_PULSE_ARC_COLORS = [
+  '#22e36f',
+  '#ffe20a',
+  '#ffffff',
+  '#d7a25c',
+  '#c63df1',
+  '#53c8e9',
+] as const;
+
 function reportDisplayName(report: Report): string {
   const profile = report.profile;
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim();
@@ -135,11 +145,21 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
     ].some((value) => value?.toLocaleLowerCase(locale).includes(query)));
   }, [locale, reviewableReports, search, t]);
 
-  const pulseSegments = useMemo(() => overview.distribution.map((item) => ({
-    percentage: item.percentage,
-    color: VIBE_CONFIG[item.type as keyof typeof VIBE_CONFIG]?.color || '#64748b',
-    label: item.type,
-  })), [overview.distribution]);
+  const pulseSegments = useMemo(() => {
+    const leadingSegments = overview.distribution.slice(0, 5);
+    const remainingPercentage = overview.distribution
+      .slice(5)
+      .reduce((total, item) => total + item.percentage, 0);
+    const visibleSegments = remainingPercentage > 0
+      ? [...leadingSegments, { type: 'other', percentage: remainingPercentage }]
+      : overview.distribution.slice(0, 6);
+
+    return visibleSegments.map((item, index) => ({
+      percentage: item.percentage,
+      color: COMMUNITY_PULSE_ARC_COLORS[index],
+      label: item.type,
+    }));
+  }, [overview.distribution]);
   const leadingVibe = overview.distribution[0] ?? null;
 
   const periodLabel = useMemo(() => {
@@ -318,12 +338,14 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
                 >
                   <MultiSegmentCircularProgress
                     segments={pulseSegments}
-                    size={188}
-                    strokeWidth={20}
-                    segmentGap={2.8}
+                    size={204}
+                    strokeWidth={22}
+                    segmentGap={3.4}
                     glow
-                    backgroundColor="rgba(255, 255, 255, 0.13)"
-                    animationDuration={1300}
+                    startAngle={-105}
+                    backgroundColor="transparent"
+                    animationDuration={1400}
+                    className="community-pulse-progress"
                     centerContent={(
                       <div className="community-pulse-center">
                         <strong>{leadingVibe.percentage}%</strong>
