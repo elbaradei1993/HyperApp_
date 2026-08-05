@@ -803,7 +803,9 @@ const AppContent: React.FC = () => {
     return (
       <AnimatePresence mode="wait">
         <motion.div
-          className="app-view-transition"
+          className={activeTab === 'map'
+            ? 'app-view-transition app-view-transition--map'
+            : 'app-view-transition'}
           key={activeTab}
           initial="initial"
           animate="in"

@@ -240,6 +240,37 @@ const HeatmapLayer: React.FC<{ vibes: Vibe[], isVisible: boolean }> = React.memo
   const map = useMap();
   const layersRef = useRef<any[]>([]);
   const gradients = useVibeGradients();
+  const [hasRenderableSize, setHasRenderableSize] = useState(false);
+
+  useEffect(() => {
+    const container = map.getContainer();
+    let animationFrame = 0;
+
+    const updateMapSize = () => {
+      const isReady = container.clientWidth > 0 && container.clientHeight > 0;
+      setHasRenderableSize((current) => current === isReady ? current : isReady);
+
+      if (isReady) {
+        window.cancelAnimationFrame(animationFrame);
+        animationFrame = window.requestAnimationFrame(() => {
+          map.invalidateSize({ pan: false, animate: false });
+        });
+      }
+    };
+
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(updateMapSize);
+    resizeObserver?.observe(container);
+    window.addEventListener('resize', updateMapSize);
+    updateMapSize();
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', updateMapSize);
+      window.cancelAnimationFrame(animationFrame);
+    };
+  }, [map]);
 
   // Memoize grouped vibes to avoid recalculation
   const groupedVibes = useMemo(() => {
@@ -293,7 +324,12 @@ const HeatmapLayer: React.FC<{ vibes: Vibe[], isVisible: boolean }> = React.memo
     }
     layersRef.current = [];
 
-    if (!isVisible) {
+    if (!isVisible || !hasRenderableSize) {
+      return;
+    }
+
+    const mapSize = map.getSize();
+    if (mapSize.x <= 0 || mapSize.y <= 0) {
       return;
     }
 
@@ -380,7 +416,7 @@ const HeatmapLayer: React.FC<{ vibes: Vibe[], isVisible: boolean }> = React.memo
       }
       layersRef.current = [];
     };
-  }, [map, groupedVibes, isVisible, gradients]);
+  }, [map, groupedVibes, isVisible, gradients, hasRenderableSize]);
 
   return null;
 });

@@ -209,7 +209,13 @@ const SafetyTrendChart: React.FC<SafetyTrendChartProps> = ({
       </div>
 
       {/* Chart */}
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer
+        width="100%"
+        height="100%"
+        minWidth={1}
+        minHeight={200}
+        initialDimension={{ width: 360, height: 240 }}
+      >
         <AreaChart
           data={chartData}
           margin={{

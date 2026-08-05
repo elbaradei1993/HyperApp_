@@ -74,6 +74,11 @@ button,
   height: auto !important;
 }
 
+.app-view-transition--map {
+  height: 100% !important;
+  min-height: 0;
+}
+
 .app-content-desktop--map {
   box-sizing: border-box;
   padding: 0 !important;

@@ -240,7 +240,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
             <div className="dashboard-chart" aria-label={String(t('dashboard.trend.chartLabel'))}>
               {hasTrendData ? (
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={190}>
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  minWidth={1}
+                  minHeight={190}
+                  initialDimension={{ width: 360, height: 225 }}
+                >
                   <AreaChart data={weeklyTrend} margin={{ top: 14, right: 12, left: 10, bottom: 2 }}>
                     <defs>
                       <linearGradient id="dashboardSafetyFill" x1="0" y1="0" x2="0" y2="1">

@@ -400,7 +400,13 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
                 <span className="community-target"><i />{t('community.target', 'Target')} 70</span>
               </div>
               <div className="community-trend-chart" aria-label={String(t('community.safetyTrend', 'Safety trend'))}>
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={190}>
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  minWidth={1}
+                  minHeight={190}
+                  initialDimension={{ width: 360, height: 210 }}
+                >
                   <LineChart data={overview.trend} margin={{ top: 12, right: 12, bottom: 0, left: -22 }}>
                     <CartesianGrid vertical={false} stroke="#e6ebf1" strokeDasharray="3 4" />
                     <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#7c8798', fontSize: 11 }} />
