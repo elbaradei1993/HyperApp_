@@ -1,4 +1,4 @@
-/* global HTMLAudioElement, AudioBufferSourceNode, AudioContext, Blob, URL, Window */
+/* global HTMLAudioElement, AudioBufferSourceNode, AudioContext, Blob, Navigator, URL, Window */
 import { supabase } from '../lib/supabase';
 
 export interface TTSOptions {
@@ -26,9 +26,25 @@ const BINARY_AUDIO_CONTENT_TYPE = 'application/octet-stream';
 const SILENT_AUDIO_DATA_URI = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQQAAAA=';
 type BrowserVoice = ReturnType<typeof window.speechSynthesis.getVoices>[number];
 type AudioContextConstructor = new () => AudioContext;
+type WebAudioSessionType = 'auto' | 'ambient' | 'playback' | 'play-and-record';
 
 interface AudioWindow extends Window {
   webkitAudioContext?: AudioContextConstructor;
+}
+
+interface NavigatorWithAudioSession extends Navigator {
+  audioSession?: {
+    type: WebAudioSessionType;
+  };
+}
+
+function isAppleMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') {
+    return false;
+  }
+
+  return /iPad|iPhone|iPod/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
 function splitForSpeech(text: string): string[] {
@@ -129,9 +145,14 @@ export class TTSService {
     }
   }
 
-  unlock(): void {
+  async unlock(playConfirmationTone = false): Promise<void> {
     this.speechSynthesis?.resume();
     void this.speechSynthesis?.getVoices();
+
+    // Safari defaults Web Audio to an ambient session, which is inaudible
+    // when an iPhone's silent switch is on. A playback session uses the media
+    // speaker route and survives the async AI/TTS request that follows.
+    this.prepareForPlayback();
 
     // iOS does not reliably preserve an HTMLMediaElement autoplay grant across
     // the async AI/TTS round trip. Resume Web Audio during the direct tap and
@@ -143,7 +164,10 @@ export class TTSService {
         source.buffer = context.createBuffer(1, 1, context.sampleRate || 44100);
         source.connect(context.destination);
         source.start(0);
-        void context.resume().catch(() => undefined);
+        await context.resume().catch(() => undefined);
+        if (playConfirmationTone && context.state === 'running') {
+          await this.playActivationTone(context);
+        }
       } catch {
         // The unlocked HTML audio element below remains the compatibility path.
       }
@@ -159,11 +183,75 @@ export class TTSService {
     audio.src = SILENT_AUDIO_DATA_URI;
     const unlockAttempt = audio.play();
     if (unlockAttempt) {
-      void unlockAttempt.then(() => {
+      await unlockAttempt.then(() => {
         audio.pause();
         audio.currentTime = 0;
       }).catch(() => undefined);
     }
+  }
+
+  prepareForListening(): void {
+    this.setAudioSessionType('play-and-record');
+  }
+
+  prepareForPlayback(): void {
+    this.setAudioSessionType('playback');
+  }
+
+  releaseAudioSession(): void {
+    this.setAudioSessionType('auto');
+  }
+
+  private setAudioSessionType(type: WebAudioSessionType): void {
+    if (typeof navigator === 'undefined') {
+      return;
+    }
+
+    try {
+      const audioSession = (navigator as NavigatorWithAudioSession).audioSession;
+      if (audioSession) {
+        audioSession.type = type;
+      }
+    } catch {
+      // AudioSession is experimental; all other playback paths still work.
+    }
+  }
+
+  private playActivationTone(context: AudioContext): Promise<void> {
+    return new Promise((resolve) => {
+      try {
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        const now = context.currentTime;
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(660, now);
+        oscillator.frequency.exponentialRampToValueAtTime(880, now + 0.09);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.075, now + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+
+        let settled = false;
+        const finish = () => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          window.clearTimeout(timeoutId);
+          oscillator.onended = null;
+          oscillator.disconnect();
+          gain.disconnect();
+          resolve();
+        };
+        const timeoutId = window.setTimeout(finish, 250);
+        oscillator.onended = finish;
+        oscillator.start(now);
+        oscillator.stop(now + 0.11);
+      } catch {
+        resolve();
+      }
+    });
   }
 
   async prepare(): Promise<void> {
@@ -199,6 +287,7 @@ export class TTSService {
     }
 
     this.stop();
+    this.prepareForPlayback();
     const requestId = this.requestId;
 
     try {
@@ -271,6 +360,20 @@ export class TTSService {
   }
 
   private async playHostedAudio(blob: Blob, options: TTSOptions, requestId: number): Promise<void> {
+    // All iPhone browsers use WebKit. HTML media uses the media speaker route
+    // more reliably than Web Audio after speech recognition has used the mic.
+    if (isAppleMobileDevice() && this.audioElement) {
+      try {
+        await this.playHostedAudioWithElement(blob, options, requestId);
+        return;
+      } catch {
+        if (requestId !== this.requestId) {
+          return;
+        }
+        // Keep Web Audio as a second hosted-audio path on older iOS versions.
+      }
+    }
+
     if (this.audioContext) {
       try {
         await this.playHostedAudioWithWebAudio(blob, options, requestId);
@@ -375,6 +478,7 @@ export class TTSService {
     audio.volume = Math.max(0, Math.min(1, volume));
     audio.playbackRate = Math.max(0.8, Math.min(1.2, speed));
     audio.src = objectUrl;
+    audio.load?.();
 
     return new Promise((resolve, reject) => {
       let settled = false;

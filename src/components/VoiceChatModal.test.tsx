@@ -9,7 +9,9 @@ const mocks = vi.hoisted(() => ({
   prepare: vi.fn(() => Promise.resolve()),
   speak: vi.fn(() => Promise.resolve()),
   stop: vi.fn(),
-  unlock: vi.fn(),
+  unlock: vi.fn(() => Promise.resolve()),
+  prepareForListening: vi.fn(),
+  releaseAudioSession: vi.fn(),
 }));
 
 vi.mock('../services/hyperAi', () => ({
@@ -33,6 +35,8 @@ vi.mock('../services/tts', () => ({
     speak: mocks.speak,
     stop: mocks.stop,
     unlock: mocks.unlock,
+    prepareForListening: mocks.prepareForListening,
+    releaseAudioSession: mocks.releaseAudioSession,
   },
 }));
 
@@ -81,8 +85,9 @@ describe('VoiceChatModal hands-free conversation', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Start conversation' }));
     const recognition = MockSpeechRecognition.current;
-    expect(recognition?.start).toHaveBeenCalledTimes(1);
-    expect(mocks.unlock).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(recognition?.start).toHaveBeenCalledTimes(1));
+    expect(mocks.unlock).toHaveBeenCalledWith(true);
+    expect(mocks.prepareForListening).toHaveBeenCalledTimes(1);
 
     act(() => {
       recognition?.onresult?.({ results: [[{ transcript: 'What changed nearby?' }]] });
