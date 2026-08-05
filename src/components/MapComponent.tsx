@@ -251,7 +251,7 @@ export const MapSearchBar: React.FC<{
   return (
     <div className="map-search" role="search">
       <div className="map-search__field">
-        <Search size={18} aria-hidden="true" />
+        <Search size={21} strokeWidth={2.1} aria-hidden="true" />
         <input
           ref={inputRef}
           type="search"
@@ -269,9 +269,9 @@ export const MapSearchBar: React.FC<{
           autoComplete="off"
         />
         {isLoading ? (
-          <Loader2 className="map-search__spinner" size={17} aria-label="Searching" />
+          <Loader2 className="map-search__spinner" size={20} aria-label="Searching" />
         ) : query ? (
-          <button type="button" onClick={clearSearch} aria-label="Clear map search"><X size={16} /></button>
+          <button type="button" onClick={clearSearch} aria-label="Clear map search"><X size={20} /></button>
         ) : (
           <kbd aria-label="Keyboard shortcut">/</kbd>
         )}

@@ -56,7 +56,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({ activeTab, onTabChange, onNewRe
               className={isActive ? 'app-sidebar__nav-item is-active' : 'app-sidebar__nav-item'}
               aria-current={isActive ? 'page' : undefined}
             >
-              <span className="app-sidebar__nav-icon"><Icon size={18} /></span>
+              <span className="app-sidebar__nav-icon"><Icon size={22} strokeWidth={2.1} /></span>
               <span>{t(labelKey, id)}</span>
             </button>
           );
@@ -72,7 +72,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({ activeTab, onTabChange, onNewRe
           </div>
         </div>
         <button type="button" className="app-sidebar__create" onClick={onNewReport}>
-          <Plus size={17} />
+          <Plus size={20} />
           <span>{t('app.newReport', 'New report')}</span>
         </button>
       </div>

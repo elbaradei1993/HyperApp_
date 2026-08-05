@@ -9,7 +9,6 @@ import {
   MapPin,
   Music,
   PartyPopper,
-  Plus,
   Search,
   ShieldCheck,
   Users,
@@ -43,7 +42,7 @@ import { reportsService } from '../services/reports';
 import type { Report, Vibe } from '../types';
 
 import { ValidationButtons } from './CredibilityIndicator';
-import { CircularProgress, LoadingSpinner, MultiSegmentCircularProgress } from './shared';
+import { LoadingSpinner, MultiSegmentCircularProgress } from './shared';
 
 import './CommunityDashboard.css';
 
@@ -92,7 +91,6 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
   vibes,
   userLocation,
   isLoading = false,
-  onNewReport,
   onNavigateToMap,
   onNavigateToProfile,
   onVibesUpdate,
@@ -268,8 +266,6 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
   }, [isAuthenticated, onVibesUpdate, user?.onboarding_completed]);
 
   const safetyLevel = overview.safetyScore === null ? null : getSafetyLevel(overview.safetyScore);
-  const scoreColor = safetyLevel?.color || '#94a3b8';
-
   if (isLoading) {
     return (
       <div className="community-loading" role="status" aria-live="polite">
@@ -287,12 +283,6 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
           <h1>{t('community.safetyOverview', 'Safety Overview')}</h1>
           <p>{t('community.dashboardSubtitle', 'Live insights from reports currently available to you.')}</p>
         </div>
-        {onNewReport && (
-          <button className="community-primary-button" type="button" onClick={onNewReport}>
-            <Plus size={16} aria-hidden="true" />
-            {t('community.newReport', 'New report')}
-          </button>
-        )}
       </header>
 
       <div className="community-dashboard__body">
@@ -356,25 +346,13 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
             <article className="community-panel community-score-panel">
               <div className="community-score-summary">
                 <div
-                  className="community-score-visual"
-                  role="img"
+                  className="community-score-value"
                   aria-label={overview.safetyScore === null
                     ? String(t('community.noSafetyScore', 'No safety score available'))
-                    : `${overview.safetyScore}% ${t('community.safetyScore', 'safety score')}`}
+                    : `${overview.safetyScore} ${t('community.safetyScore', 'safety score')}`}
                 >
-                  <CircularProgress
-                    percentage={overview.safetyScore ?? 0}
-                    size={122}
-                    strokeWidth={10}
-                    color={scoreColor}
-                    backgroundColor="rgba(17, 19, 24, 0.1)"
-                    showPercentage={false}
-                    className="community-score-progress"
-                  />
-                  <div className="community-score-value" aria-hidden="true">
-                    <strong>{overview.safetyScore ?? '—'}</strong>
-                    <span>{overview.safetyScore === null ? t('community.awaitingData', 'Awaiting data') : '/100'}</span>
-                  </div>
+                  <strong>{overview.safetyScore ?? '—'}</strong>
+                  <span>{overview.safetyScore === null ? t('community.awaitingData', 'Awaiting data') : '/100'}</span>
                 </div>
                 <div>
                   <span className="community-panel__kicker">{t('community.safetyScore', 'Safety score')}</span>
@@ -440,7 +418,7 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
                 <h2>{t('community.recentReports', 'Recent reports')}</h2>
               </div>
               <label className="community-search">
-                <Search size={15} aria-hidden="true" />
+                <Search size={20} strokeWidth={2.1} aria-hidden="true" />
                 <span className="sr-only">{t('community.searchReports', 'Search reports')}</span>
                 <input
                   type="search"

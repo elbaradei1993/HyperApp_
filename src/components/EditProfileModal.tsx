@@ -204,7 +204,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
       p={4}
     >
       <Box
-        className="app-modal-dialog"
+        className="app-modal-dialog app-modal-dialog--profile"
         bg="white"
         borderRadius="20px"
         maxW="500px"
@@ -226,7 +226,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
           <HStack justify="space-between" align="center">
             <HStack gap={3}>
               <Box w="10" h="10" borderRadius="8px" bg="blue.100" display="flex" alignItems="center" justifyContent="center">
-                <User size={16} color="#2563eb" />
+                <User size={20} color="#2563eb" />
               </Box>
               <VStack align="start" gap={0}>
                 <Text fontSize="18px" fontWeight="700" color="gray.900">
@@ -247,7 +247,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
               minW="auto"
               h="auto"
             >
-              <X size={16} />
+              <X size={20} />
             </Button>
           </HStack>
         </Box>
@@ -308,7 +308,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
                     minW="auto"
                     h="auto"
                   >
-                    <X size={12} />
+                    <X size={16} />
                   </Button>
                 )}
               </Box>
@@ -329,7 +329,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
                 display="block"
               >
                 <HStack gap={2}>
-                  <Camera size={14} />
+                  <Camera size={18} />
                   <Text>{t('profile.editProfileModal.changePhoto')}</Text>
                 </HStack>
               </Button>

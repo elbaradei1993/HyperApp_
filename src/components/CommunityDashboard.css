@@ -64,28 +64,6 @@
   font-size: 12px;
 }
 
-.community-primary-button {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 0 14px;
-  border: 1px solid #075f50;
-  border-radius: 12px;
-  color: #fff;
-  background: var(--community-blue);
-  box-shadow: 0 9px 22px rgb(11 125 102 / 20%);
-  font-size: 12px;
-  font-weight: 750;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.community-primary-button:hover {
-  background: #075f50;
-}
-
 .community-dashboard__body {
   padding: 16px;
 }
@@ -308,7 +286,7 @@
   min-height: 150px;
   display: flex;
   align-items: center;
-  gap: 17px;
+  gap: 20px;
   padding: 18px;
   border-right: 1px solid #e8ecf1;
 }
@@ -321,31 +299,23 @@
   line-height: 1.45;
 }
 
-.community-score-visual {
-  position: relative;
-  width: 122px;
-  height: 122px;
-  flex: 0 0 122px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.community-score-progress {
-  flex: 0 0 122px;
-}
-
 .community-score-value {
-  position: absolute;
+  min-width: 108px;
+  min-height: 92px;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  pointer-events: none;
+  justify-content: center;
+  border: 1px solid #e2e7ec;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #ffffff 0%, #f5f7f6 100%);
+  box-shadow: 0 10px 26px rgb(15 23 42 / 7%);
 }
 
 .community-score-value strong {
   color: var(--community-ink);
-  font-size: 22px;
+  font-size: 30px;
   font-weight: 800;
   line-height: 1;
 }
@@ -437,16 +407,17 @@
 }
 
 .community-search {
-  width: min(250px, 45%);
-  min-height: 40px;
+  width: min(300px, 48%);
+  min-height: 48px;
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 0 10px;
+  gap: 10px;
+  padding: 0 14px;
   border: 1px solid var(--community-wire);
-  border-radius: 11px;
+  border-radius: 14px;
   color: #8993a2;
-  background: #fbfcfd;
+  background: #fff;
+  box-shadow: 0 6px 18px rgb(15 23 42 / 5%);
 }
 
 .community-search:focus-within {
@@ -455,13 +426,17 @@
 }
 
 .community-search input {
+  height: 46px;
   width: 100%;
   min-width: 0;
   border: 0;
+  border-radius: 0;
   outline: 0;
   color: var(--community-ink);
-  background: transparent;
-  font-size: 11px;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .community-report-table {
@@ -703,18 +678,6 @@
     max-width: 230px;
   }
 
-  .community-primary-button {
-    width: auto;
-    min-width: 104px;
-    padding: 0 11px;
-    font-size: 10px;
-  }
-
-  .community-primary-button svg {
-    width: 17px;
-    height: 17px;
-  }
-
   .community-dashboard__body {
     padding: 10px;
   }
@@ -846,17 +809,7 @@
     padding: 14px;
   }
 
-  .community-score-visual {
-    width: 112px;
-    height: 112px;
-    flex-basis: 112px;
-    transform: scale(0.92);
-    transform-origin: center;
-  }
-
-  .community-score-progress {
-    flex-basis: 122px;
-  }
+  .community-score-value { min-width: 96px; }
 
   .community-risk-grid small {
     font-size: 8px;

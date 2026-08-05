@@ -37,6 +37,36 @@ button,
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Keep native search semantics while removing browser-specific inner surfaces. */
+input[type='search'] {
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
+  background-clip: padding-box;
+}
+
+input[type='search']::-webkit-search-decoration,
+input[type='search']::-webkit-search-cancel-button,
+input[type='search']::-webkit-search-results-button,
+input[type='search']::-webkit-search-results-decoration {
+  display: none;
+  -webkit-appearance: none;
+}
+
+/* Establish a readable icon baseline, then give interactive controls a larger target. */
+.app-main .lucide {
+  min-width: 16px;
+  min-height: 16px;
+  flex-shrink: 0;
+}
+
+.app-main :where(button, a, [role='button']) svg,
+.app-sidebar :where(button, a, [role='button']) svg {
+  min-width: 20px;
+  min-height: 20px;
+  flex-shrink: 0;
+}
+
 :where(button, input, select, textarea, [role='button'], [tabindex]):focus-visible {
   outline: 2px solid var(--app-accent) !important;
   outline-offset: 2px;
@@ -79,8 +109,22 @@ button,
   overflow-x: hidden !important;
   overflow-y: auto !important;
   overscroll-behavior: contain;
+  scroll-padding-block: 24px;
   scrollbar-gutter: stable;
+  touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
+}
+
+/* Legacy dialogs use the dialog itself as the scroll container. */
+.app-modal-dialog.app-modal-scroll {
+  display: block !important;
+  flex: none !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+.app-modal-dialog--profile {
+  height: min(760px, calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom))) !important;
 }
 
 .app-modal-dialog > :not(.app-modal-scroll) {
@@ -103,6 +147,10 @@ button,
     max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
     margin: auto !important;
     border-radius: 18px !important;
+  }
+
+  .app-modal-dialog--profile {
+    height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
   }
 }
 
@@ -310,8 +358,8 @@ button,
 }
 
 .app-sidebar__nav-icon {
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
   flex: 0 0 auto;
   display: grid;
   place-items: center;
@@ -634,7 +682,7 @@ button,
   color: rgba(255, 255, 255, 0.88);
   background: transparent;
   font: inherit;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 650;
   cursor: pointer;
   transform: none !important;
@@ -642,8 +690,8 @@ button,
 }
 
 .tab-navigation__icon {
-  width: 34px;
-  height: 30px;
+  width: 40px;
+  height: 34px;
   display: grid;
   place-items: center;
   border: 1px solid transparent;
@@ -795,15 +843,15 @@ button,
 }
 
 .map-search__field {
-  min-height: 50px;
+  min-height: 52px;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 12px 0 15px;
+  padding: 0 10px 0 16px;
   border: 1px solid rgba(15, 23, 42, 0.11);
-  border-radius: 17px;
+  border-radius: 16px;
   color: #53605d;
-  background: rgba(255, 255, 255, 0.94);
+  background: #ffffff;
   box-shadow: 0 16px 42px rgba(15, 23, 42, 0.14);
   backdrop-filter: blur(20px) saturate(150%);
   -webkit-backdrop-filter: blur(20px) saturate(150%);
@@ -815,27 +863,32 @@ button,
 }
 
 .map-search__field input {
+  height: 50px;
   min-width: 0;
   flex: 1;
+  padding: 0;
   border: 0;
+  border-radius: 0;
   outline: 0 !important;
   color: #17201e;
-  background: transparent;
+  background: transparent !important;
+  box-shadow: none !important;
   font: inherit;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 550;
+  line-height: 1.5;
 }
 
 .map-search__field input::-webkit-search-cancel-button { display: none; }
 .map-search__field input::placeholder { color: #7d8986; font-weight: 500; }
 
 .map-search__field button {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 10px;
+  border-radius: 12px;
   color: #687370;
   background: transparent;
   cursor: pointer;

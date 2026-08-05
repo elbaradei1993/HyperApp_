@@ -42,7 +42,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabChange, o
               aria-current={isActive ? 'page' : undefined}
               onClick={() => onTabChange(tab.id)}
             >
-              <span className="tab-navigation__icon"><tab.icon size={19} aria-hidden="true" /></span>
+              <span className="tab-navigation__icon"><tab.icon size={24} strokeWidth={2.1} aria-hidden="true" /></span>
               <span>{tab.label}</span>
             </button>
 
@@ -54,7 +54,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabChange, o
                 aria-label={t('app.newReport', 'New report')}
               >
                 <span className="tab-navigation__create-icon">
-                  <Plus size={19} strokeWidth={2.6} aria-hidden="true" />
+                  <Plus size={22} strokeWidth={2.6} aria-hidden="true" />
                 </span>
               </button>
             )}
