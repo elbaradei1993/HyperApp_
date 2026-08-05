@@ -390,6 +390,7 @@
 
 .ai-assistant-controls {
   display: flex;
+  flex-wrap: wrap;
   flex: 0 0 auto;
   align-items: center;
   gap: 8px;
@@ -398,7 +399,8 @@
 
 .ai-voice-control,
 .ai-audio-toggle,
-.ai-stop-speaking {
+.ai-stop-speaking,
+.ai-test-sound {
   min-height: 38px;
   border: 1px solid rgba(112, 101, 240, 0.14);
   color: #555b67;
@@ -436,6 +438,16 @@
   border-radius: 999px;
 }
 
+.ai-test-sound {
+  padding: 0 12px;
+  border-radius: 999px;
+}
+
+.ai-test-sound:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .ai-assistant-disclaimer {
   flex: 0 0 auto;
   margin: 15px 0 0;
@@ -451,7 +463,8 @@
 .ai-assistant-suggestions button:hover,
 .ai-voice-control:hover,
 .ai-audio-toggle:hover,
-.ai-stop-speaking:hover {
+.ai-stop-speaking:hover,
+.ai-test-sound:hover {
   border-color: rgba(112, 101, 240, 0.32);
   background-color: rgba(255, 255, 255, 0.72);
 }

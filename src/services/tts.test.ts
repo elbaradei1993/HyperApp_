@@ -14,6 +14,7 @@ vi.mock('../lib/supabase', () => ({
 import { TTSService } from './tts';
 
 type TestVoice = ReturnType<typeof window.speechSynthesis.getVoices>[number];
+const createdAudioElements: TestAudio[] = [];
 
 class TestAudio {
   preload = '';
@@ -24,6 +25,9 @@ class TestAudio {
   currentTime = 0;
   onended: (() => void) | null = null;
   onerror: (() => void) | null = null;
+  onplaying: (() => void) | null = null;
+  onloadedmetadata: (() => void) | null = null;
+  duration = 0.1;
   setAttribute = vi.fn();
   pause = vi.fn();
   load = vi.fn();
@@ -31,11 +35,16 @@ class TestAudio {
     void Promise.resolve().then(() => this.onended?.());
     return Promise.resolve();
   });
+
+  constructor() {
+    createdAudioElements.push(this);
+  }
 }
 
 describe('TTSService', () => {
   beforeEach(() => {
     invokeFunction.mockReset();
+    createdAudioElements.length = 0;
     vi.stubGlobal('URL', {
       ...URL,
       createObjectURL: vi.fn(() => 'blob:hosted-voice'),
@@ -54,7 +63,12 @@ describe('TTSService', () => {
 
   it('plays hosted neural audio and caches repeated replies', async () => {
     // supabase-js preserves binary function responses as octet-stream Blobs.
-    const audioBlob = new Blob(['mp3-data'], { type: 'application/octet-stream' });
+    const audioBlob = new Blob([
+      new Uint8Array([
+        0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00,
+        0x57, 0x41, 0x56, 0x45, 0x66, 0x6d, 0x74, 0x20,
+      ]),
+    ], { type: 'application/octet-stream' });
     invokeFunction.mockResolvedValue({ data: audioBlob, error: null });
     const browserSpeak = vi.fn();
     Object.defineProperty(window, 'speechSynthesis', {
@@ -79,7 +93,7 @@ describe('TTSService', () => {
     });
     expect(browserSpeak).not.toHaveBeenCalled();
     expect(URL.createObjectURL).toHaveBeenCalledTimes(2);
-    expect((vi.mocked(URL.createObjectURL).mock.calls[0][0] as Blob).type).toBe('audio/mpeg');
+    expect((vi.mocked(URL.createObjectURL).mock.calls[0][0] as Blob).type).toBe('audio/wav');
     expect(URL.revokeObjectURL).toHaveBeenCalledTimes(2);
   });
 
@@ -217,5 +231,39 @@ describe('TTSService', () => {
 
     expect(audioSession.type).toBe('playback');
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts the iOS media unlock synchronously before waiting for Web Audio', async () => {
+    let finishResume: (() => void) | undefined;
+    const resumePromise = new Promise<void>((resolve) => {
+      finishResume = resolve;
+    });
+
+    class DelayedAudioContext {
+      state: AudioContextState = 'suspended';
+      sampleRate = 44100;
+      destination = {} as AudioDestinationNode;
+      resume = vi.fn(() => resumePromise.then(() => {
+        this.state = 'running';
+      }));
+      close = vi.fn(async () => undefined);
+      createBuffer = vi.fn(() => ({} as AudioBuffer));
+      createBufferSource = vi.fn(() => ({
+        buffer: null,
+        connect: vi.fn(),
+        start: vi.fn(),
+      } as unknown as AudioBufferSourceNode));
+    }
+    Object.defineProperty(window, 'AudioContext', {
+      configurable: true,
+      value: DelayedAudioContext,
+    });
+
+    const service = new TTSService();
+    const unlockPromise = service.unlock();
+
+    expect(createdAudioElements[0].play).toHaveBeenCalledTimes(1);
+    finishResume?.();
+    await unlockPromise;
   });
 });

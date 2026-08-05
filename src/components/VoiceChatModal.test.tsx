@@ -1,3 +1,4 @@
+/* global Event */
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   unlock: vi.fn(() => Promise.resolve()),
   prepareForListening: vi.fn(),
   releaseAudioSession: vi.fn(),
+  resetAudioOutput: vi.fn(),
 }));
 
 vi.mock('../services/hyperAi', () => ({
@@ -37,6 +39,7 @@ vi.mock('../services/tts', () => ({
     unlock: mocks.unlock,
     prepareForListening: mocks.prepareForListening,
     releaseAudioSession: mocks.releaseAudioSession,
+    resetAudioOutput: mocks.resetAudioOutput,
   },
 }));
 
@@ -121,5 +124,32 @@ describe('VoiceChatModal hands-free conversation', () => {
       'The voice response is ready.',
       expect.objectContaining({ volume: 1 }),
     ));
+  });
+
+  it('offers a direct sound test that unlocks and plays from the user tap', async () => {
+    render(<VoiceChatModal isOpen onClose={vi.fn()} userLocation={null} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Test sound' }));
+
+    expect(mocks.unlock).toHaveBeenCalledWith(true);
+    await waitFor(() => expect(mocks.speak).toHaveBeenCalledWith(
+      'Hyper AI sound is working.',
+      expect.objectContaining({ volume: 1 }),
+    ));
+  });
+
+  it('stops hands-free mode when the app is backgrounded and resets audio after resume', async () => {
+    render(<VoiceChatModal isOpen onClose={vi.fn()} userLocation={null} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Start conversation' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'End conversation' })).toBeVisible());
+
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    fireEvent(document, new Event('visibilitychange'));
+    expect(screen.getByRole('button', { name: 'Start conversation' })).toBeVisible();
+    expect(mocks.releaseAudioSession).toHaveBeenCalled();
+
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    fireEvent(window, new Event('pageshow'));
+    expect(mocks.resetAudioOutput).toHaveBeenCalled();
   });
 });

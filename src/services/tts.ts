@@ -1,4 +1,4 @@
-/* global HTMLAudioElement, AudioBufferSourceNode, AudioContext, Blob, Navigator, URL, Window */
+/* global HTMLAudioElement, AudioBufferSourceNode, AudioContext, Blob, FileReader, Navigator, URL, Window */
 import { supabase } from '../lib/supabase';
 
 export interface TTSOptions {
@@ -24,6 +24,8 @@ const MAX_SPEECH_CHUNK_LENGTH = 220;
 const MAX_AUDIO_CACHE_ENTRIES = 16;
 const BINARY_AUDIO_CONTENT_TYPE = 'application/octet-stream';
 const SILENT_AUDIO_DATA_URI = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQQAAAA=';
+const HOSTED_AUDIO_START_TIMEOUT_MS = 8000;
+const HOSTED_AUDIO_MAX_PLAYBACK_MS = 60000;
 type BrowserVoice = ReturnType<typeof window.speechSynthesis.getVoices>[number];
 type AudioContextConstructor = new () => AudioContext;
 type WebAudioSessionType = 'auto' | 'ambient' | 'playback' | 'play-and-record';
@@ -45,6 +47,35 @@ function isAppleMobileDevice(): boolean {
 
   return /iPad|iPhone|iPod/i.test(navigator.userAgent)
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+function detectAudioMimeType(bytes: Uint8Array): 'audio/mpeg' | 'audio/wav' | null {
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+    bytes[8] === 0x57 && bytes[9] === 0x41 && bytes[10] === 0x56 && bytes[11] === 0x45
+  ) {
+    return 'audio/wav';
+  }
+  if (bytes.length >= 3 && bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) {
+    return 'audio/mpeg';
+  }
+  if (bytes.length >= 2 && bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0) {
+    return 'audio/mpeg';
+  }
+  return null;
+}
+
+function readBlobArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
+  if (typeof blob.arrayBuffer === 'function') {
+    return blob.arrayBuffer();
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as ArrayBuffer);
+    reader.onerror = () => reject(reader.error || new Error('Could not read hosted audio.'));
+    reader.readAsArrayBuffer(blob);
+  });
 }
 
 function splitForSpeech(text: string): string[] {
@@ -137,12 +168,18 @@ export class TTSService {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       this.speechSynthesis = window.speechSynthesis;
     }
-    if (typeof window !== 'undefined' && typeof window.Audio === 'function') {
-      this.audioElement = new window.Audio();
-      this.audioElement.preload = 'auto';
-      this.audioElement.setAttribute?.('playsinline', '');
-      this.audioElement.setAttribute?.('webkit-playsinline', '');
+    this.audioElement = this.createAudioElement();
+  }
+
+  private createAudioElement(): HTMLAudioElement | null {
+    if (typeof window === 'undefined' || typeof window.Audio !== 'function') {
+      return null;
     }
+    const audio = new window.Audio();
+    audio.preload = 'auto';
+    audio.setAttribute?.('playsinline', '');
+    audio.setAttribute?.('webkit-playsinline', '');
+    return audio;
   }
 
   async unlock(playConfirmationTone = false): Promise<void> {
@@ -157,14 +194,33 @@ export class TTSService {
     // iOS does not reliably preserve an HTMLMediaElement autoplay grant across
     // the async AI/TTS round trip. Resume Web Audio during the direct tap and
     // keep that context available for the delayed hosted response.
+    // Start every permission-sensitive operation before the first await. iOS
+    // only treats this synchronous portion as part of the user's tap.
+    const audio = this.audioElement || this.createAudioElement();
+    this.audioElement = audio;
+    let mediaUnlockAttempt: Promise<void> = Promise.resolve();
+    if (audio) {
+      audio.muted = false;
+      audio.src = SILENT_AUDIO_DATA_URI;
+      try {
+        const attempt = audio.play();
+        if (attempt) {
+          mediaUnlockAttempt = attempt.then(() => undefined).catch(() => undefined);
+        }
+      } catch {
+        // Web Audio and browser speech remain available as compatibility paths.
+      }
+    }
+
     const context = this.getOrCreateAudioContext();
+    const contextResumeAttempt = context?.resume().catch(() => undefined) || Promise.resolve();
     if (context) {
       try {
         const source = context.createBufferSource();
         source.buffer = context.createBuffer(1, 1, context.sampleRate || 44100);
         source.connect(context.destination);
         source.start(0);
-        await context.resume().catch(() => undefined);
+        await contextResumeAttempt;
         if (playConfirmationTone && context.state === 'running') {
           await this.playActivationTone(context);
         }
@@ -173,21 +229,23 @@ export class TTSService {
       }
     }
 
-    const audio = this.audioElement;
     if (!audio) {
       return;
     }
-    // The file itself is silent. Keep the element unmuted so iOS/Safari and
-    // desktop autoplay policies register this user gesture for later speech.
-    audio.muted = false;
-    audio.src = SILENT_AUDIO_DATA_URI;
-    const unlockAttempt = audio.play();
-    if (unlockAttempt) {
-      await unlockAttempt.then(() => {
-        audio.pause();
-        audio.currentTime = 0;
-      }).catch(() => undefined);
+    await mediaUnlockAttempt;
+    audio.pause();
+    audio.currentTime = 0;
+  }
+
+  resetAudioOutput(): void {
+    this.stop();
+    const previousContext = this.audioContext;
+    this.audioContext = null;
+    if (previousContext && previousContext.state !== 'closed') {
+      void previousContext.close().catch(() => undefined);
     }
+    this.audioElement = this.createAudioElement();
+    this.releaseAudioSession();
   }
 
   prepareForListening(): void {
@@ -339,9 +397,16 @@ export class TTSService {
 
       // Supabase needs an octet-stream response to preserve the binary body.
       // Restore the real MIME type before handing the object URL to browsers.
-      const audio = data.type === BINARY_AUDIO_CONTENT_TYPE
-        ? new Blob([data], { type: 'audio/mpeg' })
-        : data;
+      let audio = data;
+      if (data.type === BINARY_AUDIO_CONTENT_TYPE) {
+        const audioBuffer = await readBlobArrayBuffer(data);
+        const signature = new Uint8Array(audioBuffer, 0, Math.min(12, audioBuffer.byteLength));
+        const mimeType = detectAudioMimeType(signature);
+        if (!mimeType) {
+          throw new Error('Hosted voice returned an unsupported audio format.');
+        }
+        audio = new Blob([audioBuffer], { type: mimeType });
+      }
 
       this.audioCache.set(text, audio);
       while (this.audioCache.size > MAX_AUDIO_CACHE_ENTRIES) {
@@ -405,7 +470,7 @@ export class TTSService {
       throw new Error('Web Audio playback is still suspended.');
     }
 
-    const decodedAudio = await context.decodeAudioData(await blob.arrayBuffer());
+    const decodedAudio = await context.decodeAudioData(await readBlobArrayBuffer(blob));
     if (requestId !== this.requestId) {
       return;
     }
@@ -482,6 +547,20 @@ export class TTSService {
 
     return new Promise((resolve, reject) => {
       let settled = false;
+      let playbackTimeoutId = window.setTimeout(
+        () => finish(new Error('Hosted voice playback did not start.')),
+        HOSTED_AUDIO_START_TIMEOUT_MS,
+      );
+      const armPlaybackTimeout = () => {
+        window.clearTimeout(playbackTimeoutId);
+        const durationMs = Number.isFinite(audio.duration) && audio.duration > 0
+          ? (audio.duration / audio.playbackRate) * 1000 + 5000
+          : 30000;
+        playbackTimeoutId = window.setTimeout(
+          () => finish(new Error('Hosted voice playback did not finish.')),
+          Math.min(HOSTED_AUDIO_MAX_PLAYBACK_MS, Math.max(10000, durationMs)),
+        );
+      };
       const finish = (error?: Error) => {
         if (settled) {
           return;
@@ -491,6 +570,8 @@ export class TTSService {
         window.clearTimeout(playbackTimeoutId);
         audio.onended = null;
         audio.onerror = null;
+        audio.onplaying = null;
+        audio.onloadedmetadata = null;
         URL.revokeObjectURL(objectUrl);
         if (requestId !== this.requestId) {
           resolve();
@@ -500,14 +581,11 @@ export class TTSService {
           resolve();
         }
       };
-      const playbackTimeoutId = window.setTimeout(
-        () => finish(new Error('Hosted voice playback did not finish.')),
-        Math.max(20000, blob.size * 3),
-      );
-
       this.cancelHostedPlayback = () => finish();
       audio.onended = () => finish();
       audio.onerror = () => finish(new Error('Hosted voice playback failed.'));
+      audio.onplaying = armPlaybackTimeout;
+      audio.onloadedmetadata = armPlaybackTimeout;
       const playAttempt = audio.play();
       if (playAttempt) {
         void playAttempt.catch(() => finish(new Error('Hosted voice playback was blocked.')));
