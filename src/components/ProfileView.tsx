@@ -3,11 +3,13 @@ import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
   Bell,
+  Car,
   CheckCircle2,
   CloudSnow,
   Edit3,
   EyeOff,
   FileText,
+  Lightbulb,
   LockKeyhole,
   Mail,
   MapPin,
@@ -15,14 +17,17 @@ import {
   Music,
   PartyPopper,
   Plus,
+  Route,
   Settings,
   ShieldCheck,
   Star,
   ThumbsUp,
+  Triangle,
   User as UserIcon,
   Users,
   Volume2,
   VolumeX,
+  Wrench,
 } from 'lucide-react';
 
 import { VIBE_CONFIG } from '../constants/vibes';
@@ -56,15 +61,21 @@ interface RealtimeSubscription {
 }
 
 const VIBE_ICONS: Record<string, React.ReactNode> = {
-  safe: <ShieldCheck size={22} />,
-  calm: <CloudSnow size={22} />,
-  lively: <Music size={22} />,
-  festive: <PartyPopper size={22} />,
-  crowded: <Users size={22} />,
-  suspicious: <EyeOff size={22} />,
-  dangerous: <AlertTriangle size={22} />,
-  noisy: <Volume2 size={22} />,
-  quiet: <VolumeX size={22} />,
+  safe: <ShieldCheck size={24} />,
+  calm: <CloudSnow size={24} />,
+  lively: <Music size={24} />,
+  festive: <PartyPopper size={24} />,
+  crowded: <Users size={24} />,
+  suspicious: <EyeOff size={24} />,
+  dangerous: <AlertTriangle size={24} />,
+  noisy: <Volume2 size={24} />,
+  quiet: <VolumeX size={24} />,
+  streetlight: <Lightbulb size={24} />,
+  sidewalk: <Route size={24} />,
+  construction: <Wrench size={24} />,
+  pothole: <Triangle size={24} />,
+  traffic: <Car size={24} />,
+  other: <Settings size={24} />,
 };
 
 const ProfileView: React.FC<ProfileViewProps> = ({ onOpenSettings, onNewReport }) => {

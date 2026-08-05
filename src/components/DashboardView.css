@@ -442,7 +442,12 @@
   min-width: 0;
   height: 225px;
   margin-top: 4px;
-  overflow: hidden;
+  overflow: visible;
+}
+
+.dashboard-chart .recharts-wrapper,
+.dashboard-chart .recharts-surface {
+  overflow: visible;
 }
 
 .dashboard-chart-empty {

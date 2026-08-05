@@ -803,13 +803,14 @@ const AppContent: React.FC = () => {
     return (
       <AnimatePresence mode="wait">
         <motion.div
+          className="app-view-transition"
           key={activeTab}
           initial="initial"
           animate="in"
           exit="out"
           variants={pageVariants}
           transition={pageTransition}
-          style={{ height: '100%', width: '100%', minWidth: 0 }}
+          style={{ width: '100%', minWidth: 0, minHeight: '100%' }}
         >
           <div className={activeTab === 'map' ? 'app-content-shell app-content-shell--map' : 'app-content-shell'}>
             {view}

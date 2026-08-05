@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest';
 import type { Vibe } from '../types';
 import { VibeType } from '../types';
 
-import { buildCommunityOverview, isCommunityVerified } from './communityAnalytics';
+import {
+  buildCommunityOverview,
+  isCommunityVerified,
+  selectReviewableReports,
+} from './communityAnalytics';
 
 const NOW = new Date('2026-08-04T12:00:00.000Z');
 
@@ -58,5 +62,21 @@ describe('isCommunityVerified', () => {
     expect(isCommunityVerified(report({ id: 1, vibe_type: VibeType.Safe, created_at: NOW.toISOString(), credibility_score: 0.65, validation_count: 2 }))).toBe(true);
     expect(isCommunityVerified(report({ id: 2, vibe_type: VibeType.Safe, created_at: NOW.toISOString(), credibility_score: 0.9, validation_count: 1 }))).toBe(false);
     expect(isCommunityVerified(report({ id: 3, vibe_type: VibeType.Safe, created_at: NOW.toISOString(), credibility_score: 0.64, validation_count: 4 }))).toBe(false);
+  });
+});
+
+describe('selectReviewableReports', () => {
+  it('excludes the signed-in user before applying the review limit', () => {
+    const reports = Array.from({ length: 12 }, (_, index) => report({
+      id: index + 1,
+      user_id: index < 10 ? 'current-user' : `other-${index}`,
+      vibe_type: VibeType.Safe,
+      created_at: new Date(NOW.getTime() - (index * 1000)).toISOString(),
+    }));
+
+    const reviewable = selectReviewableReports(reports, 'current-user', 10);
+
+    expect(reviewable.map(({ id }) => id)).toEqual([11, 12]);
+    expect(reviewable.every(({ user_id }) => user_id !== 'current-user')).toBe(true);
   });
 });

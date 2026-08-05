@@ -30,7 +30,11 @@ import {
 import { VIBE_CONFIG } from '../constants/vibes';
 import { useAuth } from '../contexts/AuthContext';
 import { useVibe } from '../contexts/VibeContext';
-import { buildCommunityOverview, isCommunityVerified } from '../lib/communityAnalytics';
+import {
+  buildCommunityOverview,
+  isCommunityVerified,
+  selectReviewableReports,
+} from '../lib/communityAnalytics';
 import { calculateDistance } from '../lib/clustering';
 import { reverseGeocode } from '../lib/geocoding';
 import { getSafetyLevel } from '../lib/safetyAnalytics';
@@ -113,19 +117,25 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
     [vibes, locale],
   );
 
+  const reviewableReports = useMemo(() => selectReviewableReports(
+    overview.weeklyReports,
+    user?.id,
+    10,
+  ), [overview.weeklyReports, user?.id]);
+
   const filteredReports = useMemo(() => {
     const query = search.trim().toLocaleLowerCase(locale);
     if (!query) {
-      return overview.recentReports;
+      return reviewableReports;
     }
 
-    return overview.recentReports.filter((report) => [
+    return reviewableReports.filter((report) => [
       reportDisplayName(report),
       report.location,
       report.notes,
       String(t(`vibes.${report.vibe_type}`, report.vibe_type)),
     ].some((value) => value?.toLocaleLowerCase(locale).includes(query)));
-  }, [locale, overview.recentReports, search, t]);
+  }, [locale, reviewableReports, search, t]);
 
   const reportedAreaCount = useMemo(() => new Set(overview.weeklyReports.map((report) => (
     report.location?.trim()
@@ -196,7 +206,7 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
 
     let active = true;
     const loadValidations = async () => {
-      const entries = await Promise.all(overview.recentReports.map(async (report) => (
+      const entries = await Promise.all(reviewableReports.map(async (report) => (
         [report.id, await credibilityService.getUserValidation(report.id, user.id)] as const
       )));
       if (active) {
@@ -208,7 +218,7 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
     return () => {
       active = false;
     };
-  }, [isAuthenticated, overview.recentReports, user?.id]);
+  }, [isAuthenticated, reviewableReports, user?.id]);
 
   const handleValidation = useCallback(async (reportId: number, type: 'confirm' | 'deny') => {
     if (!user?.id) {
@@ -483,7 +493,9 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
                 );
               }) : (
                 <div className="community-table-empty">
-                  {search ? t('community.noMatchingReports', 'No reports match your search.') : t('community.noReportsInPeriod', 'No reports in this period.')}
+                  {search
+                    ? t('community.noMatchingReports', 'No reports match your search.')
+                    : t('community.noReportsToReview', 'No reports from other community members are available to review.')}
                 </div>
               )}
             </div>

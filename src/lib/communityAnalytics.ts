@@ -41,6 +41,17 @@ export function isCommunityVerified(report: Report): boolean {
   return (report.validation_count ?? 0) >= 2 && (report.credibility_score ?? 0) >= 0.65;
 }
 
+export function selectReviewableReports(
+  reports: Vibe[],
+  currentUserId?: string,
+  limit = 10,
+): Vibe[] {
+  return [...reports]
+    .filter((report) => !currentUserId || report.user_id !== currentUserId)
+    .sort((a, b) => (timestamp(b) ?? 0) - (timestamp(a) ?? 0))
+    .slice(0, Math.max(0, limit));
+}
+
 export function buildCommunityOverview(
   reports: Vibe[],
   now: Date = new Date(),
