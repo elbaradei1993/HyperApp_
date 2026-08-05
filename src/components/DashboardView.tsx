@@ -183,7 +183,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         </header>
 
         <div className="dashboard-grid">
-          <article className="dashboard-panel dashboard-overall-card">
+          <section className="dashboard-panel dashboard-overall-card">
             <div className="dashboard-panel-heading dashboard-panel-heading--dark">
               <div>
                 <span>{t('dashboard.overall.title')}</span>
@@ -224,9 +224,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 <span>{t('dashboard.metrics.weeklyReports')}</span>
               </div>
             </div>
-          </article>
+          </section>
 
-          <article className="dashboard-panel dashboard-trend-card">
+          <section className="dashboard-panel dashboard-trend-card">
             <div className="dashboard-panel-heading">
               <div>
                 <span>{t('dashboard.trend.title')}</span>
@@ -289,9 +289,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               )}
             </div>
-          </article>
+          </section>
 
-          <article className="dashboard-panel dashboard-progress-card">
+          <section className="dashboard-panel dashboard-progress-card">
             <div className="dashboard-panel-heading">
               <div>
                 <span>{t('dashboard.progress.title')}</span>
@@ -330,9 +330,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               {t('dashboard.viewCommunity')}
               <ArrowUpRight size={15} />
             </button>
-          </article>
+          </section>
 
-          <article className="dashboard-panel dashboard-goals-card">
+          <section className="dashboard-panel dashboard-goals-card">
             <div className="dashboard-panel-heading">
               <div>
                 <span>{t('dashboard.goals.title')}</span>
@@ -348,9 +348,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               ))}
             </div>
-          </article>
+          </section>
 
-          <article className="dashboard-panel dashboard-attention-card">
+          <section className="dashboard-panel dashboard-attention-card">
             <div className="dashboard-panel-heading">
               <div>
                 <span>{t('dashboard.attention.title')} ({attentionItems.length})</span>
@@ -397,9 +397,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 <span>{t('dashboard.attention.add')}</span>
               </button>
             </div>
-          </article>
+          </section>
 
-          <article className="dashboard-panel dashboard-areas-card">
+          <section className="dashboard-panel dashboard-areas-card">
             <div className="dashboard-panel-heading">
               <div>
                 <span>{t('dashboard.areas.title')}</span>
@@ -440,7 +440,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </button>
               )}
             </div>
-          </article>
+          </section>
         </div>
       </div>
       {isAssistantOpen && (

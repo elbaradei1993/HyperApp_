@@ -847,3 +847,155 @@
     font-size: 8px;
   }
 }
+
+/* Section-first page layout. The pulse is the one intentional visual feature surface. */
+.community-dashboard {
+  max-width: 1120px;
+  min-height: 100%;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+}
+
+.community-dashboard__header {
+  padding: clamp(24px, 3vw, 40px) clamp(20px, 3vw, 36px) 24px;
+  background: #fff;
+}
+
+.community-dashboard__body {
+  padding: 0 clamp(20px, 3vw, 36px) clamp(32px, 4vw, 52px);
+}
+
+.community-filterbar {
+  min-height: 54px;
+  margin: 0;
+  padding: 10px 0;
+  border: 0;
+  border-bottom: 1px solid var(--community-wire);
+  border-radius: 0;
+  background: transparent;
+}
+
+.community-overview-grid,
+.community-insight-stack {
+  display: block;
+}
+
+.community-panel,
+.community-score-panel,
+.community-trend-panel,
+.community-reports-panel {
+  width: 100%;
+  overflow: visible;
+  padding: clamp(30px, 4vw, 46px) 0;
+  border: 0;
+  border-top: 1px solid var(--community-wire);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.community-panel__header {
+  min-height: 0;
+  padding: 0 0 20px;
+  border: 0;
+}
+
+.community-panel--distribution {
+  margin-top: clamp(24px, 3vw, 36px);
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(83, 200, 233, 0.1), transparent 31%),
+    radial-gradient(circle at 82% 90%, rgba(215, 162, 92, 0.09), transparent 30%),
+    linear-gradient(145deg, #252927 0%, #181b1a 100%);
+  box-shadow: 0 26px 58px rgba(15, 18, 17, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.community-panel--distribution .community-panel__header {
+  padding: 22px 24px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.community-panel--distribution .community-panel__header h2 {
+  color: #fff;
+}
+
+.community-panel--distribution .community-panel__kicker {
+  color: #53c8e9;
+}
+
+.community-panel--distribution .community-panel__meta {
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.community-pulse-chart {
+  min-height: 330px;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.community-score-panel {
+  grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr);
+}
+
+.community-score-summary {
+  padding-left: 0;
+}
+
+.community-trend-chart {
+  padding-inline: 0;
+}
+
+.community-reports-panel .community-panel__header {
+  align-items: flex-end;
+}
+
+@media (max-width: 700px) {
+  .community-dashboard__header {
+    padding: 22px 14px 18px;
+  }
+
+  .community-dashboard__body {
+    padding: 0 14px 28px;
+  }
+
+  .community-panel,
+  .community-score-panel,
+  .community-trend-panel,
+  .community-reports-panel {
+    padding: 28px 0;
+  }
+
+  .community-panel--distribution {
+    margin-top: 20px;
+    padding: 0;
+    border-radius: 20px;
+  }
+
+  .community-panel--distribution .community-panel__header {
+    padding: 19px 18px 14px;
+  }
+
+  .community-pulse-chart {
+    min-height: 282px;
+    margin: 0;
+  }
+
+  .community-score-summary {
+    padding: 16px 0 20px;
+  }
+
+  .community-report-table {
+    padding-inline: 0;
+  }
+}

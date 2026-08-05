@@ -1113,3 +1113,130 @@
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Continuous page layout: sections carry hierarchy; containment is reserved for actions. */
+.dashboard-view {
+  min-height: 100%;
+  padding: 0;
+  isolation: auto;
+}
+
+.dashboard-view::before,
+.dashboard-view::after {
+  display: none;
+}
+
+.dashboard-workspace {
+  max-width: 1120px;
+  min-height: 100%;
+  padding: clamp(24px, 3vw, 42px);
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.dashboard-page-header {
+  margin-bottom: clamp(24px, 4vw, 42px);
+}
+
+.dashboard-grid {
+  display: block;
+}
+
+.dashboard-panel,
+.dashboard-trend-card,
+.dashboard-progress-card,
+.dashboard-goals-card,
+.dashboard-attention-card,
+.dashboard-areas-card {
+  width: 100%;
+  overflow: visible;
+  padding: clamp(30px, 4vw, 46px) 0;
+  border: 0;
+  border-top: 1px solid #e3e7e2;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transform: none;
+  transition: none;
+}
+
+.dashboard-panel::before {
+  display: none;
+}
+
+.dashboard-overall-card {
+  margin-bottom: 0;
+  padding: clamp(26px, 4vw, 42px);
+  overflow: hidden;
+  border: 0;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(83, 200, 233, 0.17), transparent 32%),
+    radial-gradient(circle at 12% 100%, rgba(34, 227, 111, 0.12), transparent 34%),
+    linear-gradient(145deg, #111513, #222725);
+  box-shadow: 0 22px 48px rgba(17, 21, 19, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+@media (hover: hover) {
+  .dashboard-panel:hover,
+  .dashboard-overall-card:hover {
+    border-color: inherit;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .dashboard-overall-card:hover {
+    box-shadow: 0 22px 48px rgba(17, 21, 19, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+}
+
+@media (max-width: 1023px) {
+  .dashboard-view {
+    padding: 58px 0 0;
+  }
+
+  .dashboard-workspace {
+    padding: 22px clamp(16px, 4vw, 28px) 14px;
+    background: #fff;
+  }
+
+  .dashboard-panel {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .dashboard-view {
+    padding-inline: 0;
+  }
+
+  .dashboard-workspace {
+    padding: 18px 14px 18px;
+  }
+
+  .dashboard-grid {
+    display: block;
+  }
+
+  .dashboard-panel,
+  .dashboard-trend-card,
+  .dashboard-progress-card,
+  .dashboard-goals-card,
+  .dashboard-attention-card,
+  .dashboard-areas-card {
+    padding: 28px 0;
+    border-radius: 0;
+  }
+
+  .dashboard-overall-card {
+    padding: 24px 18px;
+    border-radius: 20px;
+  }
+}

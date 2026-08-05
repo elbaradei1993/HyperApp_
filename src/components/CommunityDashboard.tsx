@@ -321,7 +321,7 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
         </div>
 
         <div className="community-overview-grid">
-          <article className="community-panel community-panel--distribution">
+          <section className="community-panel community-panel--distribution">
             <div className="community-panel__header">
               <div>
                 <span className="community-panel__kicker">{t('community.reportMix', 'Report mix')}</span>
@@ -362,10 +362,10 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
                 </div>
               )}
             </div>
-          </article>
+          </section>
 
           <div className="community-insight-stack">
-            <article className="community-panel community-score-panel">
+            <section className="community-panel community-score-panel">
               <div className="community-score-summary">
                 <div
                   className="community-score-value"
@@ -394,9 +394,9 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
                 <div><span className="community-risk-icon community-risk-icon--amber"><Users size={16} /></span><strong>{overview.crowdedReports}</strong><small>{t('community.crowdedReports', 'Crowded reports')}</small></div>
                 <div><span className="community-risk-icon community-risk-icon--blue"><CheckCircle2 size={16} /></span><strong>{overview.unverifiedReports}</strong><small>{t('community.unverifiedReports', 'Unverified reports')}</small></div>
               </div>
-            </article>
+            </section>
 
-            <article className="community-panel community-trend-panel">
+            <section className="community-panel community-trend-panel">
               <div className="community-panel__header">
                 <div>
                   <span className="community-panel__kicker">{t('community.sevenDayView', 'Seven-day view')}</span>
@@ -430,10 +430,10 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
                 <span><strong>{overview.activeDays}/7</strong>{t('community.reportedDays', 'Reported days')}</span>
                 <span><strong>{overview.aboveTargetDays}</strong>{t('community.daysAboveTarget', 'Days above target')}</span>
               </div>
-            </article>
+            </section>
           </div>
 
-          <article className="community-panel community-reports-panel">
+          <section className="community-panel community-reports-panel">
             <div className="community-panel__header community-reports-header">
               <div>
                 <span className="community-panel__kicker">{t('community.activity', 'Activity')}</span>
@@ -513,7 +513,7 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
                 </div>
               )}
             </div>
-          </article>
+          </section>
         </div>
       </div>
     </section>
