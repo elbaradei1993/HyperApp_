@@ -1,7 +1,7 @@
 :root {
   --app-sidebar-width: 272px;
   --app-mobile-header-height: 62px;
-  --app-mobile-nav-height: 78px;
+  --app-mobile-nav-height: 88px;
   --app-shell-border: rgba(25, 35, 32, 0.1);
   --app-overlay-backdrop: rgba(15, 18, 24, 0.62);
   --app-accent: #0b7d66;
@@ -45,15 +45,65 @@ button,
 .app-modal-overlay {
   box-sizing: border-box !important;
   z-index: var(--app-z-modal) !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  min-height: 0 !important;
+  padding:
+    max(16px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left)) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .app-modal-dialog {
   box-sizing: border-box !important;
   width: calc(100% - 32px) !important;
   min-width: 0 !important;
-  max-width: min(500px, calc(100vw - 32px)) !important;
-  max-height: calc(100dvh - 32px) !important;
+  min-height: 0 !important;
+  max-width: min(800px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
   overflow-wrap: anywhere;
+}
+
+.app-modal-scroll {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-modal-dialog > :not(.app-modal-scroll) {
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px), (max-height: 640px) {
+  .app-modal-overlay {
+    align-items: flex-start !important;
+    padding:
+      max(8px, env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-right))
+      max(8px, env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left)) !important;
+  }
+
+  .app-modal-dialog {
+    width: 100% !important;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    margin: auto !important;
+    border-radius: 18px !important;
+  }
 }
 
 .app-layout {
@@ -552,26 +602,27 @@ button,
 
 .tab-navigation {
   position: fixed !important;
-  inset: auto 0 0 !important;
+  inset: auto 12px 8px !important;
   z-index: var(--app-z-mobile-nav) !important;
   box-sizing: border-box;
-  width: 100%;
-  height: calc(var(--app-mobile-nav-height) + env(safe-area-inset-bottom, 0px)) !important;
-  padding: 7px 8px env(safe-area-inset-bottom, 0px) !important;
+  width: auto;
+  height: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+  padding: 8px 8px env(safe-area-inset-bottom, 0px) !important;
   display: flex;
   align-items: center;
   overflow: visible !important;
   isolation: isolate;
-  border-top: 1px solid rgba(15, 23, 42, 0.09) !important;
-  background: rgba(250, 251, 249, 0.96) !important;
-  box-shadow: 0 -10px 28px rgba(15, 23, 42, 0.07) !important;
-  backdrop-filter: blur(20px) saturate(145%);
-  -webkit-backdrop-filter: blur(20px) saturate(145%);
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 28px 28px 24px 24px;
+  background: rgba(22, 23, 22, 0.98) !important;
+  box-shadow: 0 18px 44px rgba(9, 12, 11, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  backdrop-filter: blur(20px) saturate(130%);
+  -webkit-backdrop-filter: blur(20px) saturate(130%);
 }
 
 .tab-navigation__item {
   min-width: 0;
-  min-height: 58px;
+  min-height: 56px;
   flex: 1;
   padding: 4px 0 2px;
   display: flex;
@@ -580,50 +631,79 @@ button,
   flex-direction: column;
   gap: 3px;
   border: 0;
-  color: #71717a;
+  color: rgba(255, 255, 255, 0.88);
   background: transparent;
   font: inherit;
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 650;
   cursor: pointer;
   transform: none !important;
-  transition: color 180ms var(--app-ease), background-color 180ms var(--app-ease);
+  transition: color 160ms var(--app-ease);
 }
 
 .tab-navigation__icon {
-  width: 36px;
-  height: 34px;
+  width: 34px;
+  height: 30px;
   display: grid;
   place-items: center;
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: 10px;
   transform: none !important;
   transition: color 180ms var(--app-ease), border-color 180ms var(--app-ease), background-color 180ms var(--app-ease), box-shadow 180ms var(--app-ease);
 }
 
-.tab-navigation__item.is-active { color: var(--app-accent-strong); }
+.tab-navigation__item.is-active { color: #20f255; }
 
 .tab-navigation__item.is-active .tab-navigation__icon {
-  border-color: rgba(11, 125, 102, 0.16);
-  background: var(--app-accent-soft);
-  box-shadow: 0 7px 18px rgba(11, 125, 102, 0.11);
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
 }
 
 .tab-navigation__create {
-  width: 46px;
-  height: 46px;
+  position: relative;
+  z-index: 2;
+  width: 66px;
+  height: 66px;
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  margin: 0 3px 7px;
-  border: 1px solid var(--app-accent-strong);
-  border-radius: 15px;
-  color: #fff;
-  background: linear-gradient(145deg, #108a71, #086852);
-  box-shadow: 0 12px 26px rgba(8, 104, 82, 0.25);
+  margin: 0 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  color: #111318;
+  background: #1a1b1a;
+  box-shadow:
+    0 0 0 9px #fafbf9,
+    0 15px 28px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   cursor: pointer;
-  transform: none !important;
-  transition: background-color 140ms ease, box-shadow 140ms ease;
+  transform: translateY(-28px) !important;
+  transition: box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.tab-navigation__create-icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #20f255;
+  box-shadow: 0 8px 18px rgba(32, 242, 85, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.tab-navigation__create:hover,
+.tab-navigation__create:focus-visible {
+  background: #242624;
+  box-shadow:
+    0 0 0 9px #fafbf9,
+    0 18px 32px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.tab-navigation__item:active,
+.tab-navigation__create:active {
+  opacity: 0.82;
 }
 
 .tab-more-menu {

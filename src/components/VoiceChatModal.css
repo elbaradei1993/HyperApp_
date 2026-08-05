@@ -29,6 +29,10 @@
   padding: 0 !important;
 }
 
+.ai-assistant-modal > .app-modal-scroll {
+  overflow: hidden !important;
+}
+
 .ai-assistant-shell {
   position: relative;
   display: flex;

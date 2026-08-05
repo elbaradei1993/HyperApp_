@@ -409,7 +409,7 @@ const VibeReportModal: React.FC<VibeReportModalProps> = ({
 
   if (showSuccess) {
     return (
-      <div style={{
+      <div className="app-modal-overlay" style={{
         position: 'fixed',
         top: 0,
         left: 0,
@@ -424,7 +424,7 @@ const VibeReportModal: React.FC<VibeReportModalProps> = ({
         zIndex: 9999,
         padding: window.innerWidth < 480 ? '16px' : '20px',
       }}>
-        <div style={{
+        <div className="app-modal-dialog app-modal-scroll" style={{
           background: 'linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-elevated) 100%)',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
@@ -565,6 +565,7 @@ const VibeReportModal: React.FC<VibeReportModalProps> = ({
 
   return (
     <Box
+      className="app-modal-overlay"
       position="fixed"
       top={0}
       left={0}
@@ -583,6 +584,7 @@ const VibeReportModal: React.FC<VibeReportModalProps> = ({
       }}
     >
       <Box
+        className="app-modal-dialog"
         bg="white"
         borderRadius="20px"
         maxW="600px"
@@ -631,7 +633,7 @@ const VibeReportModal: React.FC<VibeReportModalProps> = ({
         </Box>
 
         {/* Content */}
-        <Box p={6} overflowY="auto" maxH="calc(70vh - 140px)">
+        <Box className="app-modal-scroll" p={6} overflowY="auto" flex={1} minH={0}>
           <VStack gap={6} align="stretch">
             {/* Vibe Type Selection */}
             <Box>

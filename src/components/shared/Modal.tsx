@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
 
 interface ModalProps {
@@ -22,6 +22,29 @@ const Modal: React.FC<ModalProps> = ({
   overlayClassName,
   containerClassName,
 }) => {
+  const titleId = useId();
+
+  useEffect(() => {
+    if (!isOpen || typeof document === 'undefined') {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen || typeof document === 'undefined') {
     return null;
   }
@@ -35,7 +58,8 @@ const Modal: React.FC<ModalProps> = ({
 
   return createPortal((
     <div
-      className={overlayClassName}
+      className={['app-modal-overlay', overlayClassName].filter(Boolean).join(' ')}
+      role="presentation"
       style={{
         position: 'fixed',
         top: 0,
@@ -57,15 +81,20 @@ const Modal: React.FC<ModalProps> = ({
       }}
     >
       <div
-        className={containerClassName}
+        className={['app-modal-dialog', containerClassName].filter(Boolean).join(' ')}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
         style={{
           backgroundColor: 'white',
           borderRadius: '16px',
           boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
           width: '100%',
           maxWidth,
-          maxHeight: '90vh',
-          overflowY: 'auto',
+          maxHeight: 'calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
           overflowX: 'hidden',
           position: 'relative',
           transform: 'translateY(0) scale(1)',
@@ -75,6 +104,8 @@ const Modal: React.FC<ModalProps> = ({
         {/* Close Button */}
         {showCloseButton && (
           <button
+            type="button"
+            aria-label="Close modal"
             onClick={onClose}
             style={{
               position: 'absolute',
@@ -111,7 +142,7 @@ const Modal: React.FC<ModalProps> = ({
         {/* Title */}
         {title && (
           <div style={{ padding: '24px 24px 0 24px' }}>
-            <h2 style={{
+            <h2 id={titleId} style={{
               fontSize: '24px',
               fontWeight: 'bold',
               color: '#1a1a1a',
@@ -123,7 +154,7 @@ const Modal: React.FC<ModalProps> = ({
         )}
 
         {/* Content */}
-        <div style={{ padding: '24px' }}>
+        <div className="app-modal-scroll" style={{ padding: '24px' }}>
           {children}
         </div>
       </div>

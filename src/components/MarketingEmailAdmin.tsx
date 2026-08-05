@@ -671,6 +671,7 @@ const MarketingEmailAdmin: React.FC<MarketingEmailAdminProps> = () => {
         {/* Campaign Details Modal */}
         {selectedCampaign && (
           <Box
+            className="app-modal-overlay"
             position="fixed"
             top={0}
             left={0}
@@ -685,6 +686,7 @@ const MarketingEmailAdmin: React.FC<MarketingEmailAdminProps> = () => {
             onClick={() => setSelectedCampaign(null)}
           >
             <Box
+              className="app-modal-dialog app-modal-scroll"
               bg="white"
               p={6}
               borderRadius="lg"

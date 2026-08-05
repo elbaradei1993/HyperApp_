@@ -142,7 +142,7 @@ const GuardianEmergencyModal: React.FC<{
 
   if (showSuccess) {
     return (
-      <div style={{
+      <div className="app-modal-overlay" style={{
         position: 'fixed',
         top: 0,
         left: 0,
@@ -157,7 +157,7 @@ const GuardianEmergencyModal: React.FC<{
         zIndex: 9999,
         padding: window.innerWidth < 480 ? '16px' : '20px',
       }}>
-        <div style={{
+        <div className="app-modal-dialog app-modal-scroll" style={{
           background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%)',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
@@ -249,7 +249,7 @@ const GuardianEmergencyModal: React.FC<{
   }
 
   return (
-    <div style={{
+    <div className="app-modal-overlay" style={{
       position: 'fixed',
       top: 0,
       left: 0,
@@ -262,7 +262,7 @@ const GuardianEmergencyModal: React.FC<{
       zIndex: 1000,
       padding: '20px',
     }}>
-      <div style={{
+      <div className="app-modal-dialog app-modal-scroll" style={{
         background: 'white',
         borderRadius: '16px',
         width: '100%',
@@ -981,6 +981,7 @@ const GuardianView: React.FC = () => {
       {/* Invite Modal */}
       {showInviteModal && (
         <Box
+          className="app-modal-overlay"
           position="fixed"
           top={0}
           left={0}
@@ -995,6 +996,7 @@ const GuardianView: React.FC = () => {
           onClick={() => setShowInviteModal(false)}
         >
           <Box
+            className="app-modal-dialog app-modal-scroll"
             bg="white"
             borderRadius="20px"
             maxW="400px"

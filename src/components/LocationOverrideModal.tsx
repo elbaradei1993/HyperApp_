@@ -217,7 +217,7 @@ const LocationOverrideModal: React.FC<LocationOverrideModalProps> = ({
         </Box>
 
         {/* Content */}
-        <Box p={6} overflowY="auto" maxH="calc(90vh - 200px)">
+        <Box className="app-modal-scroll" p={6} overflowY="auto" flex={1} minH={0}>
           <VStack gap={6} align="stretch">
             {/* Description */}
             <Text fontSize="14px" color="gray.600">

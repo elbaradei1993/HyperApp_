@@ -371,6 +371,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   return (
     <Box
+      className="app-modal-overlay"
       position="fixed"
       top={0}
       left={0}
@@ -384,6 +385,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       p={4}
     >
       <Box
+        className="app-modal-dialog"
         bg="white"
         borderRadius="20px"
         maxW="500px"
@@ -464,7 +466,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         </Box>
 
         {/* Content */}
-        <Box p={6} overflowY="auto" maxH="calc(90vh - 200px)">
+        <Box className="app-modal-scroll" p={6} overflowY="auto" flex={1} minH={0}>
           <VStack gap={6} align="stretch">
             {error && (
               <Box

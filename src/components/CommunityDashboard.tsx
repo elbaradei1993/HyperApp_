@@ -43,7 +43,7 @@ import { reportsService } from '../services/reports';
 import type { Report, Vibe } from '../types';
 
 import { ValidationButtons } from './CredibilityIndicator';
-import { LoadingSpinner } from './shared';
+import { CircularProgress, LoadingSpinner, MultiSegmentCircularProgress } from './shared';
 
 import './CommunityDashboard.css';
 
@@ -137,10 +137,12 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
     ].some((value) => value?.toLocaleLowerCase(locale).includes(query)));
   }, [locale, reviewableReports, search, t]);
 
-  const reportedAreaCount = useMemo(() => new Set(overview.weeklyReports.map((report) => (
-    report.location?.trim()
-    || `${report.latitude.toFixed(2)},${report.longitude.toFixed(2)}`
-  ))).size, [overview.weeklyReports]);
+  const pulseSegments = useMemo(() => overview.distribution.map((item) => ({
+    percentage: item.percentage,
+    color: VIBE_CONFIG[item.type as keyof typeof VIBE_CONFIG]?.color || '#64748b',
+    label: item.type,
+  })), [overview.distribution]);
+  const leadingVibe = overview.distribution[0] ?? null;
 
   const periodLabel = useMemo(() => {
     const start = new Date();
@@ -315,33 +317,32 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
                 <span className="community-panel__kicker">{t('community.reportMix', 'Report mix')}</span>
                 <h2>{t('community.communityPulse', 'Community pulse')}</h2>
               </div>
-              <span className="community-panel__meta">{overview.weeklyReports.length} {t('community.reports', 'reports')}</span>
             </div>
 
-            <div className="community-ranking-head" aria-hidden="true">
-              <span>#</span><span>{t('community.atmosphere', 'Atmosphere')}</span><span>{t('community.share', 'Share')}</span>
-            </div>
-            <div className="community-ranking-list">
-              {overview.distribution.length > 0 ? overview.distribution.map((item, index) => (
-                <div className="community-ranking-row" key={item.type}>
-                  <span className="community-ranking-row__number">{String(index + 1).padStart(2, '0')}</span>
-                  <span
-                    className="community-ranking-row__icon"
-                    style={{ color: VIBE_CONFIG[item.type as keyof typeof VIBE_CONFIG]?.color || '#64748b' }}
-                    aria-hidden="true"
-                  >
-                    {VIBE_ICONS[item.type] || <ShieldCheck size={18} />}
-                  </span>
-                  <span className="community-ranking-row__name">
-                    <strong>{t(`vibes.${item.type}`, item.type)}</strong>
-                    <small>{item.count} {item.count === 1 ? t('community.report', 'report') : t('community.reports', 'reports')}</small>
-                  </span>
-                  <span className="community-ranking-row__bar" aria-hidden="true">
-                    <i style={{ width: `${item.percentage}%` }} />
-                  </span>
-                  <strong className="community-ranking-row__value">{item.percentage}%</strong>
+            <div className="community-pulse-chart">
+              {leadingVibe ? (
+                <div
+                  className="community-pulse-donut"
+                  role="img"
+                  aria-label={`${leadingVibe.percentage}% ${t(`vibes.${leadingVibe.type}`, leadingVibe.type)}`}
+                >
+                  <MultiSegmentCircularProgress
+                    segments={pulseSegments}
+                    size={188}
+                    strokeWidth={20}
+                    segmentGap={2.8}
+                    glow
+                    backgroundColor="rgba(255, 255, 255, 0.13)"
+                    animationDuration={1300}
+                    centerContent={(
+                      <div className="community-pulse-center">
+                        <strong>{leadingVibe.percentage}%</strong>
+                        <span>{t(`vibes.${leadingVibe.type}`, leadingVibe.type)}</span>
+                      </div>
+                    )}
+                  />
                 </div>
-              )) : (
+              ) : (
                 <div className="community-empty-state">
                   <ShieldCheck size={24} aria-hidden="true" />
                   <strong>{t('community.noReportsInPeriod', 'No reports in this period')}</strong>
@@ -349,26 +350,30 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
                 </div>
               )}
             </div>
-
-            <div className="community-panel__footer">
-              <span><strong>{reportedAreaCount}</strong>{t('community.reportedAreas', 'Reported areas')}</span>
-              <span><strong>{overview.contributors}</strong>{t('community.contributors', 'Contributors')}</span>
-            </div>
           </article>
 
           <div className="community-insight-stack">
             <article className="community-panel community-score-panel">
               <div className="community-score-summary">
                 <div
-                  className="community-score-ring"
-                  style={{ background: `conic-gradient(${scoreColor} ${(overview.safetyScore ?? 0) * 3.6}deg, #e8edf3 0deg)` }}
+                  className="community-score-visual"
+                  role="img"
                   aria-label={overview.safetyScore === null
                     ? String(t('community.noSafetyScore', 'No safety score available'))
                     : `${overview.safetyScore}% ${t('community.safetyScore', 'safety score')}`}
                 >
-                  <div>
+                  <CircularProgress
+                    percentage={overview.safetyScore ?? 0}
+                    size={122}
+                    strokeWidth={10}
+                    color={scoreColor}
+                    backgroundColor="rgba(17, 19, 24, 0.1)"
+                    showPercentage={false}
+                    className="community-score-progress"
+                  />
+                  <div className="community-score-value" aria-hidden="true">
                     <strong>{overview.safetyScore ?? '—'}</strong>
-                    {overview.safetyScore !== null && <small>/100</small>}
+                    <span>{overview.safetyScore === null ? t('community.awaitingData', 'Awaiting data') : '/100'}</span>
                   </div>
                 </div>
                 <div>

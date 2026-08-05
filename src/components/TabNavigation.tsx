@@ -53,7 +53,9 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabChange, o
                 onClick={onNewReport}
                 aria-label={t('app.newReport', 'New report')}
               >
-                <Plus size={20} aria-hidden="true" />
+                <span className="tab-navigation__create-icon">
+                  <Plus size={19} strokeWidth={2.6} aria-hidden="true" />
+                </span>
               </button>
             )}
           </React.Fragment>

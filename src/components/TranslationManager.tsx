@@ -251,7 +251,7 @@ const TranslationManager: React.FC<TranslationManagerProps> = ({ isOpen, onClose
   }
 
   return (
-    <div style={{
+    <div className="app-modal-overlay" style={{
       position: 'fixed',
       top: 0,
       left: 0,
@@ -264,7 +264,7 @@ const TranslationManager: React.FC<TranslationManagerProps> = ({ isOpen, onClose
       zIndex: 2000,
       padding: '16px',
     }}>
-      <div style={{
+      <div className="app-modal-dialog" style={{
         backgroundColor: 'white',
         borderRadius: '12px',
         maxWidth: '900px',
@@ -396,7 +396,7 @@ const TranslationManager: React.FC<TranslationManagerProps> = ({ isOpen, onClose
         </div>
 
         {/* Content */}
-        <div style={{ padding: '24px', maxHeight: 'calc(90vh - 200px)', overflowY: 'auto' }}>
+        <div className="app-modal-scroll" style={{ padding: '24px', overflowY: 'auto' }}>
           {activeTab === 'edit' ? renderTranslationEditor() : renderValidationResults()}
         </div>
 

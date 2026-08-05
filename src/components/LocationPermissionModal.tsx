@@ -120,7 +120,7 @@ const LocationPermissionModal: React.FC<LocationPermissionModalProps> = ({
         </div>
 
         {/* Content */}
-        <div style={{ padding: '20px 22px', overflowY: 'auto', flex: 1 }}>
+        <div className="app-modal-scroll" style={{ padding: '20px 22px', overflowY: 'auto', flex: 1 }}>
           {/* Why we need location */}
           <div style={{
             background: 'rgba(0,200,150,0.06)',

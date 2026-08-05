@@ -626,6 +626,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ embedded = false }) => {
       {/* Change Password Modal */}
       {showPasswordModal && (
         <Box
+          className="app-modal-overlay"
           position="fixed"
           top={0}
           left={0}
@@ -640,6 +641,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ embedded = false }) => {
           p={4}
         >
           <Box
+            className="app-modal-dialog app-modal-scroll"
             role="dialog"
             aria-modal="true"
             aria-labelledby="change-password-title"
@@ -757,6 +759,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ embedded = false }) => {
       {/* Delete Account Modal */}
       {showDeleteModal && (
         <Box
+          className="app-modal-overlay"
           position="fixed"
           top={0}
           left={0}
@@ -771,6 +774,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ embedded = false }) => {
           p={4}
         >
           <Box
+            className="app-modal-dialog app-modal-scroll"
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="delete-account-title"
@@ -854,6 +858,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ embedded = false }) => {
       {/* Location Sharing Agreement Modal */}
       {showLocationSharingAgreement && (
         <Box
+          className="app-modal-overlay"
           position="fixed"
           top={0}
           left={0}
@@ -868,6 +873,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ embedded = false }) => {
           p={4}
         >
           <Box
+            className="app-modal-dialog app-modal-scroll"
             role="dialog"
             aria-modal="true"
             aria-labelledby="location-sharing-title"

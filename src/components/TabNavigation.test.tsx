@@ -33,7 +33,9 @@ describe('TabNavigation', () => {
 
     expect(screen.getByRole('button', { name: 'Account' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'More' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'New report' })).toBeInTheDocument();
+    const createButton = screen.getByRole('button', { name: 'New report' });
+    expect(createButton).toBeInTheDocument();
+    expect(createButton.querySelector('.tab-navigation__create-icon')).toBeInTheDocument();
   });
 
   it('navigates directly to the merged account view', () => {

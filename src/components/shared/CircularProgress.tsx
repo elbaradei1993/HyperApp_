@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
 
 interface CircularProgressProps {
   percentage: number;
@@ -23,6 +23,8 @@ interface MultiSegmentCircularProgressProps {
   showCenterContent?: boolean;
   centerContent?: React.ReactNode;
   animationDuration?: number;
+  segmentGap?: number;
+  glow?: boolean;
   className?: string;
 }
 
@@ -123,37 +125,35 @@ const MultiSegmentCircularProgress: React.FC<MultiSegmentCircularProgressProps> 
   showCenterContent = true,
   centerContent,
   animationDuration = 2000,
+  segmentGap = 2.4,
+  glow = false,
   className = '',
 }) => {
-  const [animatedSegments, setAnimatedSegments] = useState(segments.map(() => 0));
+  const filterId = useId().replace(/:/g, '');
+  const normalizedSegments = useMemo(() => {
+    const validSegments = segments.filter((segment) => Number.isFinite(segment.percentage) && segment.percentage > 0);
+    const total = validSegments.reduce((sum, segment) => sum + segment.percentage, 0);
+
+    if (total <= 0) {
+      return [];
+    }
+
+    return validSegments.map((segment) => ({
+      ...segment,
+      percentage: (segment.percentage / total) * 100,
+    }));
+  }, [segments]);
+  const [animatedSegments, setAnimatedSegments] = useState(normalizedSegments.map(() => 0));
   const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
 
   useEffect(() => {
+    setAnimatedSegments(normalizedSegments.map(() => 0));
     const timer = setTimeout(() => {
-      setAnimatedSegments(segments.map(segment => segment.percentage));
+      setAnimatedSegments(normalizedSegments.map((segment) => segment.percentage));
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [segments]);
-
-  // Calculate cumulative percentages for segments
-  const getSegmentPath = (startPercentage: number, endPercentage: number) => {
-    const startAngle = (startPercentage / 100) * 360;
-    const endAngle = (endPercentage / 100) * 360;
-
-    const startRad = (startAngle * Math.PI) / 180;
-    const endRad = (endAngle * Math.PI) / 180;
-
-    const x1 = size / 2 + radius * Math.cos(startRad);
-    const y1 = size / 2 + radius * Math.sin(startRad);
-    const x2 = size / 2 + radius * Math.cos(endRad);
-    const y2 = size / 2 + radius * Math.sin(endRad);
-
-    const largeArcFlag = endAngle - startAngle > 180 ? 1 : 0;
-
-    return `M ${size / 2 + radius * Math.cos(startRad)} ${size / 2 + radius * Math.sin(startRad)} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`;
-  };
+  }, [normalizedSegments]);
 
   let cumulativePercentage = 0;
 
@@ -169,10 +169,35 @@ const MultiSegmentCircularProgress: React.FC<MultiSegmentCircularProgressProps> 
       <svg
         width={size}
         height={size}
+        aria-hidden="true"
+        focusable="false"
         style={{
           filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))',
         }}
       >
+        {glow && (
+          <defs>
+            {normalizedSegments.map((segment, index) => (
+              <filter
+                key={`${segment.label || index}-glow`}
+                id={`${filterId}-glow-${index}`}
+                x="-60%"
+                y="-60%"
+                width="220%"
+                height="220%"
+              >
+                <feGaussianBlur stdDeviation="3.2" result="blur" />
+                <feFlood floodColor={segment.color} floodOpacity="0.72" result="color" />
+                <feComposite in="color" in2="blur" operator="in" result="coloredBlur" />
+                <feMerge>
+                  <feMergeNode in="coloredBlur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            ))}
+          </defs>
+        )}
+
         {/* Background circle */}
         <circle
           cx={size / 2}
@@ -181,30 +206,35 @@ const MultiSegmentCircularProgress: React.FC<MultiSegmentCircularProgressProps> 
           stroke={backgroundColor}
           strokeWidth={strokeWidth}
           fill="none"
-          opacity="0.3"
+          opacity="0.34"
         />
 
-        {/* Multi-segment progress paths */}
-        {segments.map((segment, index) => {
+        {/* Rounded, independently glowing segments */}
+        {normalizedSegments.map((segment, index) => {
           const startPercentage = cumulativePercentage;
-          const endPercentage = Math.min(cumulativePercentage + animatedSegments[index], 100);
-          cumulativePercentage += animatedSegments[index];
-
-          if (animatedSegments[index] === 0) {
-            return null;
-          }
+          const animatedValue = animatedSegments[index] ?? 0;
+          const visiblePercentage = animatedValue > 0
+            ? Math.max(animatedValue - segmentGap, Math.min(0.8, animatedValue))
+            : 0;
+          cumulativePercentage += segment.percentage;
 
           return (
-            <path
-              key={index}
-              d={getSegmentPath(startPercentage, endPercentage)}
+            <circle
+              key={`${segment.label || index}-segment`}
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
               stroke={segment.color}
               strokeWidth={strokeWidth}
               fill="none"
               strokeLinecap="round"
+              pathLength={100}
+              strokeDasharray={`${visiblePercentage} ${100 - visiblePercentage}`}
+              strokeDashoffset={-startPercentage}
+              transform={`rotate(-90 ${size / 2} ${size / 2})`}
+              filter={glow ? `url(#${filterId}-glow-${index})` : undefined}
               style={{
-                transition: `all ${animationDuration}ms ease-in-out`,
-                filter: `drop-shadow(0 0 4px ${segment.color}30)`,
+                transition: `stroke-dasharray ${animationDuration}ms cubic-bezier(0.22, 1, 0.36, 1)`,
               }}
             />
           );
