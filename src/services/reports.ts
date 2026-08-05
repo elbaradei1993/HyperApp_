@@ -232,26 +232,7 @@ class ReportsService {
       };
     } catch (error) {
       console.error('Failed to create report:', error);
-      // Return a mock report for demo purposes when Supabase fails
-      return {
-        id: Date.now(),
-        user_id: 'demo-user',
-        vibe_type: reportData.vibe_type,
-        notes: reportData.notes,
-        location: reportData.location || `Near ${reportData.latitude.toFixed(4)}, ${reportData.longitude.toFixed(4)}`,
-        latitude: reportData.latitude,
-        longitude: reportData.longitude,
-        emergency: reportData.emergency || false,
-        upvotes: 0,
-        downvotes: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        profile: {
-          username: 'Demo User',
-          first_name: 'Demo',
-          last_name: 'User',
-        },
-      };
+      throw error;
     }
   }
 
@@ -571,19 +552,6 @@ class ReportsService {
    */
   async getUniqueLocationCount(): Promise<number> {
     try {
-      const { count, error } = await supabase
-        .from('reports')
-        .select('location', { count: 'exact', head: true })
-        .not('location', 'is', null)
-        .not('location', 'eq', '');
-
-      if (error) {
-        console.error('Error getting unique location count:', error);
-        return 0;
-      }
-
-      // Note: Supabase doesn't support COUNT(DISTINCT) directly with the count option
-      // We'll need to fetch and count unique values
       const { data, error: fetchError } = await supabase
         .from('reports')
         .select('location')

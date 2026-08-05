@@ -765,7 +765,10 @@ const AppContent: React.FC = () => {
         return (
           <ErrorBoundary>
             <React.Suspense fallback={<LoadingFallback />}>
-              <ProfileView />
+              <ProfileView
+                onOpenSettings={() => setActiveTab('settings')}
+                onNewReport={handleNewReport}
+              />
             </React.Suspense>
           </ErrorBoundary>
         );

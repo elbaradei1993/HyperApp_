@@ -1,32 +1,45 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Box, VStack, HStack, Text, Button, Grid, GridItem, Select, IconButton } from '@chakra-ui/react';
-import { ChevronUp, ChevronDown, MapPin, Activity, Users, Clock } from 'lucide-react';
 import {
-  ShieldCheck,
+  AlertTriangle,
+  CalendarDays,
+  CheckCircle2,
   CloudSnow,
+  EyeOff,
+  MapPin,
   Music,
   PartyPopper,
-  EyeOff,
-  AlertTriangle,
+  Plus,
+  Search,
+  ShieldCheck,
+  Users,
   Volume2,
   VolumeX,
 } from 'lucide-react';
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
-import { clusterReports, formatDistance, analyzeClusterVibes, calculateDistance, type LocationCluster } from '../lib/clustering';
-import { reportsService } from '../services/reports';
-import { reverseGeocode } from '../lib/geocoding';
-import { VIBE_CONFIG, VibeType } from '../constants/vibes';
-import { useVibe } from '../contexts/VibeContext';
+import { VIBE_CONFIG } from '../constants/vibes';
 import { useAuth } from '../contexts/AuthContext';
-import { backgroundLocationService } from '../services/backgroundLocationService';
+import { useVibe } from '../contexts/VibeContext';
+import { buildCommunityOverview, isCommunityVerified } from '../lib/communityAnalytics';
+import { calculateDistance } from '../lib/clustering';
+import { reverseGeocode } from '../lib/geocoding';
+import { getSafetyLevel } from '../lib/safetyAnalytics';
 import { credibilityService } from '../services/credibilityService';
-import type { Vibe, Report } from '../types';
+import { reportsService } from '../services/reports';
+import type { Report, Vibe } from '../types';
 
-import VibePulseCard from './VibePulseCard';
-import PremiumEmptyState from './PremiumEmptyState';
-import { CredibilityIndicator, UserVerificationBadge, ValidationButtons } from './CredibilityIndicator';
-import { LoadingSpinner, EmptyState, CircularProgress, MultiSegmentCircularProgress } from './shared';
+import { ValidationButtons } from './CredibilityIndicator';
+import { LoadingSpinner } from './shared';
 
 import './CommunityDashboard.css';
 
@@ -40,8 +53,35 @@ interface CommunityDashboardProps {
   onVibesUpdate?: (vibes: Vibe[]) => void;
 }
 
-interface ReportWithVote extends Report {
-  user_vote?: 'upvote' | 'downvote' | null;
+interface RealtimeSubscription {
+  unsubscribe?: () => void;
+}
+
+const VIBE_ICONS: Record<string, React.ReactNode> = {
+  safe: <ShieldCheck size={18} />,
+  calm: <CloudSnow size={18} />,
+  lively: <Music size={18} />,
+  festive: <PartyPopper size={18} />,
+  crowded: <Users size={18} />,
+  suspicious: <EyeOff size={18} />,
+  dangerous: <AlertTriangle size={18} />,
+  noisy: <Volume2 size={18} />,
+  quiet: <VolumeX size={18} />,
+};
+
+function reportDisplayName(report: Report): string {
+  const profile = report.profile;
+  const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim();
+  return fullName || profile?.username || `User ${report.user_id.slice(0, 6)}`;
+}
+
+function reportInitials(report: Report): string {
+  return reportDisplayName(report)
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
 }
 
 const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
@@ -53,748 +93,404 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
   onNavigateToProfile,
   onVibesUpdate,
 }) => {
-  const { t } = useTranslation();
-  const { setCurrentLocationVibe } = useVibe();
+  const { t, i18n } = useTranslation();
   const { user, isAuthenticated } = useAuth();
-  const [clusters, setClusters] = useState<LocationCluster[]>([]);
-  const [currentLocationAddress, setCurrentLocationAddress] = useState<string>('');
-  const [localCurrentLocationVibe, setLocalCurrentLocationVibe] = useState<{
-    type: string;
-    percentage: number;
-    count: number;
-  } | null>(null);
-  const [currentLocationVibeDistribution, setCurrentLocationVibeDistribution] = useState<Array<{
-    type: string;
-    percentage: number;
-    count: number;
-    color: string;
-  }>>([]);
-  const [isGeocoding, setIsGeocoding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [userReports, setUserReports] = useState<Report[]>([]);
-  const [userReportsLoading, setUserReportsLoading] = useState(false);
-  const [isVibeBreakdownExpanded, setIsVibeBreakdownExpanded] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date());
-  const [isActivityExpanded, setIsActivityExpanded] = useState(true);
-  const [communityCount, setCommunityCount] = useState(0);
-  const [recentUsers, setRecentUsers] = useState<Array<{
-    id: string;
-    username: string | null;
-    first_name: string | null;
-    last_name: string | null;
-    profile_picture_url: string | null;
-  }>>([]);
+  const { setCurrentLocationVibe } = useVibe();
+  const [currentLocationAddress, setCurrentLocationAddress] = useState('');
+  const [search, setSearch] = useState('');
   const [userValidations, setUserValidations] = useState<Record<number, 'confirm' | 'deny' | null>>({});
   const [validatingReportId, setValidatingReportId] = useState<number | null>(null);
+  const subscriptionsRef = useRef<Record<string, RealtimeSubscription>>({});
+  const latestVibesRef = useRef(vibes);
 
-  // Ref for subscription cleanup
-  const subscriptionsRef = useRef<{ reports?: any; votes?: any; credibility?: any }>({});
-
-  // Memoize vibe color and icon maps for performance
-  const vibeColorMap = useMemo(() => VIBE_CONFIG, []);
-  const vibeIconMap = useMemo(() => {
-    const iconMap: Record<VibeType, string> = {
-      safe: '🛡️',
-      calm: '😌',
-      lively: '🎉',
-      festive: '🎊',
-      crowded: '👥',
-      suspicious: '⚠️',
-      dangerous: '🚨',
-      noisy: '🔊',
-      quiet: '🤫',
-      unknown: '❓',
-    };
-    return iconMap;
-  }, []);
-
-  // Performance optimized functions using useCallback
-  const getVibeColor = useCallback((vibeType: string): string => {
-    return vibeColorMap[vibeType as VibeType]?.color || '#6b7280';
-  }, [vibeColorMap]);
-
-  const getVibeIcon = useCallback((vibeType: string): string => {
-    return vibeIconMap[vibeType as VibeType] || '❓';
-  }, [vibeIconMap]);
-
-  const getVibeIconComponent = useCallback((vibeType: string) => {
-    switch (vibeType) {
-    case 'safe':
-      return <ShieldCheck size={32} />;
-    case 'calm':
-      return <CloudSnow size={32} />;
-    case 'lively':
-      return <Music size={32} />;
-    case 'festive':
-      return <PartyPopper size={32} />;
-    case 'crowded':
-      return <Users size={32} />;
-    case 'suspicious':
-      return <EyeOff size={32} />;
-    case 'dangerous':
-      return <AlertTriangle size={32} />;
-    case 'noisy':
-      return <Volume2 size={32} />;
-    case 'quiet':
-      return <VolumeX size={32} />;
-    default:
-      return <ShieldCheck size={32} />;
-    }
-  }, []);
-
-  // Extract vibe analysis logic
-  const analyzeNearbyVibes = useCallback((location: [number, number], vibes: Vibe[]) => {
-    const nearbyReports = vibes.filter((vibe: Vibe) => {
-      if (vibe.latitude == null || vibe.longitude == null) {
-        return false;
-      }
-      const distance = calculateDistance(
-        location[0],
-        location[1],
-        vibe.latitude!,
-        vibe.longitude!,
-      );
-      return distance <= 1;
-    });
-
-    if (nearbyReports.length === 0) {
-      return { dominantVibe: null, distribution: [] };
-    }
-
-    const vibeAnalysis = analyzeClusterVibes(nearbyReports);
-
-    // Calculate distribution - include all vibes from VIBE_CONFIG
-    const vibeCounts: Record<string, number> = {};
-    nearbyReports.forEach(report => {
-      vibeCounts[report.vibe_type] = (vibeCounts[report.vibe_type] || 0) + 1;
-    });
-
-    const totalReports = nearbyReports.length;
-    const distribution = Object.keys(VIBE_CONFIG)
-      .map((type) => {
-        const count = vibeCounts[type] || 0;
-        const percentage = count > 0 ? Math.round((count / totalReports) * 100) : 0;
-        const color = count > 0 ? getVibeColor(type) : '#ffffff';
-        return {
-          type,
-          count,
-          percentage,
-          color,
-        };
-      })
-      .sort((a, b) => b.percentage - a.percentage);
-
-    return { dominantVibe: vibeAnalysis.dominantVibe, distribution };
-  }, [getVibeColor]);
-
-  // Retry functionality
-  const handleRetry = useCallback(() => {
-    setError(null);
-  }, []);
-
-  // Load user reports for recent activity
-  const loadUserReports = useCallback(async (): Promise<Report[]> => {
-    try {
-      setUserReportsLoading(true);
-      const reports = await reportsService.getReports({ limit: 10 });
-      return reports;
-    } catch (error) {
-      console.error('Error loading user reports:', error);
-      return [];
-    } finally {
-      setUserReportsLoading(false);
-    }
-  }, []);
-
-  // Memoize processed clusters to avoid re-computation on every render
-  const processedClusters = useMemo(() => {
-    if (vibes.length === 0) {
-      return [];
-    }
-
-    const processedClusters = clusterReports(vibes, userLocation, 1);
-    return processedClusters.filter(cluster =>
-      cluster.locationName && cluster.locationName.trim() !== '',
-    );
-  }, [vibes, userLocation]);
-
-  // Update clusters when processedClusters changes
   useEffect(() => {
-    setClusters(processedClusters);
-  }, [processedClusters]);
+    latestVibesRef.current = vibes;
+  }, [vibes]);
 
-  // Analyze vibes when userLocation or vibes change
+  const locale = i18n.resolvedLanguage || i18n.language || 'en-CA';
+  const overview = useMemo(
+    () => buildCommunityOverview(vibes, new Date(), locale),
+    [vibes, locale],
+  );
+
+  const filteredReports = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase(locale);
+    if (!query) {
+      return overview.recentReports;
+    }
+
+    return overview.recentReports.filter((report) => [
+      reportDisplayName(report),
+      report.location,
+      report.notes,
+      String(t(`vibes.${report.vibe_type}`, report.vibe_type)),
+    ].some((value) => value?.toLocaleLowerCase(locale).includes(query)));
+  }, [locale, overview.recentReports, search, t]);
+
+  const reportedAreaCount = useMemo(() => new Set(overview.weeklyReports.map((report) => (
+    report.location?.trim()
+    || `${report.latitude.toFixed(2)},${report.longitude.toFixed(2)}`
+  ))).size, [overview.weeklyReports]);
+
+  const periodLabel = useMemo(() => {
+    const start = new Date();
+    start.setDate(start.getDate() - 6);
+    const formatter = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' });
+    return `${formatter.format(start)} – ${formatter.format(new Date())}`;
+  }, [locale]);
+
   useEffect(() => {
-    const analyzeLocationVibes = async () => {
-      if (!userLocation || vibes.length === 0) {
+    let active = true;
+
+    const analyzeCurrentLocation = async () => {
+      if (!userLocation) {
         setCurrentLocationAddress('');
-        setLocalCurrentLocationVibe(null);
-        setCurrentLocationVibeDistribution([]);
         setCurrentLocationVibe(null);
         return;
       }
 
-      setIsGeocoding(true);
-      setError(null);
+      const nearby = vibes.filter((report) => (
+        Number.isFinite(report.latitude)
+        && Number.isFinite(report.longitude)
+        && calculateDistance(userLocation[0], userLocation[1], report.latitude, report.longitude) <= 1
+      ));
+      const counts = new Map<string, number>();
+      nearby.forEach((report) => counts.set(report.vibe_type, (counts.get(report.vibe_type) ?? 0) + 1));
+      const dominant = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0];
+
+      if (dominant) {
+        const [type, count] = dominant;
+        setCurrentLocationVibe({
+          type,
+          count,
+          percentage: Math.round((count / nearby.length) * 100),
+          color: VIBE_CONFIG[type as keyof typeof VIBE_CONFIG]?.color || '#64748b',
+        });
+      } else {
+        setCurrentLocationVibe(null);
+      }
 
       try {
-        const [address, vibeAnalysis] = await Promise.all([
-          reverseGeocode(userLocation[0], userLocation[1]),
-          analyzeNearbyVibes(userLocation, vibes),
-        ]);
-
-        setCurrentLocationAddress(address);
-        setLocalCurrentLocationVibe(vibeAnalysis.dominantVibe);
-        setCurrentLocationVibeDistribution(vibeAnalysis.distribution);
-
-        if (vibeAnalysis.dominantVibe) {
-          setCurrentLocationVibe({
-            type: vibeAnalysis.dominantVibe.type,
-            percentage: vibeAnalysis.dominantVibe.percentage,
-            count: vibeAnalysis.dominantVibe.count,
-            color: getVibeColor(vibeAnalysis.dominantVibe.type),
-          });
-        } else {
-          setCurrentLocationVibe(null);
+        const address = await reverseGeocode(userLocation[0], userLocation[1]);
+        if (active) {
+          setCurrentLocationAddress(address);
         }
-      } catch (error) {
-        console.error('Error processing location data:', error);
-        setError(t('community.failedToLoadLocationData'));
-        setCurrentLocationAddress('');
-        setLocalCurrentLocationVibe(null);
-        setCurrentLocationVibeDistribution([]);
-      } finally {
-        setIsGeocoding(false);
+      } catch {
+        if (active) {
+          setCurrentLocationAddress('');
+        }
       }
     };
 
-    analyzeLocationVibes();
-  }, [userLocation, vibes, analyzeNearbyVibes, getVibeColor]);
+    void analyzeCurrentLocation();
+    return () => {
+      active = false;
+    };
+  }, [setCurrentLocationVibe, userLocation, vibes]);
 
-  // Generate enhanced activity feed with priority sorting
-  const activityFeed = useMemo(() => {
-    const sortedReports = vibes
-      .sort((a, b) => {
-        const aIsTrusted = a.profile?.verification_level === 'trusted';
-        const bIsTrusted = b.profile?.verification_level === 'trusted';
-
-        if (aIsTrusted && !bIsTrusted) {
-          return -1;
-        }
-        if (!aIsTrusted && bIsTrusted) {
-          return 1;
-        }
-
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      })
-      .slice(0, 6);
-
-    return sortedReports.map((report: any) => {
-      const getDisplayName = () => {
-        if (report.profile?.first_name && report.profile?.last_name) {
-          return `${report.profile.first_name} ${report.profile.last_name}`;
-        }
-        if (report.profile?.username) {
-          return report.profile.username;
-        }
-        return report.user_id.substring(0, 8);
-      };
-
-      return {
-        id: report.id,
-        user: report.user_id.substring(0, 2).toUpperCase(),
-        userId: getDisplayName(),
-        message: `${t('community.reportedAtmosphere', 'Reported {{vibe}} atmosphere', { vibe: String(t(`vibes.${report.vibe_type}`, report.vibe_type)) })}${report.notes ? ` - ${report.notes.substring(0, 40)}` : ''}`,
-        location: report.location || t('community.unknownLocation'),
-        time: new Date(report.created_at).toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true,
-        }),
-        type: report.emergency ? 'safe' : report.vibe_type,
-        vibeType: report.vibe_type,
-        notes: report.notes || '',
-        createdAt: report.created_at,
-        credibilityScore: report.credibility_score || 0.5,
-        validationCount: report.validation_count || 0,
-        verificationLevel: report.profile?.verification_level || 'basic',
-      };
-    });
-  }, [vibes]);
-
-  // Load user reports and community count on component mount
   useEffect(() => {
-    const loadReports = async () => {
-      const reports = await loadUserReports();
-      setUserReports(reports);
-    };
-    loadReports();
-
-    const loadCommunityData = async () => {
-      try {
-        const [count, users] = await Promise.all([
-          reportsService.getUniqueLocationCount(),
-          reportsService.getRecentReporters(4),
-        ]);
-        setCommunityCount(count);
-        setRecentUsers(users);
-      } catch (error) {
-        console.error('Failed to load community data:', error);
-        setCommunityCount(0);
-        setRecentUsers([]);
-      }
-    };
-    loadCommunityData();
-
-    if (user?.id) {
-      loadUserValidations();
-    }
-  }, [loadUserReports, user?.id]);
-
-  // Load user validations
-  const loadUserValidations = useCallback(async () => {
     if (!user?.id || !isAuthenticated) {
       setUserValidations({});
       return;
     }
 
-    try {
-      const recentReportIds = activityFeed.map(activity => activity.id);
-      const validations: Record<number, 'confirm' | 'deny' | null> = {};
-
-      for (const reportId of recentReportIds) {
-        const validation = await credibilityService.getUserValidation(reportId, user.id);
-        validations[reportId] = validation;
+    let active = true;
+    const loadValidations = async () => {
+      const entries = await Promise.all(overview.recentReports.map(async (report) => (
+        [report.id, await credibilityService.getUserValidation(report.id, user.id)] as const
+      )));
+      if (active) {
+        setUserValidations(Object.fromEntries(entries));
       }
+    };
 
-      setUserValidations(validations);
-    } catch (error) {
-      console.error('Error loading user validations:', error);
-      setUserValidations({});
-    }
-  }, [user?.id, isAuthenticated, activityFeed]);
+    void loadValidations();
+    return () => {
+      active = false;
+    };
+  }, [isAuthenticated, overview.recentReports, user?.id]);
 
-  // Handle report validation
-  const handleValidation = useCallback(async (reportId: number, validationType: 'confirm' | 'deny') => {
+  const handleValidation = useCallback(async (reportId: number, type: 'confirm' | 'deny') => {
     if (!user?.id) {
       return;
     }
 
     setValidatingReportId(reportId);
-
-    try {
-      const success = await credibilityService.validateReport(reportId, user.id, validationType);
-      if (success) {
-        setUserValidations(prev => ({
-          ...prev,
-          [reportId]: validationType,
-        }));
-      }
-    } catch (error) {
-      console.error('Error validating report:', error);
-    } finally {
-      setValidatingReportId(null);
+    const success = await credibilityService.validateReport(reportId, user.id, type);
+    if (success) {
+      setUserValidations((current) => ({ ...current, [reportId]: type }));
     }
+    setValidatingReportId(null);
   }, [user?.id]);
 
-  // Set up real-time subscriptions
   useEffect(() => {
     if (!isAuthenticated || !user?.onboarding_completed) {
       return;
     }
 
-    Object.values(subscriptionsRef.current).forEach(subscription => {
-      subscription?.unsubscribe?.();
-    });
-    subscriptionsRef.current = {};
-
-    let updateTimeout: NodeJS.Timeout;
-    let lastUpdate = Date.now();
+    const updateReport = (reportId: number, changes: Partial<Vibe>) => {
+      onVibesUpdate?.(latestVibesRef.current.map((report) => (
+        report.id === reportId ? { ...report, ...changes } : report
+      )));
+    };
 
     subscriptionsRef.current.reports = reportsService.subscribeToReports((newReport) => {
-      const now = Date.now();
-      if (now - lastUpdate < 2000) {
-        return;
+      if (!newReport.emergency) {
+        onVibesUpdate?.([newReport, ...latestVibesRef.current.filter(({ id }) => id !== newReport.id)].slice(0, 1000));
       }
-
-      lastUpdate = now;
-
-      clearTimeout(updateTimeout);
-      updateTimeout = setTimeout(() => {
-        if (!newReport.emergency) {
-          onVibesUpdate?.([newReport, ...vibes.slice(0, 999)]);
-          if (newReport.location) {
-            setCommunityCount(prev => prev + 1);
-          }
-        }
-      }, 100);
     });
-
     subscriptionsRef.current.votes = reportsService.subscribeToVotes((update) => {
-      clearTimeout(updateTimeout);
-      updateTimeout = setTimeout(() => {
-        onVibesUpdate?.(vibes.map((vibe: Vibe) =>
-          vibe.id === update.reportId
-            ? { ...vibe, upvotes: update.upvotes, downvotes: update.downvotes }
-            : vibe,
-        ));
-        setUserReports(prev => prev.map(report =>
-          report.id === update.reportId
-            ? { ...report, upvotes: update.upvotes, downvotes: update.downvotes }
-            : report,
-        ));
-      }, 100);
+      updateReport(update.reportId, { upvotes: update.upvotes, downvotes: update.downvotes });
     });
-
     subscriptionsRef.current.credibility = reportsService.subscribeToCredibilityUpdates((update) => {
-      onVibesUpdate?.(vibes.map((vibe: Vibe) =>
-        vibe.id === update.reportId
-          ? {
-            ...vibe,
-            credibility_score: update.credibility_score,
-            validation_count: update.validation_count,
-          }
-          : vibe,
-      ));
-      setUserReports(prev => prev.map(report =>
-        report.id === update.reportId
-          ? {
-            ...report,
-            credibility_score: update.credibility_score,
-            validation_count: update.validation_count,
-          }
-          : report,
-      ));
+      updateReport(update.reportId, {
+        credibility_score: update.credibility_score,
+        validation_count: update.validation_count,
+      });
     });
 
     return () => {
-      clearTimeout(updateTimeout);
-      Object.values(subscriptionsRef.current).forEach(subscription => {
-        subscription?.unsubscribe?.();
-      });
+      Object.values(subscriptionsRef.current).forEach((subscription) => subscription.unsubscribe?.());
       subscriptionsRef.current = {};
     };
-  }, [user?.onboarding_completed, onVibesUpdate]);
+  }, [isAuthenticated, onVibesUpdate, user?.onboarding_completed]);
+
+  const safetyLevel = overview.safetyScore === null ? null : getSafetyLevel(overview.safetyScore);
+  const scoreColor = safetyLevel?.color || '#94a3b8';
 
   if (isLoading) {
     return (
-      <Box maxW="500px" mx="auto" bg="white" minH="100vh" position="relative" borderX="1px solid" borderColor="gray.200">
-        <Box p={8} textAlign="center">
-          <LoadingSpinner size="lg" />
-          <Text fontSize="16px" fontWeight="600" color="gray.600" mt={4}>
-            {t('community.loadingCommunityData')}
-          </Text>
-        </Box>
-      </Box>
-    );
-  }
-
-  if (clusters.length === 0 && !isLoading) {
-    return (
-      <PremiumEmptyState
-        onPrimaryAction={onNewReport}
-        communityCount={communityCount}
-        recentUsers={recentUsers}
-      />
+      <div className="community-loading" role="status" aria-live="polite">
+        <LoadingSpinner size="lg" />
+        <span>{t('community.loadingCommunityData', 'Loading community safety data…')}</span>
+      </div>
     );
   }
 
   return (
-    <Box className="page-view page-view--community community-overview" maxW="1180px" w="full" mx="auto" bg="var(--bg-base)" minH="100%" position="relative" borderX="1px solid" borderColor="var(--wire)" style={{ color: 'var(--t1)' }}>
-      {/* Header */}
-      <Box
-        className="page-view__header community-overview__header"
-        bg="var(--bg-surface)"
-        color="var(--t1)"
-        p={6}
-        position="sticky"
-        top={0}
-        zIndex={20}
-        borderBottom="1px solid"
-        borderColor="gray.200"
-        boxShadow="0 1px 3px rgba(0, 0, 0, 0.05)"
-      >
-        <VStack justify="center" align="start" gap={1} w="full">
-          <Text className="community-overview__eyebrow" fontSize="10px" fontWeight="800">
-            {t('community.safetyOverview', 'Safety overview')}
-          </Text>
-          <Text fontSize="24px" fontWeight="750" letterSpacing="-0.7px" lineHeight="1.15">
-            {t('tabs.community')}
-          </Text>
-          <Text fontSize="12px" color="gray.600" letterSpacing="0.1px" fontWeight="500">
-            {t('community.localSafetyInsights')}
-          </Text>
-        </VStack>
-      </Box>
+    <section className="community-dashboard page-view page-view--community">
+      <header className="community-dashboard__header">
+        <div>
+          <span className="community-dashboard__eyebrow">{t('tabs.community', 'Community')}</span>
+          <h1>{t('community.safetyOverview', 'Safety Overview')}</h1>
+          <p>{t('community.dashboardSubtitle', 'Live insights from reports currently available to you.')}</p>
+        </div>
+        {onNewReport && (
+          <button className="community-primary-button" type="button" onClick={onNewReport}>
+            <Plus size={16} aria-hidden="true" />
+            {t('community.newReport', 'New report')}
+          </button>
+        )}
+      </header>
 
-      {/* Main Content */}
-      <Box className="community-overview__content" p={6} minH="calc(100vh - 180px)">
-        <VStack gap={4} align="stretch">
-          <div className="community-summary-grid" role="list" aria-label={String(t('community.safetyOverview', 'Safety overview'))}>
-            <article className="community-summary-card community-summary-card--primary" role="listitem">
-              <span className="community-summary-card__icon" aria-hidden="true"><ShieldCheck size={18} /></span>
+      <div className="community-dashboard__body">
+        <div className="community-filterbar" aria-label={String(t('community.dashboardFilters', 'Dashboard filters'))}>
+          <span className="community-filterbar__period">
+            <CalendarDays size={15} aria-hidden="true" />
+            <strong>{t('community.lastSevenDays', 'Last 7 days')}</strong>
+            <span>{periodLabel}</span>
+          </span>
+          <span className="community-filterbar__location">
+            <MapPin size={15} aria-hidden="true" />
+            {currentLocationAddress || (userLocation
+              ? t('community.locationAvailable', 'Current location available')
+              : t('community.locationUnavailable', 'Location unavailable'))}
+          </span>
+        </div>
+
+        <div className="community-overview-grid">
+          <article className="community-panel community-panel--distribution">
+            <div className="community-panel__header">
               <div>
-                <span>{t('community.currentAtmosphere', 'Current atmosphere')}</span>
-                <strong>
-                  {localCurrentLocationVibe
-                    ? t(`vibes.${localCurrentLocationVibe.type}`, localCurrentLocationVibe.type)
-                    : t('community.awaitingReports', 'Awaiting reports')}
-                </strong>
+                <span className="community-panel__kicker">{t('community.reportMix', 'Report mix')}</span>
+                <h2>{t('community.communityPulse', 'Community pulse')}</h2>
               </div>
-              <small>{localCurrentLocationVibe ? `${localCurrentLocationVibe.percentage}%` : '—'}</small>
+              <span className="community-panel__meta">{overview.weeklyReports.length} {t('community.reports', 'reports')}</span>
+            </div>
+
+            <div className="community-ranking-head" aria-hidden="true">
+              <span>#</span><span>{t('community.atmosphere', 'Atmosphere')}</span><span>{t('community.share', 'Share')}</span>
+            </div>
+            <div className="community-ranking-list">
+              {overview.distribution.length > 0 ? overview.distribution.map((item, index) => (
+                <div className="community-ranking-row" key={item.type}>
+                  <span className="community-ranking-row__number">{String(index + 1).padStart(2, '0')}</span>
+                  <span
+                    className="community-ranking-row__icon"
+                    style={{ color: VIBE_CONFIG[item.type as keyof typeof VIBE_CONFIG]?.color || '#64748b' }}
+                    aria-hidden="true"
+                  >
+                    {VIBE_ICONS[item.type] || <ShieldCheck size={18} />}
+                  </span>
+                  <span className="community-ranking-row__name">
+                    <strong>{t(`vibes.${item.type}`, item.type)}</strong>
+                    <small>{item.count} {item.count === 1 ? t('community.report', 'report') : t('community.reports', 'reports')}</small>
+                  </span>
+                  <span className="community-ranking-row__bar" aria-hidden="true">
+                    <i style={{ width: `${item.percentage}%` }} />
+                  </span>
+                  <strong className="community-ranking-row__value">{item.percentage}%</strong>
+                </div>
+              )) : (
+                <div className="community-empty-state">
+                  <ShieldCheck size={24} aria-hidden="true" />
+                  <strong>{t('community.noReportsInPeriod', 'No reports in this period')}</strong>
+                  <span>{t('community.noReportsDescription', 'Submit a report to start the community overview.')}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="community-panel__footer">
+              <span><strong>{reportedAreaCount}</strong>{t('community.reportedAreas', 'Reported areas')}</span>
+              <span><strong>{overview.contributors}</strong>{t('community.contributors', 'Contributors')}</span>
+            </div>
+          </article>
+
+          <div className="community-insight-stack">
+            <article className="community-panel community-score-panel">
+              <div className="community-score-summary">
+                <div
+                  className="community-score-ring"
+                  style={{ background: `conic-gradient(${scoreColor} ${(overview.safetyScore ?? 0) * 3.6}deg, #e8edf3 0deg)` }}
+                  aria-label={overview.safetyScore === null
+                    ? String(t('community.noSafetyScore', 'No safety score available'))
+                    : `${overview.safetyScore}% ${t('community.safetyScore', 'safety score')}`}
+                >
+                  <div>
+                    <strong>{overview.safetyScore ?? '—'}</strong>
+                    {overview.safetyScore !== null && <small>/100</small>}
+                  </div>
+                </div>
+                <div>
+                  <span className="community-panel__kicker">{t('community.safetyScore', 'Safety score')}</span>
+                  <h2>{safetyLevel
+                    ? t(`community.safetyLevels.${safetyLevel.level}`, safetyLevel.description)
+                    : t('community.notEnoughData', 'Not enough data')}</h2>
+                  <p>{overview.scoreDelta === null
+                    ? t('community.noPreviousComparison', 'A comparison appears after both weeks have reports.')
+                    : t('community.scoreChange', '{{value}} points from the previous week', {
+                      value: `${overview.scoreDelta > 0 ? '+' : ''}${overview.scoreDelta}`,
+                    })}</p>
+                </div>
+              </div>
+
+              <div className="community-risk-grid">
+                <div><span className="community-risk-icon community-risk-icon--red"><AlertTriangle size={16} /></span><strong>{overview.attentionReports}</strong><small>{t('community.attentionReports', 'Attention reports')}</small></div>
+                <div><span className="community-risk-icon community-risk-icon--amber"><Users size={16} /></span><strong>{overview.crowdedReports}</strong><small>{t('community.crowdedReports', 'Crowded reports')}</small></div>
+                <div><span className="community-risk-icon community-risk-icon--blue"><CheckCircle2 size={16} /></span><strong>{overview.unverifiedReports}</strong><small>{t('community.unverifiedReports', 'Unverified reports')}</small></div>
+              </div>
             </article>
-            <article className="community-summary-card" role="listitem">
-              <span className="community-summary-card__icon" aria-hidden="true"><Activity size={18} /></span>
-              <div>
-                <span>{t('community.visibleReports', 'Visible reports')}</span>
-                <strong>{vibes.length}</strong>
+
+            <article className="community-panel community-trend-panel">
+              <div className="community-panel__header">
+                <div>
+                  <span className="community-panel__kicker">{t('community.sevenDayView', 'Seven-day view')}</span>
+                  <h2>{t('community.safetyTrend', 'Safety trend')}</h2>
+                </div>
+                <span className="community-target"><i />{t('community.target', 'Target')} 70</span>
               </div>
-              <small>{t('community.live', 'Live')}</small>
-            </article>
-            <article className="community-summary-card" role="listitem">
-              <span className="community-summary-card__icon" aria-hidden="true"><Users size={18} /></span>
-              <div>
-                <span>{t('community.communityMembers', 'Community members')}</span>
-                <strong>{communityCount}</strong>
+              <div className="community-trend-chart" aria-label={String(t('community.safetyTrend', 'Safety trend'))}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={190}>
+                  <LineChart data={overview.trend} margin={{ top: 12, right: 12, bottom: 0, left: -22 }}>
+                    <CartesianGrid vertical={false} stroke="#e6ebf1" strokeDasharray="3 4" />
+                    <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#7c8798', fontSize: 11 }} />
+                    <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} axisLine={false} tickLine={false} tick={{ fill: '#7c8798', fontSize: 10 }} />
+                    <Tooltip cursor={{ stroke: '#cbd5e1', strokeDasharray: '3 3' }} />
+                    <ReferenceLine y={70} stroke="#f59e0b" strokeDasharray="5 5" />
+                    <Line type="monotone" dataKey="score" name={String(t('community.safetyScore', 'Safety score'))} stroke="#246bfd" strokeWidth={3} dot={{ r: 3, fill: '#246bfd', strokeWidth: 0 }} activeDot={{ r: 5 }} connectNulls={false} />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
-              <small>{lastRefreshTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+              <div className="community-trend-stats">
+                <span><strong>{overview.weeklyReports.length}</strong>{t('community.weeklyReports', 'Weekly reports')}</span>
+                <span><strong>{overview.activeDays}/7</strong>{t('community.reportedDays', 'Reported days')}</span>
+                <span><strong>{overview.aboveTargetDays}</strong>{t('community.daysAboveTarget', 'Days above target')}</span>
+              </div>
             </article>
           </div>
 
-          {/* Location Card */}
-          {isGeocoding ? (
-            <Box className="community-overview__card community-overview__location-card" bg="white" borderRadius="16px" p={8} border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)" textAlign="center">
-              <LoadingSpinner size="lg" />
-              <Text fontSize="14px" fontWeight="600" color="gray.600" mt={4}>
-                {t('community.loadingLocationData')}
-              </Text>
-            </Box>
-          ) : userLocation && currentLocationAddress ? (
-            <Box className="community-overview__card community-overview__location-card" bg="white" borderRadius="16px" p={6} border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)" mb={4}>
-              <VStack gap={4} align="center">
-                <HStack gap={3}>
-                  <Box w="12" h="12" borderRadius="8px" bg="blue.100" display="flex" alignItems="center" justifyContent="center">
-                    <MapPin size={16} color="#2563eb" />
-                  </Box>
-                  <Text fontSize="16px" fontWeight="700" color="gray.900">
-                    {currentLocationAddress}
-                  </Text>
-                </HStack>
+          <article className="community-panel community-reports-panel">
+            <div className="community-panel__header community-reports-header">
+              <div>
+                <span className="community-panel__kicker">{t('community.activity', 'Activity')}</span>
+                <h2>{t('community.recentReports', 'Recent reports')}</h2>
+              </div>
+              <label className="community-search">
+                <Search size={15} aria-hidden="true" />
+                <span className="sr-only">{t('community.searchReports', 'Search reports')}</span>
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder={String(t('community.searchReports', 'Search reports'))}
+                />
+              </label>
+            </div>
 
-                {/* Vibe Analysis */}
-                {localCurrentLocationVibe ? (
-                  <Box
-                    className="community-overview__pulse-card"
-                    bg={`linear-gradient(135deg, ${getVibeColor(localCurrentLocationVibe.type)}08 0%, ${getVibeColor(localCurrentLocationVibe.type)}04 100%)`}
-                    border={`1px solid ${getVibeColor(localCurrentLocationVibe.type)}20`}
-                    borderRadius="16px"
-                    p={6}
-                    w="full"
-                  >
-                    <VStack gap={4} align="center">
-                      <Box className="community-overview__pulse-chart" position="relative" display="flex" alignItems="center" justifyContent="center">
-                        <MultiSegmentCircularProgress
-                          segments={currentLocationVibeDistribution
-                            .filter(vibe => vibe.percentage > 0)
-                            .slice(0, 5)
-                            .map(vibe => ({
-                              percentage: vibe.percentage,
-                              color: vibe.color,
-                              label: String(t(`vibes.${vibe.type}`, vibe.type)),
-                            }))}
-                          size={120}
-                          strokeWidth={12}
-                          centerContent={
-                            <VStack gap={1} align="center">
-                              <Text fontSize="24px" fontWeight="900" color={getVibeColor(localCurrentLocationVibe.type)}>
-                                {localCurrentLocationVibe.percentage}%
-                              </Text>
-                              <Text fontSize="12px" fontWeight="700" color={getVibeColor(localCurrentLocationVibe.type)} textTransform="uppercase">
-                                {String(t(`vibes.${localCurrentLocationVibe.type}`, localCurrentLocationVibe.type))}
-                              </Text>
-                            </VStack>
-                          }
-                        />
-                      </Box>
-
-                      <Text fontSize="12px" color="gray.600" textAlign="center">
-                        {t('community.sentimentDistribution')}
-                      </Text>
-
-                      {/* Expandable Breakdown */}
-                      <Button
-                        onClick={() => setIsVibeBreakdownExpanded(!isVibeBreakdownExpanded)}
-                        variant="outline"
+            <div className="community-report-table" role="table" aria-label={String(t('community.recentReports', 'Recent reports'))}>
+              <div className="community-report-row community-report-row--head" role="row">
+                <span role="columnheader">{t('community.reporter', 'Reporter')}</span>
+                <span role="columnheader">{t('community.atmosphere', 'Atmosphere')}</span>
+                <span role="columnheader">{t('community.location', 'Location')}</span>
+                <span role="columnheader">{t('community.verification', 'Verification')}</span>
+                <span role="columnheader">{t('community.time', 'Time')}</span>
+                <span role="columnheader">{t('community.actions', 'Actions')}</span>
+              </div>
+              {filteredReports.length > 0 ? filteredReports.map((report) => {
+                const verified = isCommunityVerified(report);
+                return (
+                  <div className="community-report-row" role="row" key={report.id}>
+                    <span role="cell">
+                      <button className="community-reporter" type="button" onClick={() => onNavigateToProfile?.(report.user_id)} disabled={!onNavigateToProfile}>
+                        <span className="community-reporter__avatar">{reportInitials(report)}</span>
+                        <span><strong>{reportDisplayName(report)}</strong><small>{report.profile?.verification_level || t('community.communityMember', 'Community member')}</small></span>
+                      </button>
+                    </span>
+                    <span className="community-report-vibe" role="cell" data-label={t('community.atmosphere', 'Atmosphere')}>
+                      <i style={{ color: VIBE_CONFIG[report.vibe_type as keyof typeof VIBE_CONFIG]?.color || '#64748b' }}>
+                        {VIBE_ICONS[report.vibe_type] || <ShieldCheck size={18} />}
+                      </i>
+                      {t(`vibes.${report.vibe_type}`, report.vibe_type)}
+                    </span>
+                    <span className="community-report-location" role="cell" data-label={t('community.location', 'Location')} title={report.location || ''}>
+                      {report.location?.trim() || t('community.unknownLocation', 'Unknown location')}
+                    </span>
+                    <span className={`community-verification-badge ${verified ? 'is-verified' : ''}`} role="cell" data-label={t('community.verification', 'Verification')}>
+                      {verified ? <CheckCircle2 size={13} /> : <AlertTriangle size={13} />}
+                      {verified ? t('community.communityVerified', 'Community verified') : t('community.unverified', 'Unverified')}
+                    </span>
+                    <time role="cell" dateTime={report.created_at} data-label={t('community.time', 'Time')}>
+                      {new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(report.created_at))}
+                    </time>
+                    <span className="community-report-actions" role="cell">
+                      <ValidationButtons
+                        reportId={report.id}
+                        userValidation={userValidations[report.id] ?? null}
+                        onValidate={(type) => void handleValidation(report.id, type)}
+                        disabled={report.user_id === user?.id}
+                        isAuthenticated={isAuthenticated}
+                        isValidating={validatingReportId === report.id}
+                        userVerificationLevel={user?.verification_level || 'basic'}
                         size="sm"
-                        borderRadius="12px"
-                      >
-                        <HStack gap={2} justify="center">
-                          <Text fontSize="12px">{t('community.viewDetailedBreakdown')}</Text>
-                          {isVibeBreakdownExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                        </HStack>
-                      </Button>
-
-                      {isVibeBreakdownExpanded && (
-                        <Grid templateColumns="repeat(auto-fit, minmax(120px, 1fr))" gap={3} w="full">
-                          {currentLocationVibeDistribution
-                            .filter(vibe => vibe.percentage > 0)
-                            .map((vibe) => (
-                              <Box
-                                key={vibe.type}
-                                bg="white"
-                                borderRadius="12px"
-                                p={3}
-                                border="1px solid"
-                                borderColor="gray.200"
-                                textAlign="center"
-                              >
-                                <Box w="8" h="8" borderRadius="6px" bg={`${vibe.color}20`} display="flex" alignItems="center" justifyContent="center" mx="auto" mb={2}>
-                                  {getVibeIconComponent(vibe.type)}
-                                </Box>
-                                <Text fontSize="12px" fontWeight="700" color={vibe.color} mb={1}>
-                                  {String(t(`vibes.${vibe.type}`, vibe.type))}
-                                </Text>
-                                <Text fontSize="16px" fontWeight="900" color={vibe.color}>
-                                  {vibe.percentage}%
-                                </Text>
-                              </Box>
-                            ))}
-                        </Grid>
+                      />
+                      {onNavigateToMap && Number.isFinite(report.latitude) && Number.isFinite(report.longitude) && (
+                        <button className="community-map-link" type="button" onClick={() => onNavigateToMap(report.latitude, report.longitude)} aria-label={String(t('community.viewOnMap', 'View on map'))}>
+                          <MapPin size={14} />
+                        </button>
                       )}
-                    </VStack>
-                  </Box>
-                ) : (
-                  <Box bg="gray.50" borderRadius="16px" p={8} border="2px solid" borderColor="gray.200" textAlign="center">
-                    <Activity size={32} color="#9ca3af" />
-                    <Text fontSize="14px" fontWeight="500" color="gray.600" mt={2}>
-                      {t('community.noCommunityReportsYet')}
-                    </Text>
-                  </Box>
-                )}
-              </VStack>
-            </Box>
-          ) : (
-            <Box className="community-overview__card community-overview__location-card" bg="white" borderRadius="16px" p={8} border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)" textAlign="center">
-              <MapPin size={48} color="#94a3b8" />
-              <Text fontSize="16px" fontWeight="700" color="gray.600" mt={4}>
-                {t('community.locationNotAvailable')}
-              </Text>
-              <Text fontSize="12px" color="gray.500">
-                {t('community.enableLocationServices')}
-              </Text>
-            </Box>
-          )}
-
-          {/* Activity Feed */}
-          <Box className="community-overview__card community-overview__activity-card" bg="white" borderRadius="16px" border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)">
-            <Box
-              p={5}
-              borderBottom={isActivityExpanded ? '1px solid' : 'none'}
-              borderColor="gray.200"
-              cursor="pointer"
-              onClick={() => setIsActivityExpanded(!isActivityExpanded)}
-            >
-              <HStack justify="space-between" align="center">
-                <HStack gap={3}>
-                  <Box w="10" h="10" borderRadius="8px" bg="orange.100" display="flex" alignItems="center" justifyContent="center">
-                    <Activity size={16} color="#d97706" />
-                  </Box>
-                  <Text fontSize="16px" fontWeight="700" color="gray.900">
-                    {t('community.recentActivity')}
-                  </Text>
-                </HStack>
-                <Button
-                  aria-label="Toggle activity feed"
-                  variant="ghost"
-                  size="sm"
-                  p={2}
-                  minW="auto"
-                  h="auto"
-                >
-                  {isActivityExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </Button>
-              </HStack>
-            </Box>
-
-            {isActivityExpanded && (
-              <Box p={5}>
-                <VStack gap={4} align="stretch">
-                  {activityFeed.map((activity) => (
-                    <Box
-                      key={activity.id}
-                      className="community-overview__activity-item"
-                      bg="gray.50"
-                      borderRadius="12px"
-                      p={4}
-                      border="1px solid"
-                      borderColor="gray.200"
-                    >
-                      <VStack gap={3} align="stretch">
-                        <Text fontSize="12px" fontWeight="600" color="gray.900">
-                          {activity.message}
-                        </Text>
-
-                        <HStack gap={4} fontSize="12px" color="gray.600">
-                          <HStack gap={1}>
-                            <Users size={12} />
-                            <Text>{activity.userId}</Text>
-                          </HStack>
-                          <HStack gap={1}>
-                            <MapPin size={12} />
-                            <Text>{activity.location}</Text>
-                          </HStack>
-                          <HStack gap={1}>
-                            <Clock size={12} />
-                            <Text>{activity.time}</Text>
-                          </HStack>
-                        </HStack>
-
-                        <HStack gap={2} flexWrap="wrap">
-                          <Box
-                            px={2}
-                            py={1}
-                            borderRadius="6px"
-                            fontSize="10px"
-                            fontWeight="700"
-                            textTransform="uppercase"
-                            bg={`${getVibeColor(activity.type)}20`}
-                            color={getVibeColor(activity.type)}
-                            border={`1px solid ${getVibeColor(activity.type)}40`}
-                          >
-                            {String(t(`vibes.${activity.type}`, activity.type))}
-                          </Box>
-
-                          <UserVerificationBadge
-                            level={activity.verificationLevel}
-                            size="sm"
-                          />
-
-                          <CredibilityIndicator
-                            score={activity.credibilityScore}
-                            validationCount={activity.validationCount}
-                            size="sm"
-                          />
-                        </HStack>
-
-                        <ValidationButtons
-                          reportId={activity.id}
-                          userValidation={userValidations[activity.id] || null}
-                          onValidate={(validationType) => handleValidation(activity.id, validationType)}
-                          size="sm"
-                          isAuthenticated={isAuthenticated}
-                          isValidating={validatingReportId === activity.id}
-                        />
-                      </VStack>
-                    </Box>
-                  ))}
-                </VStack>
-              </Box>
-            )}
-          </Box>
-        </VStack>
-      </Box>
-    </Box>
+                    </span>
+                  </div>
+                );
+              }) : (
+                <div className="community-table-empty">
+                  {search ? t('community.noMatchingReports', 'No reports match your search.') : t('community.noReportsInPeriod', 'No reports in this period.')}
+                </div>
+              )}
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
   );
 };
 
