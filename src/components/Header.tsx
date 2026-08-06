@@ -1,19 +1,18 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ChevronDown,
   FilePlus2,
   LogIn,
   LogOut,
-  Menu,
-  Settings,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '../contexts/AuthContext';
 
-import { APP_NAVIGATION, getNavigationItem, type TabType } from './appNavigation';
+import { getNavigationItem, type TabType } from './appNavigation';
 import HeaderLogo from './HeaderLogo';
 import MobileNavigation from './MobileNavigation';
+import PrimaryNavigation from './PrimaryNavigation';
 import NotificationBell from './shared/NotificationBell';
 import './Header.css';
 
@@ -27,12 +26,10 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNewReport, onSignIn }) => {
   const { t } = useTranslation();
   const { user, isAuthenticated, isLoading, signOut } = useAuth();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isReportPending, setIsReportPending] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [accountError, setAccountError] = useState('');
-  const mobileMenuButtonRef = useRef<React.ElementRef<'button'>>(null);
   const profileButtonRef = useRef<React.ElementRef<'button'>>(null);
   const profileMenuRef = useRef<React.ElementRef<'div'>>(null);
   const reportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -40,13 +37,6 @@ const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNewReport, on
   const activeItem = getNavigationItem(activeTab);
   const userName = String(user?.first_name || user?.username || t('dashboard.neighbour', 'Neighbour'));
   const userInitial = userName.trim().charAt(0).toUpperCase() || 'H';
-
-  const translatedItems = useMemo(() => APP_NAVIGATION.map((item) => ({
-    ...item,
-    label: String(t(item.labelKey, item.fallbackLabel)),
-  })), [t]);
-
-  const closeMobileMenu = useCallback(() => setIsMobileMenuOpen(false), []);
 
   useEffect(() => () => {
     if (reportTimerRef.current) {
@@ -80,7 +70,6 @@ const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNewReport, on
 
   const navigate = (tab: TabType) => {
     onTabChange(tab);
-    closeMobileMenu();
     setIsProfileMenuOpen(false);
   };
 
@@ -101,7 +90,6 @@ const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNewReport, on
     setIsSigningOut(true);
     try {
       await signOut();
-      closeMobileMenu();
       setIsProfileMenuOpen(false);
     } catch {
       setAccountError(String(t('auth.signOutFailed', 'Unable to sign out. Please try again.')));
@@ -109,25 +97,6 @@ const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNewReport, on
       setIsSigningOut(false);
     }
   };
-
-  const navigation = (className: string) => (
-    <nav className={className} aria-label={String(t('app.mainNavigation', 'Main navigation'))}>
-      {translatedItems.map(({ id, label }) => {
-        const isActive = activeTab === id;
-        return (
-          <button
-            key={id}
-            type="button"
-            className={isActive ? 'app-header-nav__item is-active' : 'app-header-nav__item'}
-            aria-current={isActive ? 'page' : undefined}
-            onClick={() => navigate(id)}
-          >
-            <span>{label}</span>
-          </button>
-        );
-      })}
-    </nav>
-  );
 
   return (
     <header
@@ -148,7 +117,9 @@ const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNewReport, on
           />
         ) : (
           <>
-            {isAuthenticated && navigation('app-header-nav')}
+            {isAuthenticated && (
+              <PrimaryNavigation activeTab={activeTab} onNavigate={navigate} />
+            )}
 
             {isAuthenticated && (
               <span className="app-header__mobile-title" aria-live="polite">
@@ -198,10 +169,6 @@ const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNewReport, on
                           <strong>{userName}</strong>
                           <span>{t('app.communityMember', 'Community member')}</span>
                         </div>
-                        <button type="button" role="menuitem" onClick={() => navigate('settings')}>
-                          <Settings size={17} aria-hidden="true" />
-                          {t('profile.profileAndSettings', 'Profile & settings')}
-                        </button>
                         <button type="button" role="menuitem" onClick={handleSignOut} disabled={isSigningOut}>
                           <LogOut size={17} aria-hidden="true" />
                           {isSigningOut ? t('common.loading', 'Loading') : t('settings.signOut', 'Sign out')}
@@ -211,17 +178,6 @@ const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNewReport, on
                     )}
                   </div>
 
-                  <button
-                    ref={mobileMenuButtonRef}
-                    type="button"
-                    className="app-header__menu-trigger"
-                    aria-label={String(t('app.openMenu', 'Open navigation menu'))}
-                    aria-expanded={isMobileMenuOpen}
-                    aria-controls="app-mobile-navigation"
-                    onClick={() => setIsMobileMenuOpen(true)}
-                  >
-                    <Menu size={21} aria-hidden="true" />
-                  </button>
                 </>
               ) : (
                 <button type="button" className="app-header__sign-in" onClick={onSignIn}>
@@ -234,18 +190,12 @@ const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNewReport, on
         )}
       </div>
 
-      {isAuthenticated && (
+      {isAuthenticated && !isLoading && (
         <MobileNavigation
-          isOpen={isMobileMenuOpen}
           activeTab={activeTab}
-          userName={userName}
-          userInitial={userInitial}
-          triggerRef={mobileMenuButtonRef}
-          isSigningOut={isSigningOut}
-          accountError={accountError}
-          onClose={closeMobileMenu}
+          isReportPending={isReportPending}
           onNavigate={navigate}
-          onSignOut={handleSignOut}
+          onNewReport={handleNewReport}
         />
       )}
     </header>

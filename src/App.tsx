@@ -28,7 +28,6 @@ import { locationService } from './services/locationService';
 import { logger } from './lib/logger';
 import type { Vibe, SOS } from './types';
 import './styles/appShell.css';
-import './styles/responsiveHeaderShell.css';
 
 // Lazy load heavy components for better performance
 const MapComponent = React.lazy(() => import('./components/MapComponent'));

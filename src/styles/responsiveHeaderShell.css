@@ -1,4 +1,8 @@
 /* Header-led shell overrides. Legacy sidebar and bottom-nav styles remain isolated to their components. */
+:root {
+  --app-mobile-nav-height: 68px;
+}
+
 .app-layout {
   width: 100%;
   height: 100dvh;
@@ -140,6 +144,17 @@
   .app-content-desktop { padding-inline: 10px; }
   .app-content-desktop--map { padding-inline: 0 !important; }
   .compact-page-heading { padding: 20px 18px 17px; }
+}
+
+@media (max-width: 767px) {
+  .app-content-desktop {
+    padding-bottom: calc(var(--app-mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 20px);
+    scroll-padding-bottom: calc(var(--app-mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 20px);
+  }
+
+  .app-content-desktop--map {
+    padding-bottom: calc(var(--app-mobile-nav-height) + env(safe-area-inset-bottom, 0px)) !important;
+  }
 }
 
 @media (max-width: 359px) {

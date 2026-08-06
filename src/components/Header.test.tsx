@@ -66,44 +66,40 @@ describe('Header', () => {
     expect(screen.queryByText(/^\d+$/)).not.toBeInTheDocument();
   });
 
-  it('opens the mobile dialog, closes it with Escape, and restores trigger focus', async () => {
+  it('keeps primary navigation available without a hamburger or navigation dialog', () => {
     render(<Header {...defaultProps} />);
-    const trigger = screen.getByRole('button', { name: 'Open navigation menu' });
-
-    fireEvent.click(trigger);
-    expect(screen.getByRole('dialog', { name: 'Navigation' })).toBeInTheDocument();
-    expect(document.body.style.overflow).toBe('hidden');
-
-    fireEvent.keyDown(document, { key: 'Escape' });
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Navigation' })).not.toBeInTheDocument());
-    expect(trigger).toHaveFocus();
-    expect(document.body.style.overflow).toBe('');
+    expect(screen.getByRole('navigation', { name: 'Primary navigation' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Mobile primary navigation' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open navigation menu' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Navigation' })).not.toBeInTheDocument();
   });
 
-  it('closes the mobile menu after navigation', () => {
+  it('navigates directly from the persistent mobile navigation', () => {
     const onTabChange = vi.fn();
     render(<Header {...defaultProps} onTabChange={onTabChange} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open navigation menu' }));
-    const dialog = screen.getByRole('dialog', { name: 'Navigation' });
-    fireEvent.click(dialog.querySelector<HTMLButtonElement>('[aria-current]')!);
+    const mobileNavigation = screen.getByRole('navigation', { name: 'Mobile primary navigation' });
+    fireEvent.click(mobileNavigation.querySelector<HTMLButtonElement>('[aria-label="Safety map"]')!);
 
-    expect(onTabChange).toHaveBeenCalledWith('dashboard');
-    expect(screen.queryByRole('dialog', { name: 'Navigation' })).not.toBeInTheDocument();
+    expect(onTabChange).toHaveBeenCalledWith('map');
   });
 
   it('prevents duplicate report actions while the first action is pending', () => {
     vi.useFakeTimers();
     const onNewReport = vi.fn();
     render(<Header {...defaultProps} onNewReport={onNewReport} />);
-    const reportButton = screen.getByRole('button', { name: 'New report' });
+    const reportButtons = screen.getAllByRole('button', { name: 'New report' });
+    const reportButton = reportButtons[0];
 
     fireEvent.click(reportButton);
     fireEvent.click(reportButton);
+    fireEvent.click(reportButtons[1]);
 
     expect(onNewReport).toHaveBeenCalledTimes(1);
-    expect(reportButton).toBeDisabled();
-    expect(reportButton).toHaveAttribute('aria-busy', 'true');
+    reportButtons.forEach((button) => {
+      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute('aria-busy', 'true');
+    });
   });
 
   it('shows authenticated account controls and signs out from the account menu', async () => {
@@ -124,6 +120,8 @@ describe('Header', () => {
     expect(onSignIn).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('button', { name: 'New report' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Open navigation menu' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Primary navigation' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Mobile primary navigation' })).not.toBeInTheDocument();
   });
 
   it('announces authentication loading without rendering conflicting controls', () => {

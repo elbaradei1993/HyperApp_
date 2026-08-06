@@ -604,13 +604,14 @@
 @media (max-width: 560px) {
   .ai-assistant-overlay {
     align-items: flex-end !important;
+    bottom: calc(var(--app-mobile-nav-height) + env(safe-area-inset-bottom, 0px)) !important;
     padding: 0 !important;
   }
 
   .ai-assistant-modal {
-    height: calc(100dvh - 18px);
+    height: calc(100dvh - var(--app-mobile-nav-height) - env(safe-area-inset-bottom, 0px) - 18px);
     max-width: none !important;
-    max-height: calc(100dvh - 18px) !important;
+    max-height: calc(100dvh - var(--app-mobile-nav-height) - env(safe-area-inset-bottom, 0px) - 18px) !important;
     border-radius: 25px 25px 0 0 !important;
   }
 

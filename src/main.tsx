@@ -16,6 +16,7 @@ import { installAppZoomGesturePolicy } from './utils/zoomGesturePolicy';
 
 import './index.css';
 import './themes.css';
+import './styles/responsiveHeaderShell.css';
 import './i18n';
 
 // Mobile viewport height fix
