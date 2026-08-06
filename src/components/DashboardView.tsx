@@ -185,7 +185,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         />
 
         <div className="dashboard-grid">
-          <article className="dashboard-panel dashboard-overall-card">
+          <section className="dashboard-panel dashboard-overall-card">
             <div className="dashboard-panel-heading dashboard-panel-heading--dark">
               <div>
                 <span>{t('dashboard.overall.title')}</span>
@@ -226,9 +226,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 <span>{t('dashboard.metrics.weeklyReports')}</span>
               </div>
             </div>
-          </article>
+          </section>
 
-          <article className="dashboard-panel dashboard-trend-card">
+          <section className="dashboard-panel dashboard-trend-card">
             <div className="dashboard-panel-heading">
               <div>
                 <span>{t('dashboard.trend.title')}</span>
@@ -242,17 +242,23 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
             <div className="dashboard-chart" aria-label={String(t('dashboard.trend.chartLabel'))}>
               {hasTrendData ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={weeklyTrend} margin={{ top: 14, right: 10, left: 2, bottom: 0 }}>
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  minWidth={1}
+                  minHeight={190}
+                  initialDimension={{ width: 360, height: 225 }}
+                >
+                  <AreaChart data={weeklyTrend} margin={{ top: 14, right: 12, left: 10, bottom: 2 }}>
                     <defs>
                       <linearGradient id="dashboardSafetyFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#111318" stopOpacity={0.18} />
-                        <stop offset="95%" stopColor="#111318" stopOpacity={0.01} />
+                        <stop offset="5%" stopColor="#0b7d66" stopOpacity={0.24} />
+                        <stop offset="95%" stopColor="#0b7d66" stopOpacity={0.015} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid vertical={false} stroke="rgba(92, 99, 95, 0.14)" strokeDasharray="2 5" />
                     <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 11, fontWeight: 600 }} />
-                    <YAxis width={34} domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa', fontSize: 10 }} tickFormatter={(value) => `${value}%`} />
+                    <YAxis width={42} domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10, fontWeight: 600 }} tickFormatter={(value) => `${value}%`} />
                     <Tooltip
                       cursor={{ stroke: 'rgba(55, 65, 61, 0.35)', strokeDasharray: '3 3' }}
                       contentStyle={{
@@ -269,12 +275,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     <Area
                       type="monotone"
                       dataKey="score"
-                      stroke="#111318"
+                      stroke="#0b7d66"
                       strokeWidth={2.25}
                       fill="url(#dashboardSafetyFill)"
                       connectNulls
-                      dot={{ r: 3, fill: '#ffffff', stroke: '#111318', strokeWidth: 2 }}
-                      activeDot={{ r: 5, fill: '#111318', stroke: '#ffffff', strokeWidth: 2 }}
+                      dot={{ r: 3, fill: '#ffffff', stroke: '#0b7d66', strokeWidth: 2 }}
+                      activeDot={{ r: 5, fill: '#0b7d66', stroke: '#ffffff', strokeWidth: 2 }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -285,9 +291,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               )}
             </div>
-          </article>
+          </section>
 
-          <article className="dashboard-panel dashboard-progress-card">
+          <section className="dashboard-panel dashboard-progress-card">
             <div className="dashboard-panel-heading">
               <div>
                 <span>{t('dashboard.progress.title')}</span>
@@ -326,9 +332,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               {t('dashboard.viewCommunity')}
               <ArrowUpRight size={15} />
             </button>
-          </article>
+          </section>
 
-          <article className="dashboard-panel dashboard-goals-card">
+          <section className="dashboard-panel dashboard-goals-card">
             <div className="dashboard-panel-heading">
               <div>
                 <span>{t('dashboard.goals.title')}</span>
@@ -344,9 +350,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               ))}
             </div>
-          </article>
+          </section>
 
-          <article className="dashboard-panel dashboard-attention-card">
+          <section className="dashboard-panel dashboard-attention-card">
             <div className="dashboard-panel-heading">
               <div>
                 <span>{t('dashboard.attention.title')} ({attentionItems.length})</span>
@@ -393,9 +399,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 <span>{t('dashboard.attention.add')}</span>
               </button>
             </div>
-          </article>
+          </section>
 
-          <article className="dashboard-panel dashboard-areas-card">
+          <section className="dashboard-panel dashboard-areas-card">
             <div className="dashboard-panel-heading">
               <div>
                 <span>{t('dashboard.areas.title')}</span>
@@ -436,7 +442,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </button>
               )}
             </div>
-          </article>
+          </section>
         </div>
       </div>
       {isAssistantOpen && (

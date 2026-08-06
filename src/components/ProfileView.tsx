@@ -1,938 +1,414 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Box, VStack, HStack, Text, Button, Grid, GridItem, Badge } from '@chakra-ui/react';
-import { Geolocation } from '@capacitor/geolocation';
-import { User as UserIcon, Mail, Phone, MapPin, Edit, List, Star, Trophy, Medal, PlusCircle, CheckCircle, ChevronUp, ChevronDown } from 'lucide-react';
+import {
+  AlertTriangle,
+  Bell,
+  Car,
+  CheckCircle2,
+  CloudSnow,
+  Edit3,
+  EyeOff,
+  FileText,
+  Lightbulb,
+  LockKeyhole,
+  Mail,
+  MapPin,
+  Music,
+  PartyPopper,
+  Plus,
+  Route,
+  Settings,
+  ShieldCheck,
+  Star,
+  ThumbsUp,
+  Triangle,
+  User as UserIcon,
+  Users,
+  Volume2,
+  VolumeX,
+  Wrench,
+} from 'lucide-react';
 
+import { VIBE_CONFIG } from '../constants/vibes';
 import { useAuth } from '../contexts/AuthContext';
-import { authService } from '../services/auth';
+import { useSettings } from '../contexts/SettingsContext';
+import { isCommunityVerified } from '../lib/communityAnalytics';
+import { guardianService } from '../services/guardian';
 import { reportsService } from '../services/reports';
-import { uploadService } from '../services/upload';
-import { reverseGeocode } from '../lib/geocoding';
-import type { User } from '../types';
-import { INTEREST_CATEGORIES } from '../types';
+import type { Vibe } from '../types';
 
-import { LoadingSpinner, PageBanner } from './shared';
 import EditProfileModal from './EditProfileModal';
+import SettingsView from './SettingsView';
+import { LoadingSpinner, PageBanner } from './shared';
 
+import './ProfileView.css';
 
-interface UserStats {
-  totalReports: number;
-  totalUpvotes: number;
-  reputation: number;
-  rank: number | null;
+type ProfileTab = 'activity' | 'safety' | 'credentials' | 'preferences';
+
+interface ProfileViewProps {
+  onNewReport?: () => void;
 }
 
-interface Badge {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  color: string;
-  earned: boolean;
+interface GuardianStats {
+  totalGuardians: number;
+  activeSOSAlerts: number;
+  pendingInvitations: number;
 }
 
-interface RecentActivity {
-  id: number;
-  vibe_type: string;
-  location: string;
-  notes: string;
-  created_at: string;
-  upvotes: number;
-  downvotes: number;
+interface RealtimeSubscription {
+  unsubscribe?: () => void;
 }
 
-interface Report {
-  id: number;
-  vibe_type: string;
-  location?: string;
-  notes?: string;
-  created_at: string;
-  upvotes: number;
-  downvotes: number;
-  user_vote?: 'upvote' | 'downvote' | null;
-  user_id?: string;
-}
+const VIBE_ICONS: Record<string, React.ReactNode> = {
+  safe: <ShieldCheck size={24} />,
+  calm: <CloudSnow size={24} />,
+  lively: <Music size={24} />,
+  festive: <PartyPopper size={24} />,
+  crowded: <Users size={24} />,
+  suspicious: <EyeOff size={24} />,
+  dangerous: <AlertTriangle size={24} />,
+  noisy: <Volume2 size={24} />,
+  quiet: <VolumeX size={24} />,
+  streetlight: <Lightbulb size={24} />,
+  sidewalk: <Route size={24} />,
+  construction: <Wrench size={24} />,
+  pothole: <Triangle size={24} />,
+  traffic: <Car size={24} />,
+  other: <Settings size={24} />,
+};
 
-const ProfileView: React.FC = () => {
-  const { t } = useTranslation();
-  const { user, updateProfile } = useAuth();
-  const [stats, setStats] = useState<UserStats>({
-    totalReports: 0,
-    totalUpvotes: 0,
-    reputation: 0,
-    rank: null,
-  });
-  const [badges, setBadges] = useState<Badge[]>([]);
-  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
-  const [myReports, setMyReports] = useState<Report[]>([]);
-  const [nearbyReports, setNearbyReports] = useState<Report[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [reportsLoading, setReportsLoading] = useState(false);
+const ProfileView: React.FC<ProfileViewProps> = ({ onNewReport }) => {
+  const { t, i18n } = useTranslation();
+  const { user } = useAuth();
+  const { settings, isLoading: settingsLoading } = useSettings();
+  const [reports, setReports] = useState<Vibe[]>([]);
+  const [guardianStats, setGuardianStats] = useState<GuardianStats | null>(null);
+  const [activeTab, setActiveTab] = useState<ProfileTab>('activity');
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showMyReports, setShowMyReports] = useState(false);
-  const [editStep, setEditStep] = useState(1);
-  const [cachedUserReports, setCachedUserReports] = useState<Report[]>([]);
-  const [reportsLoaded, setReportsLoaded] = useState(false);
-  const [editForm, setEditForm] = useState({
-    firstName: '',
-    lastName: '',
-    phone: '',
-    location: '',
-    interests: [] as string[],
-    profilePicture: null as File | null,
-    profilePicturePreview: '',
-  });
-  const [uploadingPicture, setUploadingPicture] = useState(false);
-  const [locationAddress, setLocationAddress] = useState<string>('');
-  const [currentLocationAddress, setCurrentLocationAddress] = useState<string>('');
-  const [isGeocoding, setIsGeocoding] = useState(false);
-  const [communityGuardAnalytics, setCommunityGuardAnalytics] = useState<{
-    reportsHelped: number;
-    validationsPerformed: number;
-    avgCredibilityScore: number;
-    communityRank: number | null;
-    totalReports: number;
-    trustedSince: string | null;
-  } | null>(null);
-  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Get current location and reverse geocode it - same as Community Dashboard
-  useEffect(() => {
-    const getCurrentLocation = async () => {
-      try {
-        setIsGeocoding(true);
-        const position = await Geolocation.getCurrentPosition({
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000, // 5 minutes
-        });
-
-        const { latitude, longitude } = position.coords;
-        const address = await reverseGeocode(latitude, longitude);
-        setCurrentLocationAddress(address);
-        setLocationAddress(address);
-      } catch (error) {
-        console.error('Error getting current location:', error);
-        setCurrentLocationAddress('Location unavailable');
-        setLocationAddress('Location unavailable');
-      } finally {
-        setIsGeocoding(false);
-      }
-    };
-
-    getCurrentLocation();
-  }, []);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const subscriptionsRef = useRef<RealtimeSubscription[]>([]);
+  const locale = i18n.resolvedLanguage || i18n.language || 'en-CA';
 
   useEffect(() => {
-    if (user) {
-      loadProfileData();
-      loadReportsData();
-
-      // Load Community Guard analytics if user is trusted
-      if (user.verification_level === 'trusted') {
-        loadCommunityGuardAnalytics();
-      }
-
-      // Set up real-time subscriptions for automatic updates
-      const reportsSubscription = reportsService.subscribeToReports((newReport) => {
-        // Refresh profile data when new reports are created
-        loadProfileData();
-        loadReportsData();
-        if (user.verification_level === 'trusted') {
-          loadCommunityGuardAnalytics();
-        }
-      });
-
-      const votesSubscription = reportsService.subscribeToVotes((update) => {
-        // Immediately update vote counts for user's reports if this report belongs to them
-        const isUserReport = myReports.some(report => report.id === update.reportId);
-        if (isUserReport) {
-          setMyReports(prevReports =>
-            prevReports.map(report =>
-              report.id === update.reportId
-                ? { ...report, upvotes: update.upvotes, downvotes: update.downvotes }
-                : report,
-            ),
-          );
-
-          // Also update recent activity data
-          setRecentActivity(prevActivity =>
-            prevActivity.map(activity =>
-              activity.id === update.reportId
-                ? { ...activity, upvotes: update.upvotes, downvotes: update.downvotes }
-                : activity,
-            ),
-          );
-        }
-
-        // Also refresh full data to ensure consistency (as fallback)
-        loadProfileData();
-        loadReportsData();
-        if (user.verification_level === 'trusted') {
-          loadCommunityGuardAnalytics();
-        }
-      });
-
-      // Cleanup subscriptions on unmount
-      return () => {
-        reportsSubscription.unsubscribe();
-        votesSubscription.unsubscribe();
-      };
-    }
-  }, [user]);
-
-  const loadProfileData = async () => {
-    if (!user) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      // Load critical profile data first (basic info and stats)
-      const statsData = await loadUserStats();
-      setStats(statsData);
-
-      // Load recent activity immediately after stats
-      const activityData = await loadRecentActivity();
-      setRecentActivity(activityData);
-
-      // Defer badge loading to improve initial load time
-      loadUserBadges().then(badgesData => {
-        setBadges(badgesData);
-      }).catch(error => {
-        console.error('Error loading badges:', error);
-        setBadges([]);
-      });
-
-    } catch (error) {
-      console.error('Error loading profile data:', error);
-      // Set default values on error
-      setStats({ totalReports: 0, totalUpvotes: 0, reputation: 0, rank: null });
-      setBadges([]);
-      setRecentActivity([]);
-    } finally {
+    if (!user?.id) {
+      setReports([]);
+      setGuardianStats(null);
       setLoading(false);
-    }
-  };
-
-  const loadUserStats = async (): Promise<UserStats> => {
-    try {
-      // Use cached reports if available, otherwise fetch them
-      let reports = cachedUserReports;
-      if (!reportsLoaded || reports.length === 0) {
-        reports = await reportsService.getReports({ userId: user!.id });
-        setCachedUserReports(reports);
-        setReportsLoaded(true);
-      }
-
-      const totalReports = reports.length;
-      const totalUpvotes = reports.reduce((sum: number, r) => sum + (r.upvotes || 0), 0);
-      const reputation = calculateUserReputationFromReports(reports);
-      const rank = await calculateUserRank(user!.id);
-
-      return { totalReports, totalUpvotes, reputation, rank };
-    } catch (error) {
-      console.error('Error calculating user stats:', error);
-      return { totalReports: 0, totalUpvotes: 0, reputation: 0, rank: null };
-    }
-  };
-
-  const calculateUserReputationFromReports = (reports: Report[]): number => {
-    let reputation = 0;
-    reports.forEach((report) => {
-      const netVotes = (report.upvotes || 0) - (report.downvotes || 0);
-      reputation += Math.max(0, netVotes);
-    });
-
-    // Add base reputation for active users
-    reputation += Math.min(10, reports.length);
-
-    return Math.max(0, reputation);
-  };
-
-  const calculateUserReputation = async (userId: string): Promise<number> => {
-    try {
-      const reports = await reportsService.getReports({ userId });
-      return calculateUserReputationFromReports(reports);
-    } catch (error) {
-      console.error('Error calculating user reputation:', error);
-      return 0;
-    }
-  };
-
-  const calculateUserRank = async (userId: string): Promise<number | null> => {
-    try {
-      const { data: allUsers, error } = await authService.getAllUsersByReputation();
-
-      if (error) {
-        console.error('Error calculating user rank:', error);
-        return null;
-      }
-
-      const userIndex = allUsers.findIndex((u: any) => u.user_id === userId);
-      return userIndex !== -1 ? userIndex + 1 : null;
-    } catch (error) {
-      console.error('Error calculating user rank:', error);
-      return null;
-    }
-  };
-
-  const loadCommunityGuardAnalytics = async () => {
-    if (!user) {
       return;
     }
 
-    try {
-      setIsLoadingAnalytics(true);
-      const analytics = await reportsService.getCommunityGuardAnalytics(user.id);
-      setCommunityGuardAnalytics(analytics);
-    } catch (error) {
-      console.error('Error loading Community Guard analytics:', error);
-      setCommunityGuardAnalytics(null);
-    } finally {
-      setIsLoadingAnalytics(false);
-    }
-  };
-
-  const loadUserBadges = async (): Promise<Badge[]> => {
-    const userBadges: Badge[] = [];
-
-    // Use cached reports if available
-    const reports = cachedUserReports.length > 0 ? cachedUserReports : await reportsService.getReports({ userId: user!.id });
-    const reputation = calculateUserReputationFromReports(reports);
-    const reportCount = reports.length;
-
-    // Community Guard badge - check verification level
-    if (user!.verification_level === 'trusted') {
-      userBadges.push({
-        id: 'community-guard',
-        name: t('profile.badges.communityGuard.name', 'Community Guard'),
-        description: t('profile.badges.communityGuard.description', 'Elite Community Guard - Trusted safety leader with proven track record'),
-        icon: 'fas fa-shield-alt',
-        color: 'linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FF8C00 100%)',
-        earned: true,
-      });
-    }
-
-    // Reputation-based badges
-    if (reputation >= 100) {
-      userBadges.push({
-        id: 'community-leader',
-        name: t('profile.badges.communityLeader.name'),
-        description: t('profile.badges.communityLeader.description'),
-        icon: 'fas fa-crown',
-        color: 'linear-gradient(135deg, #FFD700, #FFA500)',
-        earned: true,
-      });
-    } else if (reputation >= 50) {
-      userBadges.push({
-        id: 'trusted-reporter',
-        name: t('profile.badges.trustedReporter.name'),
-        description: t('profile.badges.trustedReporter.description'),
-        icon: 'fas fa-shield-alt',
-        color: 'linear-gradient(135deg, #4CAF50, #45A049)',
-        earned: true,
-      });
-    } else if (reputation >= 10) {
-      userBadges.push({
-        id: 'active-contributor',
-        name: t('profile.badges.activeContributor.name'),
-        description: t('profile.badges.activeContributor.description'),
-        icon: 'fas fa-star',
-        color: 'linear-gradient(135deg, #2196F3, #1976D2)',
-        earned: true,
-      });
-    }
-
-    // Activity-based badges
-    if (reportCount >= 50) {
-      userBadges.push({
-        id: 'safety-guardian',
-        name: t('profile.badges.safetyGuardian.name'),
-        description: t('profile.badges.safetyGuardian.description'),
-        icon: 'fas fa-user-shield',
-        color: 'linear-gradient(135deg, #9C27B0, #7B1FA2)',
-        earned: true,
-      });
-    } else if (reportCount >= 20) {
-      userBadges.push({
-        id: 'community-watch',
-        name: t('profile.badges.communityWatch.name'),
-        description: t('profile.badges.communityWatch.description'),
-        icon: 'fas fa-eye',
-        color: 'linear-gradient(135deg, #FF5722, #D84315)',
-        earned: true,
-      });
-    } else if (reportCount >= 5) {
-      userBadges.push({
-        id: 'first-responder',
-        name: t('profile.badges.firstResponder.name'),
-        description: t('profile.badges.firstResponder.description'),
-        icon: 'fas fa-plus-circle',
-        color: 'linear-gradient(135deg, #009688, #00796B)',
-        earned: true,
-      });
-    }
-
-    return userBadges;
-  };
-
-  const loadRecentActivity = async (): Promise<RecentActivity[]> => {
-    try {
-      const reports = await reportsService.getReports({
-        userId: user!.id,
-        limit: 5,
-      });
-
-      return reports.map(report => ({
-        id: report.id,
-        vibe_type: report.vibe_type,
-        location: report.location || '',
-        notes: report.notes || '',
-        created_at: report.created_at,
-        upvotes: report.upvotes,
-        downvotes: report.downvotes,
-      }));
-    } catch (error) {
-      console.error('Error loading user recent activity:', error);
-      return [];
-    }
-  };
-
-  const formatTimeAgo = (timestamp: string): string => {
-    const now = new Date();
-    const time = new Date(timestamp);
-    const diffInSeconds = Math.floor((now.getTime() - time.getTime()) / 1000);
-
-    if (diffInSeconds < 60) {
-      return t('profile.timeAgo.justNow');
-    }
-
-    const diffInMinutes = Math.floor(diffInSeconds / 60);
-    if (diffInMinutes < 60) {
-      return t('profile.timeAgo.minutesAgo', { count: diffInMinutes });
-    }
-
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) {
-      return t('profile.timeAgo.hoursAgo', { count: diffInHours });
-    }
-
-    const diffInDays = Math.floor(diffInHours / 24);
-    return t('profile.timeAgo.daysAgo', { count: diffInDays });
-  };
-
-  const getVibeIcon = (vibeType: string): string => {
-    const icons: { [key: string]: string } = {
-      crowded: 'fas fa-users',
-      noisy: 'fas fa-volume-up',
-      festive: 'fas fa-glass-cheers',
-      calm: 'fas fa-peace',
-      suspicious: 'fas fa-eye-slash',
-      dangerous: 'fas fa-exclamation-triangle',
-    };
-    return icons[vibeType] || 'fas fa-question-circle';
-  };
-
-  const getVibeColor = (vibeType: string): string => {
-    const colors: { [key: string]: string } = {
-      crowded: '#FFA500',
-      noisy: '#FF6B35',
-      festive: '#28A745',
-      calm: '#17A2B8',
-      suspicious: '#FFC107',
-      dangerous: '#DC3545',
-    };
-    return colors[vibeType] || '#6C757D';
-  };
-
-  const loadReportsData = async () => {
-    if (!user) {
-      return;
-    }
-
-    try {
-      setReportsLoading(true);
-
-      // Load user's reports and nearby reports in parallel
-      const [myReportsData, nearbyReportsData] = await Promise.all([
-        loadMyReports(),
-        loadNearbyReports(),
+    let active = true;
+    const loadProfile = async () => {
+      setLoading(true);
+      setError(null);
+      const [reportsResult, guardiansResult] = await Promise.allSettled([
+        reportsService.getReports({ userId: user.id }),
+        guardianService.getGuardianStats(user.id),
       ]);
 
-      setMyReports(myReportsData);
-      setNearbyReports(nearbyReportsData);
-    } catch (error) {
-      console.error('Error loading reports data:', error);
-    } finally {
-      setReportsLoading(false);
-    }
-  };
-
-  const loadMyReports = async (): Promise<Report[]> => {
-    try {
-      if (!user?.id) {
-        console.log('No user ID available for loading reports');
-        return [];
+      if (!active) {
+        return;
       }
 
-      console.log('Loading reports for user:', user.id);
-
-      // First try to get reports with user_id
-      let reports = await reportsService.getReports({ userId: user.id });
-      console.log('Reports with user_id:', reports.length);
-
-      // If no reports found with user_id, also check for reports without user_id
-      // This handles existing reports created before user_id was added
-      if (reports.length === 0) {
-        console.log('No reports found with user_id, checking for reports without user_id');
-        const allReports = await reportsService.getReports({ limit: 50 });
-        // For now, show recent reports as a fallback - in production you'd want to associate them properly
-        reports = allReports.slice(0, 10);
-        console.log('Fallback reports loaded:', reports.length);
+      if (reportsResult.status === 'fulfilled') {
+        setReports(reportsResult.value);
+      } else {
+        setReports([]);
+        setError(String(t('profile.loadError', 'Some profile activity could not be loaded.')));
       }
 
-      return reports.map(report => ({
-        ...report,
-        user_vote: null, // User's own reports don't need vote tracking
-      }));
-    } catch (error) {
-      console.error('Error loading user reports:', error);
-      return [];
-    }
-  };
+      setGuardianStats(guardiansResult.status === 'fulfilled' ? guardiansResult.value : null);
+      setLoading(false);
+    };
 
-  const loadNearbyReports = async (): Promise<Report[]> => {
-    try {
-      // For now, load recent reports from database
-      // In a full implementation, this would filter by location
-      const reports = await reportsService.getReports({ limit: 10 });
+    void loadProfile();
+    return () => {
+      active = false;
+    };
+  }, [t, user?.id]);
 
-      // Add user vote information for each report
-      const reportsWithVotes = await Promise.all(
-        reports.map(async (report) => {
-          try {
-            const voteType = await reportsService.getUserVote(report.id, user!.id);
-            return {
-              ...report,
-              user_vote: voteType,
-            };
-          } catch (error) {
-            return {
-              ...report,
-              user_vote: null,
-            };
-          }
-        }),
-      );
-
-      return reportsWithVotes;
-    } catch (error) {
-      console.error('Error loading nearby reports:', error);
-      return [];
-    }
-  };
-
-  const voteOnReport = async (reportId: number, voteType: 'upvote' | 'downvote') => {
-    if (!user) {
+  useEffect(() => {
+    if (!user?.id || !user.onboarding_completed) {
       return;
     }
 
-    try {
-      await reportsService.vote(reportId, user.id, voteType);
-
-      // Update local state optimistically
-      setNearbyReports(prevReports =>
-        prevReports.map(report => {
-          if (report.id === reportId) {
-            const currentVote = report.user_vote;
-            let newUpvotes = report.upvotes || 0;
-            let newDownvotes = report.downvotes || 0;
-
-            // Remove previous vote if exists
-            if (currentVote === 'upvote') {
-              newUpvotes--;
-            } else if (currentVote === 'downvote') {
-              newDownvotes--;
-            }
-
-            // Add new vote
-            if (voteType === 'upvote') {
-              newUpvotes++;
-            } else {
-              newDownvotes++;
-            }
-
-            return {
-              ...report,
-              upvotes: newUpvotes,
-              downvotes: newDownvotes,
-              user_vote: voteType,
-            };
+    const reportSubscription = reportsService.subscribeToReports((newReport) => {
+      if (newReport.user_id === user.id) {
+        setReports((current) => [newReport, ...current.filter(({ id }) => id !== newReport.id)]);
+      }
+    });
+    const voteSubscription = reportsService.subscribeToVotes((update) => {
+      setReports((current) => current.map((report) => (
+        report.id === update.reportId
+          ? { ...report, upvotes: update.upvotes, downvotes: update.downvotes }
+          : report
+      )));
+    });
+    const credibilitySubscription = reportsService.subscribeToCredibilityUpdates((update) => {
+      setReports((current) => current.map((report) => (
+        report.id === update.reportId
+          ? {
+            ...report,
+            credibility_score: update.credibility_score,
+            validation_count: update.validation_count,
           }
-          return report;
-        }),
-      );
+          : report
+      )));
+    });
 
-    } catch (error) {
-      console.error('Error voting on report:', error);
-    }
-  };
+    subscriptionsRef.current = [reportSubscription, voteSubscription, credibilitySubscription];
+    return () => {
+      subscriptionsRef.current.forEach((subscription) => subscription.unsubscribe?.());
+      subscriptionsRef.current = [];
+    };
+  }, [user?.id, user?.onboarding_completed]);
 
-  const capitalizeFirstLetter = (string: string): string => {
-    if (!string) {
-      return '';
-    }
-    return string.charAt(0).toUpperCase() + string.slice(1);
-  };
+  const sortedReports = useMemo(() => [...reports].sort((a, b) => (
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  )), [reports]);
+  const totalUpvotes = useMemo(() => reports.reduce((total, report) => total + (report.upvotes ?? 0), 0), [reports]);
+  const verifiedReports = useMemo(() => reports.filter(isCommunityVerified).length, [reports]);
+  const profileName = [user?.first_name, user?.last_name].filter(Boolean).join(' ').trim()
+    || user?.username
+    || t('profile.user', 'HyperApp user');
+  const verificationLevel = user?.verification_level || 'basic';
 
-  const createConfetti = () => {
-    const premiumColors = [
-      'linear-gradient(45deg, #FFD700, #FFA500)', // Gold
-      'linear-gradient(45deg, #C0C0C0, #A8A8A8)', // Silver
-      'linear-gradient(45deg, #CD7F32, #A0522D)', // Bronze
-      'linear-gradient(45deg, #E91E63, #F06292)', // Rose Gold
-      'linear-gradient(45deg, #9C27B0, #BA68C8)', // Amethyst
-      'linear-gradient(45deg, #2196F3, #64B5F6)', // Sapphire
-      'linear-gradient(45deg, #4CAF50, #81C784)', // Emerald
-      'linear-gradient(45deg, #FF9800, #FFB74D)',  // Amber
-    ];
+  const credentials = useMemo(() => [
+    {
+      id: 'verification',
+      icon: <ShieldCheck size={22} />,
+      title: t('profile.verificationStatus', 'Verification status'),
+      value: t(`profile.verificationLevels.${verificationLevel}`, verificationLevel),
+      active: verificationLevel === 'verified' || verificationLevel === 'trusted',
+    },
+    {
+      id: 'email',
+      icon: <Mail size={22} />,
+      title: t('profile.emailVerification', 'Email verification'),
+      value: user?.email_verified
+        ? t('profile.verified', 'Verified')
+        : t('profile.notVerified', 'Not verified'),
+      active: Boolean(user?.email_verified),
+    },
+    {
+      id: 'community',
+      icon: <Users size={22} />,
+      title: t('profile.communityGuard', 'Community Guard'),
+      value: verificationLevel === 'trusted'
+        ? t('profile.active', 'Active')
+        : t('profile.notActive', 'Not active'),
+      active: verificationLevel === 'trusted',
+    },
+    {
+      id: 'reports',
+      icon: <CheckCircle2 size={22} />,
+      title: t('profile.verifiedContributions', 'Verified contributions'),
+      value: String(verifiedReports),
+      active: verifiedReports > 0,
+    },
+  ], [t, user?.email_verified, verificationLevel, verifiedReports]);
 
-    const shapes = ['circle', 'square', 'triangle', 'diamond', 'star'];
+  const safetyItems = [
+    {
+      icon: <Users size={20} />,
+      label: t('profile.guardianAngels', 'Guardian Angels'),
+      value: guardianStats ? String(guardianStats.totalGuardians) : '—',
+      tone: 'blue',
+    },
+    {
+      icon: <MapPin size={20} />,
+      label: t('profile.locationSharing', 'Location sharing'),
+      value: settingsLoading
+        ? t('common.loading', 'Loading')
+        : settings.locationSharing ? t('common.on', 'On') : t('common.off', 'Off'),
+      tone: settings.locationSharing ? 'green' : 'gray',
+    },
+    {
+      icon: <Bell size={20} />,
+      label: t('profile.notifications', 'Notifications'),
+      value: settingsLoading
+        ? t('common.loading', 'Loading')
+        : settings.notifications ? t('common.on', 'On') : t('common.off', 'Off'),
+      tone: settings.notifications ? 'green' : 'gray',
+    },
+    {
+      icon: <AlertTriangle size={20} />,
+      label: t('profile.activeAlerts', 'Active alerts'),
+      value: guardianStats ? String(guardianStats.activeSOSAlerts) : '—',
+      tone: guardianStats?.activeSOSAlerts ? 'red' : 'gray',
+    },
+    {
+      icon: <Mail size={20} />,
+      label: t('profile.pendingInvitations', 'Pending invitations'),
+      value: guardianStats ? String(guardianStats.pendingInvitations) : '—',
+      tone: guardianStats?.pendingInvitations ? 'amber' : 'gray',
+    },
+    {
+      icon: <ShieldCheck size={20} />,
+      label: t('profile.notificationRadius', 'Notification radius'),
+      value: `${settings.notificationRadius} km`,
+      tone: 'blue',
+    },
+  ];
 
-    for (let i = 0; i < 80; i++) {
-      const confetti = document.createElement('div');
-      confetti.className = 'premium-confetti';
-      confetti.style.left = Math.random() * 100 + 'vw';
-      confetti.style.top = '-10px';
+  const accountBanner = (
+    <PageBanner
+      id="account-title"
+      icon={Settings}
+      tone="amber"
+      eyebrow={t('profile.profileAndSettings', 'Profile & settings')}
+      title={t('tabs.settings', 'Account')}
+      description={t('profile.accountSubtitle', 'Your profile, safety, credentials, and preferences in one place')}
+    />
+  );
 
-      // Random shape
-      const shape = shapes[Math.floor(Math.random() * shapes.length)];
-      const size = Math.random() * 12 + 6;
+  if (loading) {
+    return (
+      <section className="profile-page page-view page-view--profile" aria-labelledby="account-title">
+        {accountBanner}
+        <div className="profile-loading" role="status" aria-live="polite">
+          <LoadingSpinner size="lg" />
+        <span>{t('profile.loading', 'Loading profile…')}</span>
+        </div>
+      </section>
+    );
+  }
 
-      confetti.style.width = size + 'px';
-      confetti.style.height = size + 'px';
-      confetti.style.background = premiumColors[Math.floor(Math.random() * premiumColors.length)];
-      confetti.style.position = 'fixed';
-      confetti.style.zIndex = '9999';
-      confetti.style.pointerEvents = 'none';
-
-      // Shape-specific styling
-      switch (shape) {
-      case 'circle':
-        confetti.style.borderRadius = '50%';
-        break;
-      case 'square':
-        confetti.style.borderRadius = '2px';
-        break;
-      case 'triangle':
-        confetti.style.width = '0';
-        confetti.style.height = '0';
-        confetti.style.borderLeft = size/2 + 'px solid transparent';
-        confetti.style.borderRight = size/2 + 'px solid transparent';
-        confetti.style.borderBottom = size + 'px solid';
-        confetti.style.background = 'none';
-        confetti.style.borderBottomColor = premiumColors[Math.floor(Math.random() * premiumColors.length)].split(',')[1].replace(')', '');
-        break;
-      case 'diamond':
-        confetti.style.transform = 'rotate(45deg)';
-        confetti.style.borderRadius = '2px';
-        break;
-      case 'star':
-        confetti.style.clipPath = 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)';
-        break;
-      }
-
-      // Premium shadow and glow effects
-      confetti.style.boxShadow = '0 0 10px rgba(255, 215, 0, 0.6), 0 0 20px rgba(255, 215, 0, 0.3), 0 0 30px rgba(255, 215, 0, 0.1)';
-      confetti.style.filter = 'drop-shadow(0 0 8px rgba(255, 215, 0, 0.8))';
-
-      // Enhanced animation with multiple phases
-      const duration = Math.random() * 4 + 3;
-      const delay = Math.random() * 1.5;
-
-      confetti.style.animation = `
-        premiumConfettiFall ${duration}s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${delay}s forwards,
-        premiumConfettiSpin ${duration * 0.8}s linear ${delay}s infinite,
-        premiumConfettiGlow 2s ease-in-out ${delay}s infinite alternate
-      `;
-
-      // Add sparkle effect
-      if (Math.random() > 0.7) {
-        confetti.style.animation += `, premiumConfettiSparkle 1.5s ease-in-out ${delay + 0.5}s infinite`;
-      }
-
-      document.body.appendChild(confetti);
-
-      // Remove confetti after animation completes
-      setTimeout(() => {
-        if (confetti.parentNode) {
-          confetti.parentNode.removeChild(confetti);
-        }
-      }, (duration + delay) * 1000 + 1000);
-    }
-
-    // Add premium sound effect (visual feedback)
-    setTimeout(() => {
-      // Create a subtle vibration effect on mobile
-      if ('vibrate' in navigator) {
-        navigator.vibrate([50, 50, 50]);
-      }
-    }, 200);
-  };
-
-  // Get location address - simplified to share with Community Dashboard
-  const getLocationAddress = (): string => {
-    // For now, return a placeholder - this should be shared with Community Dashboard
-    // TODO: Share location address with Community Dashboard via context or props
-    return user?.location ? 'Current Location' : t('profile.notProvided');
-  };
+  if (!user) {
+    return (
+      <section className="profile-page page-view page-view--profile" aria-labelledby="account-title">
+        {accountBanner}
+        <div className="profile-loading" role="status">
+          <UserIcon size={28} />
+        <span>{t('profile.signInRequired', 'Sign in to view your profile.')}</span>
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <Box className="page-view page-view--profile" maxW="920px" w="full" mx="auto" bg="var(--bg-base)" minH="100%" position="relative" borderX="1px solid" borderColor="var(--wire)" style={{ color: 'var(--t1)' }}>
-      <PageBanner
-        id="profile-title"
-        icon={UserIcon}
-        tone="blue"
-        eyebrow={t('profile.personalAccount', 'Personal account')}
-        title={t('tabs.profile', t('profile.title', 'Profile'))}
-        description={t('profile.subtitle', 'Manage your identity, activity, and interests')}
-      />
+    <section className="profile-page page-view page-view--profile" dir={i18n.dir(locale)} aria-labelledby="account-title">
+      {accountBanner}
 
-      {/* Main Content */}
-      <Box className="page-view__content" p={6} minH="calc(100vh - 180px)">
-        <VStack gap={4} align="stretch">
-          {/* Profile Header Card */}
-          <Box bg="white" borderRadius="16px" p={5} border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)">
-            <HStack justify="space-between" align="center" mb={5}>
-              <HStack gap={3}>
-                <Box w="40px" h="40px" borderRadius="12px" bg="gray.100" display="flex" alignItems="center" justifyContent="center">
-                  <UserIcon size={18} />
-                </Box>
-                <Text fontWeight="600" fontSize="16px">{t('profile.profileInformation')}</Text>
-              </HStack>
-            </HStack>
-
-            <HStack align="flex-start" gap={4}>
-              {/* Profile Picture */}
-              <Box
-                w="80px"
-                h="80px"
-                borderRadius="50%"
-                bg="gray.100"
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-                position="relative"
-              >
-                {user?.profile_picture_url ? (
-                  <img
-                    src={user.profile_picture_url}
-                    alt="Profile"
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      borderRadius: '50%',
-                    }}
-                  />
-                ) : (
-                  <UserIcon size={32} color="#6b7280" />
-                )}
-              </Box>
-
-              {/* Profile Info */}
-              <Box flex={1}>
-                <Text fontSize="18px" fontWeight="600" mb={1}>
-                  {user?.first_name && user?.last_name
-                    ? `${user.first_name} ${user.last_name}`
-                    : user?.username || 'User'
-                  }
-                </Text>
-                <Text fontSize="14px" color="gray.600" mb={3}>
-                  {user?.email || t('profile.noEmailProvided')}
-                </Text>
-                <Button
-                  size="sm"
-                  bg="black"
-                  color="white"
-                  borderRadius="12px"
-                  px={4}
-                  onClick={() => setShowEditModal(true)}
-                >
-                  <Edit size={14} style={{ marginRight: '6px' }} />
-                  {t('profile.editProfile')}
-                </Button>
-              </Box>
-            </HStack>
-          </Box>
-
-          {/* Personal Information Section */}
-          <Box bg="white" borderRadius="16px" p={5} border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)" mb={6}>
-            <HStack justify="space-between" align="center" mb={5}>
-              <HStack gap={3}>
-                <Box w="40px" h="40px" borderRadius="12px" bg="gray.100" display="flex" alignItems="center" justifyContent="center">
-                  <Mail size={18} />
-                </Box>
-                <Text fontWeight="600" fontSize="16px">{t('profile.personalInformation')}</Text>
-              </HStack>
-            </HStack>
-
-            <Grid templateColumns="repeat(auto-fit, minmax(280px, 1fr))" gap={4}>
-              <Box bg="gray.50" borderRadius="12px" p={4} border="1px solid" borderColor="gray.200">
-                <HStack gap={3}>
-                  <Box w="40px" h="40px" borderRadius="10px" bg="green.100" display="flex" alignItems="center" justifyContent="center">
-                    <Mail size={16} color="#059669" />
-                  </Box>
-                  <Box>
-                    <Text fontSize="12px" color="gray.600" fontWeight="600" textTransform="uppercase" letterSpacing="0.5px" mb={1}>
-                      {t('profile.email')}
-                    </Text>
-                    <Text fontSize="14px" fontWeight="600" color="gray.900">
-                      {user?.email || t('profile.noEmailProvided')}
-                    </Text>
-                  </Box>
-                </HStack>
-              </Box>
-
-              <Box bg="gray.50" borderRadius="12px" p={4} border="1px solid" borderColor="gray.200">
-                <HStack gap={3}>
-                  <Box w="40px" h="40px" borderRadius="10px" bg="orange.100" display="flex" alignItems="center" justifyContent="center">
-                    <Phone size={16} color="#d97706" />
-                  </Box>
-                  <Box>
-                    <Text fontSize="12px" color="gray.600" fontWeight="600" textTransform="uppercase" letterSpacing="0.5px" mb={1}>
-                      {t('profile.phone')}
-                    </Text>
-                    <Text fontSize="14px" fontWeight="600" color="gray.900">
-                      {user?.phone || t('profile.notProvided')}
-                    </Text>
-                  </Box>
-                </HStack>
-              </Box>
-
-              <Box bg="gray.50" borderRadius="12px" p={4} border="1px solid" borderColor="gray.200">
-                <HStack gap={3}>
-                  <Box w="40px" h="40px" borderRadius="10px" bg="red.100" display="flex" alignItems="center" justifyContent="center">
-                    <MapPin size={16} color="#dc2626" />
-                  </Box>
-                  <Box>
-                    <Text fontSize="12px" color="gray.600" fontWeight="600" textTransform="uppercase" letterSpacing="0.5px" mb={1}>
-                      {t('profile.location')}
-                    </Text>
-                    <Text fontSize="14px" fontWeight="600" color="gray.900">
-                      {locationAddress}
-                    </Text>
-                  </Box>
-                </HStack>
-              </Box>
-            </Grid>
-          </Box>
-
-          {/* My Reports Section */}
-          <Box bg="white" borderRadius="16px" p={5} border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)">
-            <HStack justify="space-between" align="center" mb={5} cursor="pointer" onClick={() => setShowMyReports(!showMyReports)}>
-              <HStack gap={3}>
-                <Box w="40px" h="40px" borderRadius="12px" bg="gray.100" display="flex" alignItems="center" justifyContent="center">
-                  <List size={18} />
-                </Box>
-                <Text fontWeight="600" fontSize="16px">{t('profile.myReports')} ({myReports.length})</Text>
-              </HStack>
-              <Button
-                size="sm"
-                variant="ghost"
-                borderRadius="12px"
-                p={2}
-                minW="auto"
-                h="auto"
-              >
-                {showMyReports ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              </Button>
-            </HStack>
-
-            {myReports.length === 0 ? (
-              <Box textAlign="center" py={12} bg="gray.50" borderRadius="12px" border="1px solid" borderColor="gray.200">
-                <Box w="20" h="20" borderRadius="12px" bg="gray.200" display="flex" alignItems="center" justifyContent="center" mx="auto" mb={4}>
-                  <PlusCircle size={24} color="#9ca3af" />
-                </Box>
-                <Text fontSize="16px" fontWeight="500" color="gray.700" mb={2}>
-                  {t('profile.noReportsYet')}
-                </Text>
-                <Text fontSize="14px" color="gray.600">
-                  {t('profile.reportsWillAppearHere')}
-                </Text>
-              </Box>
-            ) : showMyReports && (
-              <VStack gap={3} align="stretch">
-                {myReports.map(report => (
-                  <Box
-                    key={report.id}
-                    bg="gray.50"
-                    borderRadius="12px"
-                    p={4}
-                    border="1px solid"
-                    borderColor="gray.200"
-                    transition="all 0.2s"
-                    _hover={{ transform: 'translateY(-1px)', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)' }}
-                  >
-                    <HStack gap={3} align="flex-start">
-                      <Box
-                        w="12"
-                        h="12"
-                        borderRadius="8px"
-                        bg={`${getVibeColor(report.vibe_type)}20`}
-                        display="flex"
-                        alignItems="center"
-                        justifyContent="center"
-                        flexShrink={0}
-                      >
-                        <i className={getVibeIcon(report.vibe_type)} style={{ fontSize: '14px', color: getVibeColor(report.vibe_type) }}></i>
-                      </Box>
-
-                      <Box flex={1}>
-                        <Text fontWeight="600" fontSize="14px" mb={1}>
-                          {t(`vibes.${report.vibe_type}`)} {t('profile.report')}
-                        </Text>
-                        <Text fontSize="12px" color="gray.600" mb={2}>
-                          📍 {report.location || t('profile.unknownLocation')}
-                        </Text>
-                        {report.notes && (
-                          <Text fontSize="12px" color="gray.700" mb={3} lineHeight="1.4">
-                            {report.notes}
-                          </Text>
-                        )}
-                        <HStack gap={4}>
-                          <Text fontSize="11px" color="gray.500">
-                            🕒 {formatTimeAgo(report.created_at)}
-                          </Text>
-                          <HStack gap={1}>
-                            <Text fontSize="11px" color="green.600" fontWeight="600">
-                              👍 {report.upvotes || 0}
-                            </Text>
-                            <Text fontSize="11px" color="red.600" fontWeight="600">
-                              👎 {report.downvotes || 0}
-                            </Text>
-                          </HStack>
-                        </HStack>
-                      </Box>
-                    </HStack>
-                  </Box>
-                ))}
-              </VStack>
+      <div className="profile-hero">
+        <div className="profile-avatar-wrap">
+          <div className="profile-avatar">
+            {user.profile_picture_url ? (
+              <img src={user.profile_picture_url} alt="" />
+            ) : (
+              <UserIcon size={38} aria-hidden="true" />
             )}
-          </Box>
-        </VStack>
-      </Box>
+          </div>
+          <span className={`profile-verification-dot is-${verificationLevel}`} title={String(t(`profile.verificationLevels.${verificationLevel}`, verificationLevel))}>
+            <ShieldCheck size={12} aria-hidden="true" />
+          </span>
+        </div>
 
-      {/* Edit Profile Modal */}
-      <EditProfileModal
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
-      />
-    </Box>
+        <h2>{profileName}</h2>
+        <p className="profile-handle">@{user.username || user.email.split('@')[0]}</p>
+        <p className="profile-location"><MapPin size={13} />{user.location?.trim() || t('profile.locationNotSaved', 'Location not saved')}</p>
+
+        <div className="profile-stats" role="list" aria-label={String(t('profile.contributionStats', 'Contribution stats'))}>
+          <div role="listitem"><strong>{reports.length}</strong><span>{t('profile.reports', 'Reports')}</span></div>
+          <div role="listitem"><strong>{totalUpvotes}</strong><span>{t('profile.helpfulVotes', 'Helpful votes')}</span></div>
+          <div role="listitem"><strong>{user.reputation ?? 0}</strong><span>{t('profile.reputation', 'Reputation')}</span></div>
+        </div>
+
+        <div className="profile-actions">
+          <button className="profile-action profile-action--primary" type="button" onClick={() => setShowEditModal(true)}>
+            <Edit3 size={15} />{t('profile.editProfile', 'Edit profile')}
+          </button>
+          <button className="profile-action profile-action--secondary" type="button" onClick={() => setActiveTab('preferences')}>
+            <Settings size={15} />{t('profile.safetySettings', 'Safety settings')}
+          </button>
+        </div>
+      </div>
+
+      {error && <div className="profile-error" role="alert">{error}</div>}
+
+      <div className="profile-tabs" role="tablist" aria-label={String(t('profile.sections', 'Profile sections'))}>
+        <button type="button" role="tab" aria-selected={activeTab === 'activity'} className={activeTab === 'activity' ? 'is-active' : ''} onClick={() => setActiveTab('activity')}>
+          <FileText size={14} />{t('profile.activity', 'Activity')}
+        </button>
+        <button type="button" role="tab" aria-selected={activeTab === 'safety'} className={activeTab === 'safety' ? 'is-active' : ''} onClick={() => setActiveTab('safety')}>
+          <LockKeyhole size={14} />{t('profile.safety', 'Safety')}
+        </button>
+        <button type="button" role="tab" aria-selected={activeTab === 'credentials'} className={activeTab === 'credentials' ? 'is-active' : ''} onClick={() => setActiveTab('credentials')}>
+          <Star size={14} />{t('profile.credentials', 'Credentials')}
+        </button>
+        <button type="button" role="tab" aria-selected={activeTab === 'preferences'} className={activeTab === 'preferences' ? 'is-active' : ''} onClick={() => setActiveTab('preferences')}>
+          <Settings size={14} />{t('tabs.settings', 'Settings')}
+        </button>
+      </div>
+
+      <div className="profile-content">
+        {activeTab === 'activity' && (
+          <div className="profile-report-grid" role="tabpanel">
+            {sortedReports.length > 0 ? sortedReports.slice(0, 12).map((report) => (
+              <article className="profile-report-card" key={report.id}>
+                <div
+                  className="profile-report-card__visual"
+                  style={{ '--vibe-color': VIBE_CONFIG[report.vibe_type as keyof typeof VIBE_CONFIG]?.color || '#64748b' } as React.CSSProperties}
+                >
+                  <span>{VIBE_ICONS[report.vibe_type] || <ShieldCheck size={22} />}</span>
+                  <strong>{t(`vibes.${report.vibe_type}`, report.vibe_type)}</strong>
+                </div>
+                <div className="profile-report-card__body">
+                  <p><MapPin size={12} />{report.location?.trim() || t('profile.unknownLocation', 'Unknown location')}</p>
+                  {report.notes && <span>{report.notes}</span>}
+                  <footer>
+                    <time dateTime={report.created_at}>{new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(new Date(report.created_at))}</time>
+                    <span><ThumbsUp size={12} />{report.upvotes ?? 0}</span>
+                  </footer>
+                </div>
+              </article>
+            )) : (
+              <div className="profile-empty-state">
+                <FileText size={28} aria-hidden="true" />
+                <strong>{t('profile.noReportsYet', 'No reports yet')}</strong>
+                <span>{t('profile.reportsWillAppearHere', 'Your verified community contributions will appear here.')}</span>
+                {onNewReport && <button type="button" onClick={onNewReport}><Plus size={15} />{t('community.newReport', 'New report')}</button>}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'safety' && (
+          <div className="profile-safety-grid" role="tabpanel">
+            {safetyItems.map((item) => (
+              <article className="profile-safety-card" key={String(item.label)}>
+                <span className={`profile-safety-card__icon is-${item.tone}`}>{item.icon}</span>
+                <div><small>{item.label}</small><strong>{item.value}</strong></div>
+              </article>
+            ))}
+            <button className="profile-safety-link" type="button" onClick={() => setActiveTab('preferences')}>
+              <Settings size={15} />{t('profile.manageSafetySettings', 'Manage safety settings')}
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'credentials' && (
+          <div className="profile-credential-grid" role="tabpanel">
+            {credentials.map((credential) => (
+              <article className={credential.active ? 'profile-credential is-active' : 'profile-credential'} key={credential.id}>
+                <span>{credential.icon}</span>
+                <div><strong>{credential.title}</strong><small>{credential.value}</small></div>
+                {credential.active && <CheckCircle2 size={16} className="profile-credential__check" aria-label={String(t('profile.verified', 'Verified'))} />}
+              </article>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'preferences' && (
+          <div className="profile-settings-panel" role="tabpanel">
+            <SettingsView embedded />
+          </div>
+        )}
+      </div>
+
+      <EditProfileModal isOpen={showEditModal} onClose={() => setShowEditModal(false)} />
+    </section>
   );
 };
 

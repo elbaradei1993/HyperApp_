@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Map, Plus, Settings, User, Users } from 'lucide-react';
+import { LayoutDashboard, Map, Plus, Settings, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -18,7 +18,6 @@ const tabs = [
   { id: 'dashboard' as TabType, icon: LayoutDashboard, labelKey: 'tabs.dashboard' },
   { id: 'map' as TabType, icon: Map, labelKey: 'tabs.map' },
   { id: 'reports' as TabType, icon: Users, labelKey: 'tabs.community' },
-  { id: 'profile' as TabType, icon: User, labelKey: 'tabs.profile' },
   { id: 'settings' as TabType, icon: Settings, labelKey: 'tabs.settings' },
 ];
 
@@ -57,7 +56,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({ activeTab, onTabChange, onNewRe
               className={isActive ? 'app-sidebar__nav-item is-active' : 'app-sidebar__nav-item'}
               aria-current={isActive ? 'page' : undefined}
             >
-              <span className="app-sidebar__nav-icon"><Icon size={18} /></span>
+              <span className="app-sidebar__nav-icon"><Icon size={24} strokeWidth={2.2} /></span>
               <span>{t(labelKey, id)}</span>
             </button>
           );
@@ -73,7 +72,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({ activeTab, onTabChange, onNewRe
           </div>
         </div>
         <button type="button" className="app-sidebar__create" onClick={onNewReport}>
-          <Plus size={17} />
+          <Plus size={20} />
           <span>{t('app.newReport', 'New report')}</span>
         </button>
       </div>

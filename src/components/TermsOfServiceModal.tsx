@@ -22,6 +22,7 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
 
   return (
     <Box
+      className="app-modal-overlay"
       position="fixed"
       top={0}
       left={0}
@@ -35,6 +36,7 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
       p={4}
     >
       <Box
+        className="app-modal-dialog"
         bg="white"
         borderRadius="20px"
         maxW="600px"
@@ -83,7 +85,7 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
         </Box>
 
         {/* Content */}
-        <Box p={6} overflowY="auto" maxH="calc(70vh - 140px)">
+        <Box className="app-modal-scroll" p={6} overflowY="auto" flex={1} minH={0}>
           <VStack gap={6} align="stretch">
             {/* Key Terms Points */}
             <VStack gap={4} align="stretch">

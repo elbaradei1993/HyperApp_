@@ -10,6 +10,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { installAppZoomGesturePolicy } from './utils/zoomGesturePolicy';
 
 // import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
@@ -32,6 +33,9 @@ window.addEventListener('orientationchange', () => {
   // Delay to account for mobile browser UI changes
   setTimeout(setVH, 100);
 });
+
+// Keep accidental pinch gestures from scaling app pages while preserving map zoom.
+installAppZoomGesturePolicy();
 
 // Unregister any cached OneSignal service workers and clear related caches
 const cleanupOneSignal = async () => {

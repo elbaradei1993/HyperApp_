@@ -124,7 +124,11 @@ const CameraModal: React.FC<CameraModalProps> = ({ isOpen, onClose, onCapture })
   }
 
   return (
-    <div style={{
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Camera"
+      style={{
       position: 'fixed',
       top: 0,
       left: 0,
@@ -133,15 +137,21 @@ const CameraModal: React.FC<CameraModalProps> = ({ isOpen, onClose, onCapture })
       background: 'rgba(0,0,0,0.9)',
       display: 'flex',
       flexDirection: 'column',
+      width: '100vw',
+      height: '100dvh',
+      minHeight: 0,
+      overflow: 'hidden',
       zIndex: 1000,
-    }}>
+      }}
+    >
       {/* Header */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '20px',
+        padding: 'max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left))',
         background: 'rgba(0,0,0,0.8)',
+        flexShrink: 0,
       }}>
         <h3 style={{ color: 'white', margin: 0, fontSize: '18px' }}>
           Take Photo
@@ -170,6 +180,7 @@ const CameraModal: React.FC<CameraModalProps> = ({ isOpen, onClose, onCapture })
         justifyContent: 'center',
         alignItems: 'center',
         position: 'relative',
+        minHeight: 0,
         overflow: 'hidden',
       }}>
         {error ? (
@@ -214,12 +225,13 @@ const CameraModal: React.FC<CameraModalProps> = ({ isOpen, onClose, onCapture })
             {/* Camera Controls Overlay */}
             <div style={{
               position: 'absolute',
-              bottom: '30px',
+              bottom: 'max(20px, env(safe-area-inset-bottom))',
               left: '50%',
               transform: 'translateX(-50%)',
               display: 'flex',
               gap: '20px',
               alignItems: 'center',
+              maxWidth: 'calc(100vw - 24px)',
             }}>
               {/* Switch Camera Button */}
               <button

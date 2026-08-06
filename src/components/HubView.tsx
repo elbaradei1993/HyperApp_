@@ -820,6 +820,7 @@ const HubView: React.FC<HubViewProps> = ({ userLocation: initialUserLocation }) 
 
     return (
       <Box
+        className="app-modal-overlay"
         position="fixed"
         top={0}
         left={0}
@@ -834,6 +835,7 @@ const HubView: React.FC<HubViewProps> = ({ userLocation: initialUserLocation }) 
         onClick={onClose}
       >
         <Box
+          className="app-modal-dialog"
           bg="white"
           borderRadius="20px"
           maxW="400px"
@@ -857,7 +859,7 @@ const HubView: React.FC<HubViewProps> = ({ userLocation: initialUserLocation }) 
             </Button>
           </HStack>
 
-          <Box flex={1} overflowY="auto" px={6} pb={4}>
+          <Box className="app-modal-scroll" flex={1} overflowY="auto" px={6} pb={4}>
             {renderModalContent()}
 
             {/* Criteria Form */}
@@ -1789,6 +1791,7 @@ const TrustedUsersListModal: React.FC<{
 
   return (
     <Box
+      className="app-modal-overlay"
       position="fixed"
       top={0}
       left={0}
@@ -1803,6 +1806,7 @@ const TrustedUsersListModal: React.FC<{
       onClick={onClose}
     >
       <Box
+        className="app-modal-dialog"
         bg="white"
         borderRadius="20px"
         maxW="400px"
@@ -1832,7 +1836,7 @@ const TrustedUsersListModal: React.FC<{
         </HStack>
 
         {/* Content */}
-        <Box flex={1} overflowY="auto" p={6}>
+        <Box className="app-modal-scroll" flex={1} overflowY="auto" p={6}>
           {users.length === 0 ? (
             <Box textAlign="center" py={12}>
               <Shield size={48} color="#e2e8f0" />
@@ -1983,6 +1987,7 @@ const GuardianAlertModal: React.FC<{
 
   return (
     <Box
+      className="app-modal-overlay"
       position="fixed"
       top={0}
       left={0}
@@ -1997,6 +2002,7 @@ const GuardianAlertModal: React.FC<{
       onClick={onClose}
     >
       <Box
+        className="app-modal-dialog"
         bg="white"
         borderRadius="20px"
         maxW="450px"
@@ -2026,7 +2032,7 @@ const GuardianAlertModal: React.FC<{
         </HStack>
 
         {/* Content */}
-        <Box flex={1} overflowY="auto" p={6}>
+        <Box className="app-modal-scroll" flex={1} overflowY="auto" p={6}>
           <VStack gap={6} align="stretch">
             {/* Alert Type Selection */}
             <Box>

@@ -17,7 +17,11 @@ import PrivacyPolicyModal from './PrivacyPolicyModal';
 import TermsOfServiceModal from './TermsOfServiceModal';
 
 
-const SettingsView: React.FC = () => {
+interface SettingsViewProps {
+  embedded?: boolean;
+}
+
+const SettingsView: React.FC<SettingsViewProps> = ({ embedded = false }) => {
   const { t } = useTranslation();
   const { user, signOut } = useAuth();
   const { settings, updateSettings, isLoading: settingsLoading } = useSettings();
@@ -241,27 +245,40 @@ const SettingsView: React.FC = () => {
   };
 
   return (
-    <Box className="page-view page-view--settings" maxW="920px" w="full" mx="auto" bg="#f4f5f2" minH="100%" position="relative" borderX="1px solid" borderColor="var(--wire)" style={{ color: 'var(--t1)' }}>
-      <PageBanner
-        id="settings-title"
-        icon={Settings}
-        tone="amber"
-        eyebrow={t('settings.preferences', 'Preferences')}
-        title={t('tabs.settings', t('settings.title', 'Settings'))}
-        description={t('settings.subtitle', 'Manage privacy, notifications, and account preferences')}
-      />
+    <Box
+      className={embedded ? 'settings-embedded' : 'page-view page-view--settings'}
+      maxW={embedded ? 'none' : '920px'}
+      w="full"
+      mx="auto"
+      bg={embedded ? 'transparent' : '#f4f5f2'}
+      minH={embedded ? 'auto' : '100%'}
+      position="relative"
+      borderX={embedded ? '0' : '1px solid'}
+      borderColor="var(--wire)"
+      style={{ color: 'var(--t1)' }}
+    >
+      {!embedded && (
+        <PageBanner
+          id="settings-title"
+          icon={Settings}
+          tone="amber"
+          eyebrow={t('settings.preferences', 'Preferences')}
+          title={t('tabs.settings', t('settings.title', 'Settings'))}
+          description={t('settings.subtitle', 'Manage privacy, notifications, and account preferences')}
+        />
+      )}
 
       {/* Main Content */}
       <Box
-        className="page-view__content"
-        px={{ base: 3, md: 6 }}
-        pt={{ base: 4, md: 5 }}
-        pb={{ base: 'calc(var(--app-mobile-nav-height) + 20px)', lg: 5 }}
+        px={embedded ? { base: 0, md: 0 } : { base: 3, md: 6 }}
+        pt={embedded ? 0 : { base: 4, md: 5 }}
+        pb={embedded ? 0 : { base: 'calc(var(--app-mobile-nav-height) + 20px)', lg: 5 }}
         minH="calc(100vh - 180px)"
       >
-        <VStack gap={4} align="stretch">
+        <VStack className="settings-sections" gap={4} align="stretch">
           {/* Account Management Section */}
           <Box
+            className="settings-section"
             bg="white"
             borderRadius="16px"
             border="1px solid"
@@ -392,7 +409,7 @@ const SettingsView: React.FC = () => {
           </Box>
 
           {/* App Preferences Section */}
-          <Box bg="white" borderRadius="16px" border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)" overflow="hidden">
+          <Box className="settings-section" bg="white" borderRadius="16px" border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)" overflow="hidden">
             <HStack justify="space-between" align="center" px={5} py={4}>
               <HStack gap={3}>
                 <Box w="36px" h="36px" borderRadius="11px" bg="gray.100" display="flex" alignItems="center" justifyContent="center">
@@ -449,7 +466,7 @@ const SettingsView: React.FC = () => {
           </Box>
 
           {/* Privacy & Security Section */}
-          <Box bg="white" borderRadius="16px" border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)" overflow="hidden">
+          <Box className="settings-section" bg="white" borderRadius="16px" border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)" overflow="hidden">
             <HStack justify="space-between" align="center" px={5} py={4}>
               <HStack gap={3}>
                 <Box w="36px" h="36px" borderRadius="11px" bg="gray.100" display="flex" alignItems="center" justifyContent="center">
@@ -546,7 +563,7 @@ const SettingsView: React.FC = () => {
           </Box>
 
           {/* Logout Section */}
-          <Box bg="white" borderRadius="16px" px={{ base: 4, md: 5 }} py={4} border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)">
+          <Box className="settings-section settings-section--session" bg="white" borderRadius="16px" px={{ base: 4, md: 5 }} py={4} border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)">
             <HStack justify="space-between" align="center" gap={4}>
               <Box minW={0}>
                 <Text fontSize="13px" fontWeight="650" color="gray.800">{t('settings.sessionTitle', 'Current session')}</Text>
@@ -583,6 +600,7 @@ const SettingsView: React.FC = () => {
       {/* Change Password Modal */}
       {showPasswordModal && (
         <Box
+          className="app-modal-overlay"
           position="fixed"
           top={0}
           left={0}
@@ -597,6 +615,7 @@ const SettingsView: React.FC = () => {
           p={4}
         >
           <Box
+            className="app-modal-dialog app-modal-scroll"
             role="dialog"
             aria-modal="true"
             aria-labelledby="change-password-title"
@@ -714,6 +733,7 @@ const SettingsView: React.FC = () => {
       {/* Delete Account Modal */}
       {showDeleteModal && (
         <Box
+          className="app-modal-overlay"
           position="fixed"
           top={0}
           left={0}
@@ -728,6 +748,7 @@ const SettingsView: React.FC = () => {
           p={4}
         >
           <Box
+            className="app-modal-dialog app-modal-scroll"
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="delete-account-title"
@@ -811,6 +832,7 @@ const SettingsView: React.FC = () => {
       {/* Location Sharing Agreement Modal */}
       {showLocationSharingAgreement && (
         <Box
+          className="app-modal-overlay"
           position="fixed"
           top={0}
           left={0}
@@ -825,6 +847,7 @@ const SettingsView: React.FC = () => {
           p={4}
         >
           <Box
+            className="app-modal-dialog app-modal-scroll"
             role="dialog"
             aria-modal="true"
             aria-labelledby="location-sharing-title"

@@ -24,6 +24,7 @@ const ReportTypeModal: React.FC<ReportTypeModalProps> = ({
 
   return (
     <Box
+      className="app-modal-overlay"
       position="fixed"
       top={0}
       left={0}
@@ -42,6 +43,7 @@ const ReportTypeModal: React.FC<ReportTypeModalProps> = ({
       }}
     >
       <Box
+        className="app-modal-dialog"
         bg="white"
         borderRadius="20px"
         maxW="500px"
@@ -90,7 +92,7 @@ const ReportTypeModal: React.FC<ReportTypeModalProps> = ({
         </Box>
 
         {/* Content */}
-        <Box p={6}>
+        <Box className="app-modal-scroll" p={6} overflowY="auto" flex={1} minH={0}>
           <VStack gap={4} align="stretch">
             {/* Vibe Report Option */}
             <Box
