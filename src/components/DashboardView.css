@@ -1147,7 +1147,6 @@
 }
 
 .dashboard-workspace > .page-banner {
-  --page-banner-bleed: calc(var(--app-content-gutter, 0px) + clamp(24px, 3vw, 42px));
   margin-bottom: clamp(24px, 4vw, 42px);
 }
 
