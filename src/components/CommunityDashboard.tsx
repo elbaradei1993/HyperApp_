@@ -26,7 +26,7 @@ import type { Vibe, Report } from '../types';
 import VibePulseCard from './VibePulseCard';
 import PremiumEmptyState from './PremiumEmptyState';
 import { CredibilityIndicator, UserVerificationBadge, ValidationButtons } from './CredibilityIndicator';
-import { LoadingSpinner, EmptyState, CircularProgress, MultiSegmentCircularProgress } from './shared';
+import { LoadingSpinner, EmptyState, CircularProgress, MultiSegmentCircularProgress, PageBanner } from './shared';
 
 import './CommunityDashboard.css';
 
@@ -477,10 +477,22 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
     };
   }, [user?.onboarding_completed, onVibesUpdate]);
 
+  const communityBanner = (
+    <PageBanner
+      id="community-title"
+      icon={Users}
+      tone="violet"
+      eyebrow={t('community.communityActivity', 'Community activity')}
+      title={t('tabs.community', 'Community')}
+      description={t('community.localSafetyInsights', 'Local safety insights and reports from people nearby')}
+    />
+  );
+
   if (isLoading) {
     return (
-      <Box maxW="500px" mx="auto" bg="white" minH="100vh" position="relative" borderX="1px solid" borderColor="gray.200">
-        <Box p={8} textAlign="center">
+      <Box className="page-view page-view--community" maxW="1180px" w="full" mx="auto" minH="100%">
+        {communityBanner}
+        <Box className="page-view__content page-view__state" p={8} textAlign="center">
           <LoadingSpinner size="lg" />
           <Text fontSize="16px" fontWeight="600" color="gray.600" mt={4}>
             {t('community.loadingCommunityData')}
@@ -492,44 +504,25 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
 
   if (clusters.length === 0 && !isLoading) {
     return (
-      <PremiumEmptyState
-        onPrimaryAction={onNewReport}
-        communityCount={communityCount}
-        recentUsers={recentUsers}
-      />
+      <Box className="page-view page-view--community" maxW="1180px" w="full" mx="auto" minH="100%">
+        {communityBanner}
+        <Box className="page-view__content page-view__content--flush">
+          <PremiumEmptyState
+            onPrimaryAction={onNewReport}
+            communityCount={communityCount}
+            recentUsers={recentUsers}
+          />
+        </Box>
+      </Box>
     );
   }
 
   return (
     <Box className="page-view page-view--community community-overview" maxW="1180px" w="full" mx="auto" bg="var(--bg-base)" minH="100%" position="relative" borderX="1px solid" borderColor="var(--wire)" style={{ color: 'var(--t1)' }}>
-      {/* Header */}
-      <Box
-        className="page-view__header community-overview__header"
-        bg="var(--bg-surface)"
-        color="var(--t1)"
-        p={6}
-        position="sticky"
-        top={0}
-        zIndex={20}
-        borderBottom="1px solid"
-        borderColor="gray.200"
-        boxShadow="0 1px 3px rgba(0, 0, 0, 0.05)"
-      >
-        <VStack justify="center" align="start" gap={1} w="full">
-          <Text className="community-overview__eyebrow" fontSize="10px" fontWeight="800">
-            {t('community.safetyOverview', 'Safety overview')}
-          </Text>
-          <Text fontSize="24px" fontWeight="750" letterSpacing="-0.7px" lineHeight="1.15">
-            {t('tabs.community')}
-          </Text>
-          <Text fontSize="12px" color="gray.600" letterSpacing="0.1px" fontWeight="500">
-            {t('community.localSafetyInsights')}
-          </Text>
-        </VStack>
-      </Box>
+      {communityBanner}
 
       {/* Main Content */}
-      <Box className="community-overview__content" p={6} minH="calc(100vh - 180px)">
+      <Box className="page-view__content community-overview__content" p={6} minH="calc(100vh - 180px)">
         <VStack gap={4} align="stretch">
           <div className="community-summary-grid" role="list" aria-label={String(t('community.safetyOverview', 'Safety overview'))}>
             <article className="community-summary-card community-summary-card--primary" role="listitem">

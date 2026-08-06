@@ -12,6 +12,7 @@ import { notificationService } from '../services/notificationService';
 import { storageManager } from '../lib/storage';
 
 import ToggleSwitch from './shared/ToggleSwitch';
+import { PageBanner } from './shared';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 import TermsOfServiceModal from './TermsOfServiceModal';
 
@@ -241,47 +242,18 @@ const SettingsView: React.FC = () => {
 
   return (
     <Box className="page-view page-view--settings" maxW="920px" w="full" mx="auto" bg="#f4f5f2" minH="100%" position="relative" borderX="1px solid" borderColor="var(--wire)" style={{ color: 'var(--t1)' }}>
-      {/* Header */}
-      <Box
-        className="page-view__header"
-        bg="var(--bg-surface)"
-        color="var(--t1)"
-        px={{ base: 4, md: 6 }}
-        py={{ base: 4, md: 5 }}
-        position="sticky"
-        top={0}
-        zIndex={20}
-        borderBottom="1px solid"
-        borderColor="gray.200"
-        boxShadow="0 1px 0 rgba(15, 23, 42, 0.02)"
-      >
-        <HStack gap={3.5} align="center">
-          <Box
-            w={{ base: '40px', md: '44px' }}
-            h={{ base: '40px', md: '44px' }}
-            flexShrink={0}
-            borderRadius="13px"
-            bg="#111318"
-            color="white"
-            display="grid"
-            placeItems="center"
-            boxShadow="0 9px 22px rgba(17, 19, 24, 0.16)"
-          >
-            <Settings size={18} />
-          </Box>
-          <Box minW={0}>
-            <Text fontSize={{ base: '20px', md: '23px' }} fontWeight="750" letterSpacing="-0.5px" lineHeight="1.15">
-              {t('settings.title')}
-            </Text>
-            <Text fontSize="12px" color="gray.500" mt={1} letterSpacing="0.1px" fontWeight="500">
-              {t('settings.subtitle')}
-            </Text>
-          </Box>
-        </HStack>
-      </Box>
+      <PageBanner
+        id="settings-title"
+        icon={Settings}
+        tone="amber"
+        eyebrow={t('settings.preferences', 'Preferences')}
+        title={t('tabs.settings', t('settings.title', 'Settings'))}
+        description={t('settings.subtitle', 'Manage privacy, notifications, and account preferences')}
+      />
 
       {/* Main Content */}
       <Box
+        className="page-view__content"
         px={{ base: 3, md: 6 }}
         pt={{ base: 4, md: 5 }}
         pb={{ base: 'calc(var(--app-mobile-nav-height) + 20px)', lg: 5 }}

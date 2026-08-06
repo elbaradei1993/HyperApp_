@@ -8,6 +8,7 @@ import {
   CircleAlert,
   Clock3,
   Compass,
+  LayoutDashboard,
   MapPin,
   Plus,
   Radio,
@@ -37,7 +38,7 @@ import {
 } from '../lib/dashboardAnalytics';
 import type { SOS, Vibe } from '../types';
 
-import { CircularProgress } from './shared';
+import { CircularProgress, PageBanner } from './shared';
 import './DashboardView.css';
 
 const VoiceChatModal = React.lazy(() => import('./VoiceChatModal'));
@@ -157,30 +158,31 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <section className="dashboard-view" aria-labelledby="dashboard-title">
       <div className="dashboard-workspace">
-        <header className="dashboard-page-header">
-          <div>
-            <div className="dashboard-eyebrow">
+        <PageBanner
+          id="dashboard-title"
+          icon={LayoutDashboard}
+          tone="emerald"
+          eyebrow={(
+            <>
               <span className="dashboard-live-dot" />
               {t('dashboard.liveOverview')}
-            </div>
-            <h1 id="dashboard-title">
-              {t(`dashboard.greetings.${greetingKey}`)}, {displayName}!
-            </h1>
-            <p>
-              {userLocation
-                ? t('dashboard.locationReady')
-                : t('dashboard.locationUnavailable')}
-            </p>
-          </div>
-          <button className="dashboard-ai-action" type="button" onClick={() => setIsAssistantOpen(true)}>
-            <span className="dashboard-ai-action-icon" aria-hidden="true"><Sparkles size={17} /></span>
-            <span className="dashboard-ai-action-copy">
-              <small>Hyper AI</small>
-              <strong>Ask assistant</strong>
-            </span>
-            <ArrowUpRight size={16} aria-hidden="true" />
-          </button>
-        </header>
+            </>
+          )}
+          title={t('tabs.dashboard', 'Overview')}
+          description={`${t(`dashboard.greetings.${greetingKey}`)}, ${displayName}! ${userLocation
+            ? t('dashboard.locationReady')
+            : t('dashboard.locationUnavailable')}`}
+          action={(
+            <button className="dashboard-ai-action" type="button" onClick={() => setIsAssistantOpen(true)}>
+              <span className="dashboard-ai-action-icon" aria-hidden="true"><Sparkles size={17} /></span>
+              <span className="dashboard-ai-action-copy">
+                <small>Hyper AI</small>
+                <strong>{t('dashboard.askAssistant', 'Ask assistant')}</strong>
+              </span>
+              <ArrowUpRight size={16} aria-hidden="true" />
+            </button>
+          )}
+        />
 
         <div className="dashboard-grid">
           <article className="dashboard-panel dashboard-overall-card">

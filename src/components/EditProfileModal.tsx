@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Box, VStack, HStack, Text, Button, Input } from '@chakra-ui/react';
 import { Geolocation } from '@capacitor/geolocation';
@@ -54,6 +55,27 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
       detectUserLocation();
     }
   }, [isOpen, user]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   // Function to detect and set user location
   const detectUserLocation = async () => {
@@ -184,12 +206,13 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
     }
   };
 
-  if (!isOpen) {
+  if (!isOpen || typeof document === 'undefined') {
     return null;
   }
 
-  return (
+  return createPortal((
     <Box
+      className="app-modal-overlay edit-profile-overlay"
       position="fixed"
       top={0}
       left={0}
@@ -200,34 +223,32 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
       alignItems="center"
       justifyContent="center"
       zIndex={1000}
-      p={4}
+      p={0}
+      role="presentation"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
     >
       <Box
+        className="app-modal-dialog edit-profile-dialog"
         bg="white"
-        borderRadius="20px"
-        maxW="500px"
-        w="full"
-        maxH="90vh"
-        overflow="hidden"
-        boxShadow="0 20px 25px rgba(0, 0, 0, 0.1)"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-profile-title"
       >
         {/* Header */}
         <Box
-          bg="white"
-          p={6}
-          borderBottom="1px solid"
-          borderColor="gray.200"
-          position="sticky"
-          top={0}
-          zIndex={10}
+          className="edit-profile-dialog__header"
         >
           <HStack justify="space-between" align="center">
             <HStack gap={3}>
               <Box w="10" h="10" borderRadius="8px" bg="blue.100" display="flex" alignItems="center" justifyContent="center">
                 <User size={16} color="#2563eb" />
               </Box>
-              <VStack align="start" gap={0}>
-                <Text fontSize="18px" fontWeight="700" color="gray.900">
+              <VStack align="start" gap={0} minW={0}>
+                <Text id="edit-profile-title" fontSize="18px" fontWeight="700" color="gray.900">
                   {t('profile.editProfileModal.title')}
                 </Text>
                 <Text fontSize="12px" color="gray.600">
@@ -251,7 +272,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
         </Box>
 
         {/* Content */}
-        <Box p={6} overflowY="auto" maxH="calc(90vh - 200px)">
+        <Box className="edit-profile-dialog__body">
           <VStack gap={6} align="stretch">
             {/* Profile Picture */}
             <Box textAlign="center">
@@ -335,7 +356,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
 
             {/* Name Fields */}
             <VStack gap={4} align="stretch">
-              <HStack gap={3} align="stretch">
+              <HStack className="edit-profile-name-grid" gap={3} align="stretch">
                 <Box flex={1}>
                   <Text fontSize="12px" fontWeight="600" color="gray.700" mb={2}>
                     {t('profile.editProfileModal.firstName')}
@@ -465,10 +486,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
 
         {/* Actions */}
         <Box
-          p={6}
-          borderTop="1px solid"
-          borderColor="gray.200"
-          bg="gray.50"
+          className="edit-profile-dialog__footer"
         >
           {saveError && (
             <Text
@@ -510,7 +528,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
         </Box>
       </Box>
     </Box>
-  );
+  ), document.body);
 };
 
 export default EditProfileModal;

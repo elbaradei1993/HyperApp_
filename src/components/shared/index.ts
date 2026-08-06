@@ -6,3 +6,4 @@ export { default as Button } from './Button';
 export { Input, Textarea } from './Input';
 export { default as Notification, NotificationManager } from './Notification';
 export { CircularProgress, MultiSegmentCircularProgress } from './CircularProgress';
+export { default as PageBanner } from './PageBanner';

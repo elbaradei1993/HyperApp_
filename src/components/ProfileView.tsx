@@ -12,7 +12,7 @@ import { reverseGeocode } from '../lib/geocoding';
 import type { User } from '../types';
 import { INTEREST_CATEGORIES } from '../types';
 
-import { LoadingSpinner } from './shared';
+import { LoadingSpinner, PageBanner } from './shared';
 import EditProfileModal from './EditProfileModal';
 
 
@@ -693,33 +693,17 @@ const ProfileView: React.FC = () => {
 
   return (
     <Box className="page-view page-view--profile" maxW="920px" w="full" mx="auto" bg="var(--bg-base)" minH="100%" position="relative" borderX="1px solid" borderColor="var(--wire)" style={{ color: 'var(--t1)' }}>
-      {/* Header */}
-      <Box
-        className="page-view__header"
-        bg="var(--bg-surface)"
-        color="var(--t1)"
-        p={6}
-        position="sticky"
-        top={0}
-        zIndex={20}
-        borderBottom="1px solid"
-        borderColor="gray.200"
-        boxShadow="0 1px 3px rgba(0, 0, 0, 0.05)"
-      >
-        <HStack justify="space-between" align="center">
-          <Box>
-            <Text fontSize="24px" fontWeight="700" letterSpacing="-0.5px" lineHeight="1.2">
-              {t('profile.title')}
-            </Text>
-            <Text fontSize="14px" color="gray.700" mt={2} letterSpacing="0.5px" fontWeight="500">
-              {t('profile.subtitle')}
-            </Text>
-          </Box>
-        </HStack>
-      </Box>
+      <PageBanner
+        id="profile-title"
+        icon={UserIcon}
+        tone="blue"
+        eyebrow={t('profile.personalAccount', 'Personal account')}
+        title={t('tabs.profile', t('profile.title', 'Profile'))}
+        description={t('profile.subtitle', 'Manage your identity, activity, and interests')}
+      />
 
       {/* Main Content */}
-      <Box p={6} minH="calc(100vh - 180px)">
+      <Box className="page-view__content" p={6} minH="calc(100vh - 180px)">
         <VStack gap={4} align="stretch">
           {/* Profile Header Card */}
           <Box bg="white" borderRadius="16px" p={5} border="1px solid" borderColor="gray.200" boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)">

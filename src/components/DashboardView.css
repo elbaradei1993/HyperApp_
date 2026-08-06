@@ -56,6 +56,10 @@
   -webkit-backdrop-filter: blur(30px) saturate(135%);
 }
 
+.dashboard-workspace > .page-banner {
+  margin-bottom: 24px;
+}
+
 .dashboard-page-header,
 .dashboard-panel-heading,
 .dashboard-overall-numbers,
@@ -859,7 +863,7 @@
 
 @media (max-width: 1023px) {
   .dashboard-view {
-    padding: 58px 0 0;
+    padding: 0;
   }
 
   .dashboard-view::before {
@@ -884,6 +888,10 @@
     box-shadow: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+
+  .dashboard-workspace > .page-banner {
+    margin-bottom: 16px;
   }
 
   .dashboard-panel {
