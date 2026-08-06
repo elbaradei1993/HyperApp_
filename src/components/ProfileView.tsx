@@ -39,7 +39,7 @@ import type { Vibe } from '../types';
 
 import EditProfileModal from './EditProfileModal';
 import SettingsView from './SettingsView';
-import { LoadingSpinner, PageBanner } from './shared';
+import { LoadingSpinner } from './shared';
 
 import './ProfileView.css';
 
@@ -252,21 +252,18 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onNewReport }) => {
     },
   ];
 
-  const accountBanner = (
-    <PageBanner
-      id="account-title"
-      icon={Settings}
-      tone="amber"
-      eyebrow={t('profile.profileAndSettings', 'Profile & settings')}
-      title={t('tabs.settings', 'Account')}
-      description={t('profile.accountSubtitle', 'Your profile, safety, credentials, and preferences in one place')}
-    />
+  const accountHeading = (
+    <header className="compact-page-heading account-page-heading">
+      <span>{t('profile.profileAndSettings', 'Profile & settings')}</span>
+      <h1 id="account-title">{t('tabs.settings', 'Account')}</h1>
+      <p>{t('profile.accountSubtitle', 'Your profile, safety, credentials, and preferences in one place')}</p>
+    </header>
   );
 
   if (loading) {
     return (
       <section className="profile-page page-view page-view--profile" aria-labelledby="account-title">
-        {accountBanner}
+        {accountHeading}
         <div className="profile-loading" role="status" aria-live="polite">
           <LoadingSpinner size="lg" />
         <span>{t('profile.loading', 'Loading profile…')}</span>
@@ -278,7 +275,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onNewReport }) => {
   if (!user) {
     return (
       <section className="profile-page page-view page-view--profile" aria-labelledby="account-title">
-        {accountBanner}
+        {accountHeading}
         <div className="profile-loading" role="status">
           <UserIcon size={28} />
         <span>{t('profile.signInRequired', 'Sign in to view your profile.')}</span>
@@ -289,7 +286,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onNewReport }) => {
 
   return (
     <section className="profile-page page-view page-view--profile" dir={i18n.dir(locale)} aria-labelledby="account-title">
-      {accountBanner}
+      {accountHeading}
 
       <div className="profile-hero">
         <div className="profile-avatar-wrap">

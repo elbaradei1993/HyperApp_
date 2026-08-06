@@ -8,7 +8,6 @@ import {
   CircleAlert,
   Clock3,
   Compass,
-  LayoutDashboard,
   MapPin,
   Plus,
   Radio,
@@ -29,6 +28,7 @@ import {
 
 import { useAuth } from '../contexts/AuthContext';
 import { getSafetyLevel } from '../lib/safetyAnalytics';
+import { useOnlineStatus } from '../lib/useOnlineStatus';
 import {
   buildAreaSummaries,
   buildAttentionItems,
@@ -38,12 +38,12 @@ import {
 } from '../lib/dashboardAnalytics';
 import type { SOS, Vibe } from '../types';
 
-import { CircularProgress, PageBanner } from './shared';
+import ContextBanner, { type ContextBannerVariant } from './ContextBanner';
+import { CircularProgress } from './shared';
 import './DashboardView.css';
 
 const VoiceChatModal = React.lazy(() => import('./VoiceChatModal'));
 
-/* eslint-disable no-unused-vars -- the legacy base rule misreads TypeScript callback signatures */
 interface DashboardViewProps {
   vibes: Vibe[];
   sosAlerts: SOS[];
@@ -51,10 +51,10 @@ interface DashboardViewProps {
   locationCapturedAt?: string;
   locationPermissionStatus?: 'granted' | 'denied' | 'prompt' | 'unavailable';
   onNewReport: () => void;
+  onEnableLocation: () => void;
   onNavigate: (tab: 'map' | 'reports') => void;
   onNavigateToMap: (latitude: number, longitude: number) => void;
 }
-/* eslint-enable no-unused-vars */
 
 const VIBE_COLORS: Record<string, string> = {
   safe: '#10b981',
@@ -111,11 +111,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   locationCapturedAt,
   locationPermissionStatus,
   onNewReport,
+  onEnableLocation,
   onNavigate,
   onNavigateToMap,
 }) => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const isOnline = useOnlineStatus();
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const now = useMemo(() => new Date(), []);
   const locale = i18n.language || 'en-CA';
@@ -148,40 +150,91 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const greetingKey = getGreetingKey(now);
   const hasTrendData = weeklyTrend.some((point) => point.reports > 0);
 
+  const bannerVariant: ContextBannerVariant = !isOnline
+    ? 'offline'
+    : metrics.activeAlerts > 0
+      ? 'elevated-risk'
+      : !userLocation || locationPermissionStatus === 'denied' || locationPermissionStatus === 'unavailable'
+        ? 'permission'
+        : 'welcome';
+
+  const bannerContent = (() => {
+    if (bannerVariant === 'offline') {
+      return {
+        eyebrow: String(t('dashboard.connectionStatus', 'Connection status')),
+        title: String(t('dashboard.offlineTitle', 'You are offline')),
+        description: String(t(
+          'dashboard.offlineDescription',
+          'Saved information remains available. Live reports and AI guidance will update when your connection returns.',
+        )),
+        primaryAction: undefined,
+        secondaryAction: undefined,
+      };
+    }
+    if (bannerVariant === 'elevated-risk') {
+      return {
+        eyebrow: String(t('dashboard.attention.eyebrow', 'Community activity')),
+        title: String(t('dashboard.attention.bannerTitle', 'Recent activity needs your attention')),
+        description: String(t(
+          'dashboard.attention.bannerDescription',
+          `Community reports include ${metrics.activeAlerts} recent alert${metrics.activeAlerts === 1 ? '' : 's'}. `
+            + 'Review the details before deciding what to do next.',
+        )),
+        primaryAction: {
+          label: String(t('dashboard.viewCommunity', 'View community')),
+          onClick: () => onNavigate('reports'),
+        },
+        secondaryAction: { label: String(t('dashboard.newReport', 'New report')), onClick: onNewReport },
+      };
+    }
+    if (bannerVariant === 'permission') {
+      return {
+        eyebrow: String(t('dashboard.locationStatus', 'Location status')),
+        title: String(t('dashboard.locationBannerTitle', 'Make the safety map more relevant')),
+        description: String(t(
+          'dashboard.locationUnavailable',
+          'Enable location to see a more relevant community pulse.',
+        )),
+        primaryAction: {
+          label: String(t('permissions.enableLocation', 'Enable location')),
+          onClick: onEnableLocation,
+        },
+        secondaryAction: { label: String(t('dashboard.openMap', 'Open map')), onClick: () => onNavigate('map') },
+      };
+    }
+    return {
+      eyebrow: String(t('dashboard.liveOverview', 'Live overview')),
+      title: `${t(`dashboard.greetings.${greetingKey}`)}, ${displayName}`,
+      description: String(t('dashboard.locationReady', 'Your local safety pulse is ready.')),
+      primaryAction: {
+        label: String(t('dashboard.askAssistant', 'Ask Hyper AI')),
+        onClick: () => setIsAssistantOpen(true),
+      },
+      secondaryAction: { label: String(t('dashboard.openMap', 'Open map')), onClick: () => onNavigate('map') },
+    };
+  })();
+
   const goals = [
     { label: String(t('dashboard.goals.firstPulse')), complete: metrics.monthlyUserReports >= 1 },
     { label: String(t('dashboard.goals.stayActive')), complete: metrics.monthlyUserReports >= 2 },
     { label: String(t('dashboard.goals.communityVoice')), complete: metrics.monthlyUserReports >= 4 },
-    { label: String(t('dashboard.goals.trustedProfile')), complete: user?.verification_level !== 'basic' && Boolean(user?.verification_level) },
+    {
+      label: String(t('dashboard.goals.trustedProfile')),
+      complete: user?.verification_level !== 'basic' && Boolean(user?.verification_level),
+    },
   ];
 
   return (
     <section className="dashboard-view" aria-labelledby="dashboard-title">
       <div className="dashboard-workspace">
-        <PageBanner
+        <ContextBanner
           id="dashboard-title"
-          icon={LayoutDashboard}
-          tone="emerald"
-          eyebrow={(
-            <>
-              <span className="dashboard-live-dot" />
-              {t('dashboard.liveOverview')}
-            </>
-          )}
-          title={t('tabs.dashboard', 'Overview')}
-          description={`${t(`dashboard.greetings.${greetingKey}`)}, ${displayName}! ${userLocation
-            ? t('dashboard.locationReady')
-            : t('dashboard.locationUnavailable')}`}
-          action={(
-            <button className="dashboard-ai-action" type="button" onClick={() => setIsAssistantOpen(true)}>
-              <span className="dashboard-ai-action-icon" aria-hidden="true"><Sparkles size={17} /></span>
-              <span className="dashboard-ai-action-copy">
-                <small>Hyper AI</small>
-                <strong>{t('dashboard.askAssistant', 'Ask assistant')}</strong>
-              </span>
-              <ArrowUpRight size={16} aria-hidden="true" />
-            </button>
-          )}
+          variant={bannerVariant}
+          eyebrow={bannerContent.eyebrow}
+          title={bannerContent.title}
+          description={bannerContent.description}
+          primaryAction={bannerContent.primaryAction}
+          secondaryAction={bannerContent.secondaryAction}
         />
 
         <div className="dashboard-grid">

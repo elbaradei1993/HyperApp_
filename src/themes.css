@@ -49,4 +49,16 @@
   --text-muted:   var(--t3);
   --border-color: var(--wire);
   --accent-primary: var(--accent);
+
+  --hyper-blue-50: #eef7ff;
+  --hyper-blue-100: #dceeff;
+  --hyper-blue-500: #39aaf1;
+  --hyper-blue-600: #2a86d3;
+  --hyper-blue-700: #1f67aa;
+  --surface-primary: #ffffff;
+  --surface-secondary: #f4f7fa;
+  --border-subtle: rgba(45, 71, 99, 0.12);
+  --danger: #b63f45;
+  --warning: #a76114;
+  --success: #257c68;
 }

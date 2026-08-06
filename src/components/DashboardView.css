@@ -1146,10 +1146,6 @@
   -webkit-backdrop-filter: none;
 }
 
-.dashboard-workspace > .page-banner {
-  margin-bottom: clamp(24px, 4vw, 42px);
-}
-
 .dashboard-page-header {
   margin-bottom: clamp(24px, 4vw, 42px);
 }
@@ -1210,7 +1206,7 @@
 
 @media (max-width: 1023px) {
   .dashboard-view {
-    padding: 58px 0 0;
+    padding: 0;
   }
 
   .dashboard-workspace {

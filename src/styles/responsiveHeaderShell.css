@@ -1,0 +1,148 @@
+/* Header-led shell overrides. Legacy sidebar and bottom-nav styles remain isolated to their components. */
+.app-layout {
+  width: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: #f6f8fb !important;
+}
+
+.app-main {
+  width: 100% !important;
+  height: 100dvh;
+  min-height: 0;
+  margin: 0 !important;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+[dir='rtl'] .app-main {
+  margin: 0 !important;
+}
+
+.app-public-header-shell {
+  width: 100%;
+  min-height: 100dvh;
+  background: #f6f8fb;
+}
+
+.app-content-desktop {
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(18px, 2.2vw, 32px);
+  padding-bottom: clamp(24px, 3vw, 42px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-padding-top: 16px;
+  scroll-padding-bottom: 32px;
+  background: #f6f8fb !important;
+}
+
+.app-content-shell {
+  width: min(100%, 1440px);
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.app-content-desktop--map {
+  padding: 0 !important;
+  overflow: hidden !important;
+  scrollbar-gutter: auto;
+}
+
+.app-content-desktop--map .app-content-shell--map,
+.app-content-desktop--map .app-content-shell--map > *,
+.app-content-desktop--map .app-view-transition--map {
+  width: 100%;
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
+.app-sidebar,
+.tab-navigation { display: none !important; }
+
+.app-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.compact-page-heading {
+  padding: clamp(22px, 3vw, 32px) clamp(20px, 3vw, 36px) 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  background: var(--surface-primary);
+}
+
+.compact-page-heading > span {
+  display: block;
+  color: var(--hyper-blue-700);
+  font-size: 10px;
+  font-weight: 780;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.compact-page-heading h1 {
+  margin: 5px 0 0;
+  color: var(--text-primary);
+  font-size: clamp(24px, 3vw, 31px);
+  font-weight: 730;
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+
+.compact-page-heading p {
+  max-width: 620px;
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.page-view {
+  width: 100% !important;
+  max-width: 1120px !important;
+}
+
+@media (max-width: 959px) {
+  .app-content-desktop {
+    padding: 14px 14px max(22px, env(safe-area-inset-bottom, 0px));
+    scrollbar-gutter: auto;
+  }
+
+  .app-content-desktop--map { padding: 0 !important; }
+
+  .page-view {
+    max-width: 1120px !important;
+    min-height: auto !important;
+  }
+
+  .map-view-shell {
+    height: 100% !important;
+    min-height: 390px !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .app-content-desktop { padding-inline: 10px; }
+  .app-content-desktop--map { padding-inline: 0 !important; }
+  .compact-page-heading { padding: 20px 18px 17px; }
+}
+
+@media (max-width: 359px) {
+  .app-content-desktop { padding-inline: 8px; }
+  .compact-page-heading { padding-inline: 16px; }
+}

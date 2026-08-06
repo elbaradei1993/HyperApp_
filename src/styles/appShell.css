@@ -14,6 +14,7 @@
   --app-z-sidebar: 100;
   --app-z-mobile-nav: 200;
   --app-z-mobile-header: 210;
+  --app-z-header: 220;
   --app-z-popover: 900;
   --app-z-modal: 2000;
   --app-z-toast: 3000;

@@ -42,7 +42,7 @@ import { reportsService } from '../services/reports';
 import type { Report, Vibe } from '../types';
 
 import { ValidationButtons } from './CredibilityIndicator';
-import { LoadingSpinner, MultiSegmentCircularProgress, PageBanner } from './shared';
+import { LoadingSpinner, MultiSegmentCircularProgress } from './shared';
 
 import './CommunityDashboard.css';
 
@@ -286,20 +286,17 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
   }, [isAuthenticated, onVibesUpdate, user?.onboarding_completed]);
 
   const safetyLevel = overview.safetyScore === null ? null : getSafetyLevel(overview.safetyScore);
-  const communityBanner = (
-    <PageBanner
-      id="community-title"
-      icon={Users}
-      tone="violet"
-      eyebrow={t('community.communityActivity', 'Community activity')}
-      title={t('tabs.community', 'Community')}
-      description={t('community.dashboardSubtitle', 'Live insights from reports currently available to you.')}
-    />
+  const communityHeading = (
+    <header className="compact-page-heading">
+      <span>{t('community.communityActivity', 'Community activity')}</span>
+      <h1 id="community-title">{t('tabs.community', 'Community')}</h1>
+      <p>{t('community.dashboardSubtitle', 'Live insights from reports currently available to you.')}</p>
+    </header>
   );
   if (isLoading) {
     return (
       <section className="community-dashboard page-view page-view--community" aria-labelledby="community-title">
-        {communityBanner}
+        {communityHeading}
         <div className="community-loading" role="status" aria-live="polite">
           <LoadingSpinner size="lg" />
         <span>{t('community.loadingCommunityData', 'Loading community safety data…')}</span>
@@ -310,7 +307,7 @@ const CommunityDashboard: React.FC<CommunityDashboardProps> = ({
 
   return (
     <section className="community-dashboard page-view page-view--community" aria-labelledby="community-title">
-      {communityBanner}
+      {communityHeading}
 
       <div className="community-dashboard__body">
         <div className="community-filterbar" aria-label={String(t('community.dashboardFilters', 'Dashboard filters'))}>

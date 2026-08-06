@@ -9,9 +9,8 @@ import { LanguageProvider } from './contexts/LanguageContext';
 import { VibeProvider } from './contexts/VibeContext';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { NotificationManager } from './components/shared/Notification';
-import TabNavigation, { TabType } from './components/TabNavigation';
-import AppSidebar from './components/AppSidebar';
 import Header from './components/Header';
+import type { TabType } from './components/appNavigation';
 import AuthModal from './components/AuthModal';
 import AuthCallback from './components/AuthCallback';
 import MagicLinkAuth from './components/MagicLinkAuth';
@@ -29,6 +28,7 @@ import { locationService } from './services/locationService';
 import { logger } from './lib/logger';
 import type { Vibe, SOS } from './types';
 import './styles/appShell.css';
+import './styles/responsiveHeaderShell.css';
 
 // Lazy load heavy components for better performance
 const MapComponent = React.lazy(() => import('./components/MapComponent'));
@@ -731,6 +731,7 @@ const AppContent: React.FC = () => {
                 locationCapturedAt={lastLocationUpdate ? new Date(lastLocationUpdate).toISOString() : undefined}
                 locationPermissionStatus={locationPermissionStatus === 'unknown' ? 'unavailable' : locationPermissionStatus}
                 onNewReport={handleNewReport}
+                onEnableLocation={() => setShowLocationPermissionModal(true)}
                 onNavigate={setActiveTab}
                 onNavigateToMap={handleNavigateToMap}
               />
@@ -816,27 +817,30 @@ const AppContent: React.FC = () => {
       style={{ backgroundColor: 'var(--bg-base)', overflowX: 'hidden' }}
     >
       {isAuthenticated && (
-        <>
-          <AppSidebar
+        <div className="app-main">
+          <Header
             activeTab={activeTab}
             onTabChange={setActiveTab}
             onNewReport={handleNewReport}
           />
-          <div className="app-main">
-            <Header />
-            <div
-              ref={contentScrollRef}
-              className={activeTab === 'map' ? 'app-content-desktop app-content-desktop--map' : 'app-content-desktop'}
-            >
-              {renderActiveView()}
-            </div>
+          <div
+            ref={contentScrollRef}
+            className={activeTab === 'map' ? 'app-content-desktop app-content-desktop--map' : 'app-content-desktop'}
+          >
+            {renderActiveView()}
           </div>
-          <TabNavigation
+        </div>
+      )}
+
+      {!isAuthenticated && !isLoading && (
+        <div className="app-public-header-shell">
+          <Header
             activeTab={activeTab}
             onTabChange={setActiveTab}
             onNewReport={handleNewReport}
+            onSignIn={() => setShowAuthModal(true)}
           />
-        </>
+        </div>
       )}
 
       {/* Auth Modal */}

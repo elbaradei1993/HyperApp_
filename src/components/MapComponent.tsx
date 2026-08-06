@@ -15,7 +15,6 @@ import { formatSearchResult, getCoordinatesFromResult, searchPlaces, type Search
 import { IconHeartPulse } from './Icons';
 import { createVibeMarkerIcon, sosIcon, userLocationIcon } from './MapIcons';
 import VibeReportModal from './VibeReportModal';
-import { PageBanner } from './shared';
 
 import 'leaflet/dist/leaflet.css';
 // Import heatmap plugin
@@ -945,16 +944,7 @@ const MapComponent: React.FC<MapComponentProps> = React.memo(({
 
   return (
     <section className="map-tab-page" aria-labelledby="map-title">
-      <PageBanner
-        id="map-title"
-        icon={MapPin}
-        tone="blue"
-        eyebrow={isHeatmapVisible ? t('map.heatmap', 'Live heatmap') : t('map.markers', 'Live markers')}
-        title={t('tabs.map', 'Map')}
-        description={userLocation
-          ? t('map.locationReady', 'Explore safety signals and community reports around your location')
-          : t('map.locationUnavailable', 'Choose a location to explore nearby safety signals')}
-      />
+      <h1 id="map-title" className="app-visually-hidden">{t('tabs.map', 'Safety map')}</h1>
       <div className="map-view-shell">
         <MapSearchBar onLocationSelect={setSearchLocation} />
         <MapContainer center={center} zoom={zoom} zoomControl={false} scrollWheelZoom={true} style={{ height: '100%', width: '100%', minHeight: '100%', background: '#f6f7fb' }}>
