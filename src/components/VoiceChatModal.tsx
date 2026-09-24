@@ -538,6 +538,15 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       }
     }
 
+    if (stream && !stream.active) {
+      stream.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+      stream = null;
+      mediaAnalyserRef.current = null;
+      mediaSourceRef.current?.disconnect();
+      mediaSourceRef.current = null;
+    }
+
     if (!stream) {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
