@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { startTransition, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Capacitor } from '@capacitor/core';
 import { Box, Text as ChakraText } from '@chakra-ui/react';
@@ -638,17 +638,23 @@ const AppContent: React.FC = () => {
 
 
 
+  const handleTabChange = useCallback((tab: TabType) => {
+    startTransition(() => {
+      setActiveTab(tab);
+    });
+  }, []);
+
   const handleNavigateToMap = useCallback((latitude: number, longitude: number) => {
     console.log('handleNavigateToMap called with:', latitude, longitude);
     // Set target location and switch to map tab
     setTargetLocation([latitude, longitude]);
-    setActiveTab('map');
-  }, []);
+    handleTabChange('map');
+  }, [handleTabChange]);
 
   const handleNavigateToProfile = useCallback((userId: string) => {
     // Profile and safety preferences now share one Account destination.
-    setActiveTab('settings');
-  }, []);
+    handleTabChange('settings');
+  }, [handleTabChange]);
 
   // Check for special routes
   const isAuthCallback = window.location.pathname === '/auth/callback';
@@ -716,7 +722,7 @@ const AppContent: React.FC = () => {
                 locationPermissionStatus={locationPermissionStatus === 'unknown' ? 'unavailable' : locationPermissionStatus}
                 onNewReport={handleNewReport}
                 onEnableLocation={() => setShowLocationPermissionModal(true)}
-                onNavigate={setActiveTab}
+                onNavigate={handleTabChange}
                 onNavigateToMap={handleNavigateToMap}
               />
             </React.Suspense>
@@ -804,7 +810,7 @@ const AppContent: React.FC = () => {
         <div className="app-main">
           <Header
             activeTab={activeTab}
-            onTabChange={setActiveTab}
+            onTabChange={handleTabChange}
             onNewReport={handleNewReport}
           />
           <div
@@ -820,7 +826,7 @@ const AppContent: React.FC = () => {
         <div className="app-public-header-shell">
           <Header
             activeTab={activeTab}
-            onTabChange={setActiveTab}
+            onTabChange={handleTabChange}
             onNewReport={handleNewReport}
             onSignIn={() => setShowAuthModal(true)}
           />
