@@ -1,17 +1,17 @@
-// Chakra UI v3 theme - premium dark design
+// Chakra UI v3 theme - HyperApp brand: Hyper blue
 const theme = {
   colors: {
     brand: {
-      50:  '#e0faf5',
-      100: '#b3f2e8',
-      200: '#80e9d8',
-      300: '#4ddfc8',
-      400: '#26d9bc',
-      500: '#00c896',
-      600: '#00b08a',
-      700: '#008c6e',
-      800: '#006852',
-      900: '#004436',
+      50:  '#eff6ff',
+      100: '#dbeafe',
+      200: '#bfdbfe',
+      300: '#93c5fd',
+      400: '#60a5fa',
+      500: '#3b82f6',
+      600: '#2563eb',
+      700: '#1d4ed8',
+      800: '#1e40af',
+      900: '#1e3a8a',
     },
   },
   fonts: {

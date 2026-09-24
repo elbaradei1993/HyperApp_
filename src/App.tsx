@@ -17,6 +17,7 @@ import MagicLinkAuth from './components/MagicLinkAuth';
 import GuardianInvitationHandler from './components/GuardianInvitationHandler';
 import ReportTypeModal from './components/ReportTypeModal';
 import SplashScreen from './components/SplashScreen';
+import LandingPage from './components/LandingPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import { LoadingSpinner } from './components/shared';
 import { reportsService } from './services/reports';
@@ -59,6 +60,7 @@ const AppContent: React.FC = () => {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [isHeatmapVisible, setIsHeatmapVisible] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authInitialTab, setAuthInitialTab] = useState<'login' | 'signup'>('login');
   const [showReportTypeModal, setShowReportTypeModal] = useState(false);
   const [showVibeReportModal, setShowVibeReportModal] = useState(false);
   const [showEmergencyReportModal, setShowEmergencyReportModal] = useState(false);
@@ -81,12 +83,8 @@ const AppContent: React.FC = () => {
   // Wait for the device's current location before rendering the map.
   const zoom = 10;
 
-  // Open authentication directly now that English is the only supported language.
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      setShowAuthModal(true);
-    }
-  }, [isLoading, isAuthenticated]);
+  // Visitors see the landing page first; auth opens on demand via CTA.
+  // (Previously the auth modal auto-opened for logged-out users.)
 
   // Handle post-authentication redirects (e.g., from guardian invitations)
   useEffect(() => {
@@ -760,7 +758,7 @@ const AppContent: React.FC = () => {
             </React.Suspense>
           </ErrorBoundary>
         );
-      case 'reports':
+      case 'community':
         return (
           <ErrorBoundary>
             <React.Suspense fallback={<LoadingFallback />}>
@@ -837,7 +835,20 @@ const AppContent: React.FC = () => {
             activeTab={activeTab}
             onTabChange={setActiveTab}
             onNewReport={handleNewReport}
-            onSignIn={() => setShowAuthModal(true)}
+            onSignIn={() => {
+              setAuthInitialTab('login');
+              setShowAuthModal(true);
+            }}
+          />
+          <LandingPage
+            onSignIn={() => {
+              setAuthInitialTab('login');
+              setShowAuthModal(true);
+            }}
+            onJoin={() => {
+              setAuthInitialTab('signup');
+              setShowAuthModal(true);
+            }}
           />
         </div>
       )}
@@ -846,6 +857,7 @@ const AppContent: React.FC = () => {
       <AuthModal
         isOpen={showAuthModal}
         onClose={handleAuthModalClose}
+        initialTab={authInitialTab}
       />
 
 

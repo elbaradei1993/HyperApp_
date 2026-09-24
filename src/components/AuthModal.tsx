@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
-import { Box, VStack, HStack, Text, Button, Input } from '@chakra-ui/react';
+import { Box, VStack, HStack, Text, Button, Input, Dialog, Portal } from '@chakra-ui/react';
 import { X, User, Mail, Lock, UserPlus, Camera, MapPin, Phone, FileText } from 'lucide-react';
 
 import { useNotification } from '../contexts/NotificationContext';
@@ -14,13 +14,14 @@ import InputComponent from './shared/Input';
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialTab?: 'login' | 'signup';
 }
 
-const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
+const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTab = 'login' }) => {
   const { t } = useTranslation();
   const { signIn, signUp, signInWithGoogle, resetPassword, isLoading, updateProfile } = useAuth();
   const { addNotification } = useNotification();
-  const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
+  const [activeTab, setActiveTab] = useState<'login' | 'signup'>(initialTab);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [formData, setFormData] = useState({
     loginEmail: '',
@@ -43,6 +44,15 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationDetected, setLocationDetected] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync tab when the modal is opened with an explicit initial tab
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab);
+      setShowForgotPassword(false);
+      setError('');
+    }
+  }, [isOpen, initialTab]);
 
   // Auto-detect location when signup tab is active
   useEffect(() => {
@@ -365,35 +375,27 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  if (!isOpen) {
-    return null;
-  }
-
   return (
-    <Box
-      className="app-modal-overlay"
-      position="fixed"
-      top={0}
-      left={0}
-      right={0}
-      bottom={0}
-      bg="rgba(0, 0, 0, 0.5)"
-      display="flex"
-      alignItems="center"
-      justifyContent="center"
-      zIndex={1000}
-      p={4}
+    <Dialog.Root
+      open={isOpen}
+      onOpenChange={(details) => {
+        if (!details.open) onClose();
+      }}
     >
-      <Box
-        className="app-modal-dialog"
-        bg="white"
-        borderRadius="20px"
-        maxW="500px"
-        w="full"
-        maxH="90vh"
-        overflow="hidden"
-        boxShadow="0 20px 25px rgba(0, 0, 0, 0.1)"
-      >
+      <Portal>
+        <Dialog.Backdrop bg="rgba(0, 0, 0, 0.5)" />
+        <Dialog.Positioner p={4}>
+          <Dialog.Content
+            className="app-modal-dialog"
+            aria-labelledby="auth-modal-title"
+            bg="white"
+            borderRadius="20px"
+            maxW="500px"
+            w="full"
+            maxH="90vh"
+            overflow="hidden"
+            boxShadow="0 20px 25px rgba(0, 0, 0, 0.1)"
+          >
         {/* Header */}
         <Box
           bg="white"
@@ -410,7 +412,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 <User size={16} color="#2563eb" />
               </Box>
               <VStack align="start" gap={0}>
-                <Text fontSize="18px" fontWeight="700" color="gray.900">
+                <Text id="auth-modal-title" fontSize="18px" fontWeight="700" color="gray.900">
                   {t('auth.welcome')}
                 </Text>
                 <Text fontSize="12px" color="gray.600">
@@ -446,7 +448,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               fontSize="14px"
               fontWeight="600"
             >
-              {t('auth.login')}
+              {t('auth.signIn')}
             </Button>
             <Button
               flex={1}
@@ -706,7 +708,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   <HStack gap={3} align="stretch">
                     <Box flex={1}>
                       <Text fontSize="12px" fontWeight="600" color="gray.700" mb={2}>
-                        {t('profile.phoneNumber')}
+                        {t('editProfileModal.phoneNumber')}
                       </Text>
                       <Input
                         id="signupPhone"
@@ -896,7 +898,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               _hover={{ bg: 'blue.600' }}
               disabled={isLoading}
             >
-              {isLoading ? t('auth.loggingIn') : t('auth.login')}
+              {isLoading ? t('auth.loggingIn') : t('auth.signIn')}
             </Button>
           ) : (
             <Button
@@ -911,9 +913,11 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               {isLoading ? t('auth.creatingAccount') : t('auth.signup')}
             </Button>
           )}
-        </Box>
-      </Box>
-    </Box>
+          </Box>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Portal>
+    </Dialog.Root>
   );
 };
 

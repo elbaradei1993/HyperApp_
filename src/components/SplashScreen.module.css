@@ -1,0 +1,81 @@
+.splash {
+  overflow: hidden;
+}
+
+.fadeUp {
+  animation: splashFadeUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.logoGlow {
+  position: absolute;
+  inset: -24px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.22) 0%, transparent 70%);
+  filter: blur(12px);
+  animation: splashPulse 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.statusText {
+  animation: splashFadeIn 0.45s ease-out both;
+  min-height: 1.25rem;
+}
+
+.progressBar {
+  width: 100%;
+  transform-origin: left;
+  animation: splashProgress 1.4s linear both;
+}
+
+@keyframes splashFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splashFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes splashPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes splashProgress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fadeUp,
+  .statusText,
+  .progressBar {
+    animation: none;
+  }
+  .logoGlow {
+    animation: none;
+    opacity: 0.6;
+  }
+}

@@ -52,7 +52,7 @@ interface DashboardViewProps {
   locationPermissionStatus?: 'granted' | 'denied' | 'prompt' | 'unavailable';
   onNewReport: () => void;
   onEnableLocation: () => void;
-  onNavigate: (tab: 'map' | 'reports') => void;
+  onNavigate: (tab: 'map' | 'community') => void;
   onNavigateToMap: (latitude: number, longitude: number) => void;
 }
 
@@ -182,7 +182,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         )),
         primaryAction: {
           label: String(t('dashboard.viewCommunity', 'View community')),
-          onClick: () => onNavigate('reports'),
+          onClick: () => onNavigate('community'),
         },
         secondaryAction: { label: String(t('dashboard.newReport', 'New report')), onClick: onNewReport },
       };
@@ -381,7 +381,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               )}
             </div>
 
-            <button className="dashboard-text-action" type="button" onClick={() => onNavigate('reports')}>
+            <button className="dashboard-text-action" type="button" onClick={() => onNavigate('community')}>
               {t('dashboard.viewCommunity')}
               <ArrowUpRight size={15} />
             </button>
@@ -411,7 +411,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 <span>{t('dashboard.attention.title')} ({attentionItems.length})</span>
                 <small>{t('dashboard.attention.subtitle')}</small>
               </div>
-              <button type="button" onClick={() => onNavigate('reports')}>
+              <button type="button" onClick={() => onNavigate('community')}>
                 {t('dashboard.viewAll')}
                 <ChevronRight size={15} />
               </button>
