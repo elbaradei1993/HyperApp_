@@ -150,15 +150,14 @@ class ReportsService {
     user_id?: string;
   }): Promise<Report> {
     try {
-      // Get current user if not provided
-      let userId = reportData.user_id;
-      if (!userId) {
-        const { data: { user } } = await supabase.auth.getUser();
-        userId = user?.id;
-      }
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
 
       if (!userId) {
         throw new Error('User must be authenticated to create a report');
+      }
+      if (reportData.user_id && reportData.user_id !== userId) {
+        throw new Error('You can only create reports as the signed-in user');
       }
 
       // Generate location name if not provided
@@ -202,6 +201,13 @@ class ReportsService {
       if (error) {
         console.error('Error creating report:', error);
         throw error;
+      }
+
+      if (data.emergency || data.vibe_type === 'dangerous') {
+        void supabase.functions.invoke('send-push-notifications', { body: { reportId: data.id } })
+          .then(({ error: pushError }) => {
+            if (pushError) console.error('Nearby push delivery failed:', pushError);
+          });
       }
 
       return {
