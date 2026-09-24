@@ -194,6 +194,7 @@ Deno.serve(async (req) => {
         .filter((message) => message.role === 'assistant')
         .slice(-4)
         .map((message) => message.content),
+      interactionMode,
     });
     if (!parsed) return json({ error: 'The hosted AI returned an invalid response. Please try again.' }, 502);
     return json({ response: parsed, model: result.model, promptVersion: HYPER_ASSISTANT_PROMPT_VERSION });
