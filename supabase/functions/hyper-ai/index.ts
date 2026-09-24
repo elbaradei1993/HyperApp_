@@ -55,6 +55,84 @@ function isRateLimited(userId: string): boolean {
   return false;
 }
 
+function classifyInteractionMode(message: string, safetyLevel: 'LOW' | 'ELEVATED' | 'HIGH' | 'CRITICAL'): 'greeting' | 'acknowledgement' | 'small_talk' | 'local_query' | 'safety_or_task' | 'normal' {
+  const text = message.replace(/\s+/g, ' ').trim();
+  const lower = text.toLowerCase();
+
+  if (safetyLevel !== 'LOW') return 'safety_or_task';
+
+  if (/^(hi|hello|hey|hiya|heya|good morning|good afternoon|good evening|hey there)[!. ,]*$/i.test(text)) {
+    return 'greeting';
+  }
+
+  if (/^(ok|okay|thanks|thank you|thx|got it|gotcha|cool|great|sure|yes|yep|yeah|no|nope|alright|all right)[!. ,]*$/i.test(text)) {
+    return 'acknowledgement';
+  }
+
+  if (/^(how are you|how's it going|what's up|you there|are you there)[?!. ,]*$/i.test(text)
+    || (/^.{1,120}\?$/.test(text) && text.split(/\s+/).length <= 10 && !/\b(where|near|around|tonight|event|vibe|safe|danger|report|map)\b/i.test(lower))) {
+    return 'small_talk';
+  }
+
+  if (/\b(near me|nearby|around here|around me|in my area|local|what's around|what is around|vibe|vibes|tonight|today|events?|happening nearby|what's happening)\b/i.test(lower)) {
+    return 'local_query';
+  }
+
+  if (text.split(/\s+/).length <= 18 && !/[?]/.test(text)) return 'small_talk';
+
+  return 'normal';
+}
+
+function responseTokenBudget(mode: ReturnType<typeof classifyInteractionMode>): number {
+  switch (mode) {
+    case 'greeting':
+    case 'acknowledgement':
+      return 140;
+    case 'small_talk':
+      return 220;
+    case 'local_query':
+      return 360;
+    case 'safety_or_task':
+      return 420;
+    default:
+      return 500;
+  }
+}
+
+function lightweightConversationResponse(
+  mode: ReturnType<typeof classifyInteractionMode>,
+  message: string,
+): Record<string, unknown> | null {
+  const normalized = message.trim().toLowerCase();
+
+  if (mode === 'greeting') {
+    return {
+      message: 'Hey! What’s up?',
+      safetyLevel: 'LOW',
+      suggestedActions: [],
+      requiresImmediateAttention: false,
+      followUpNeeded: false,
+      memoryUpdates: [],
+    };
+  }
+
+  if (mode === 'acknowledgement') {
+    let reply = 'Got it.';
+    if (/^(thanks|thank you|thx)[!. ,]*$/i.test(normalized)) reply = 'Anytime.';
+    else if (/^(yes|yep|yeah|sure|great|cool)[!. ,]*$/i.test(normalized)) reply = 'Perfect.';
+    return {
+      message: reply,
+      safetyLevel: 'LOW',
+      suggestedActions: [],
+      requiresImmediateAttention: false,
+      followUpNeeded: false,
+      memoryUpdates: [],
+    };
+  }
+
+  return null;
+}
+
 function emergencyFallback(
   level: 'HIGH' | 'CRITICAL',
   availableActions: Array<{ type: string; label: string; requiresConfirmation: boolean }>,
@@ -112,6 +190,16 @@ Deno.serve(async (req) => {
   const safetyFloor = guard.deescalated && guard.minimumLevel === 'LOW'
     ? 'LOW'
     : maxSafetyLevel(conversation.currentSafetyState, guard.minimumLevel);
+  const interactionMode = classifyInteractionMode(latestUserMessage, safetyFloor);
+  const lightweightResponse = lightweightConversationResponse(interactionMode, latestUserMessage);
+  if (lightweightResponse) {
+    return json({
+      response: lightweightResponse,
+      model: 'deterministic-conversation',
+      promptVersion: HYPER_ASSISTANT_PROMPT_VERSION,
+    });
+  }
+
   const turnPrompt = buildTurnPrompt({
     appContext,
     durablePreferences: conversation.durablePreferences,
@@ -122,6 +210,7 @@ Deno.serve(async (req) => {
     repetitionState: conversation.repetitionState,
     latestUserMessage,
     deterministicSafety: { ...guard, minimumLevel: safetyFloor },
+    interactionMode,
   });
 
   const accountId = Deno.env.get('CLOUDFLARE_ACCOUNT_ID');
