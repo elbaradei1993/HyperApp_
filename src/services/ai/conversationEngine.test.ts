@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
     setPersistence: vi.fn(),
     deleteConversation: vi.fn(),
     clearHistory: vi.fn(),
+    loadMemories: vi.fn(),
+    upsertMemory: vi.fn(),
   },
 }));
 
@@ -41,7 +43,64 @@ describe('ConversationEngine', () => {
     mocks.repository.setPersistence.mockResolvedValue(true);
     mocks.repository.deleteConversation.mockResolvedValue(true);
     mocks.repository.clearHistory.mockResolvedValue(true);
+    mocks.repository.loadMemories.mockResolvedValue([]);
+    mocks.repository.upsertMemory.mockResolvedValue(true);
     mocks.request.mockResolvedValue(response);
+  });
+
+  it('updates live context without replacing the active conversation', async () => {
+    const engine = new ConversationEngine();
+    const initial = await engine.initialize('user-a', context);
+    const updatedContext: HyperAppContext = {
+      ...context,
+      approximateLocation: {
+        latitude: 49.18,
+        longitude: -122.85,
+        permissionStatus: 'granted',
+        stale: false,
+      },
+    };
+    const updated = engine.updateContext(initial.conversationId, updatedContext, [
+      { key: 'response_detail', value: 'brief', source: 'user_explicit', updatedAt: new Date().toISOString() },
+    ]);
+
+    expect(updated?.conversationId).toBe(initial.conversationId);
+    expect(updated?.appContext).toBe(updatedContext);
+    expect(updated?.userPreferences).toEqual([
+      expect.objectContaining({ key: 'response_detail', value: 'brief' }),
+    ]);
+  });
+
+  it('persists explicit memory updates and merges them into the conversation state', async () => {
+    mocks.request.mockResolvedValue({
+      ...response,
+      memoryUpdates: [{
+        key: 'preferred_name',
+        value: 'Fateh',
+        source: 'user_explicit',
+        reason: 'User explicitly provided their preferred name.',
+      }],
+    });
+    const engine = new ConversationEngine();
+    const initial = await engine.initialize('user-a', context);
+    const result = await engine.generateAssistantResponse({
+      conversationId: initial.conversationId,
+      userId: 'user-a',
+      userMessage: 'Remember that I prefer to be called Fateh.',
+      appContext: context,
+    });
+
+    expect(mocks.repository.upsertMemory).toHaveBeenCalledWith(
+      'user-a',
+      expect.objectContaining({
+        key: 'preferred_name',
+        value: 'Fateh',
+        source: 'user_explicit',
+      }),
+    );
+    expect(result.state.userPreferences).toEqual([
+      expect.objectContaining({ key: 'preferred_name', value: 'Fateh' }),
+    ]);
   });
 
   it('sends prior turns and answered-question state with the next request', async () => {
