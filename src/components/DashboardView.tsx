@@ -2,12 +2,10 @@ import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Activity,
-  ArrowUpRight,
   Check,
   ChevronRight,
   CircleAlert,
   Clock3,
-  Compass,
   MapPin,
   Plus,
   Radio,
