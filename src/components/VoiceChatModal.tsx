@@ -450,7 +450,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     // Start speech recognition in the same user-gesture task as the tap.
     // Waiting for the asynchronous audio unlock first can cause browsers to
     // lose the permission/user-activation window, especially on mobile.
-    void ttsService.unlock(true, 'play-and-record').catch(() => undefined);
+    void ttsService.unlock(false, 'play-and-record').catch(() => undefined);
     ttsService.prepareForListening();
     listeningRef.current = true;
     transitionVoiceState('recording');
