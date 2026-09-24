@@ -434,6 +434,9 @@ export class ConversationRepository {
           window.sessionStorage.key(index)
         )).filter((key): key is string => Boolean(key?.startsWith(`${LOCAL_PREFIX}:`) && key.includes(userId)));
         keys.forEach((key) => window.sessionStorage.removeItem(key));
+        if (window.localStorage.getItem(localCurrentKey(userId))) {
+          window.localStorage.removeItem(localCurrentKey(userId));
+        }
       }
       return true;
     } catch {
