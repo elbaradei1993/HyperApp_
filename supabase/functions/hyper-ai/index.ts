@@ -1,5 +1,5 @@
 /* global Deno, Request, Response, AbortController, DOMException */
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
+import { createClient, type User } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
 
 import { parseAssistantResponse } from '../_shared/assistantResponse.ts';
 import { evaluateSafetyRisk, maxSafetyLevel, type GuardSafetyLevel } from '../_shared/safetyGuard.ts';
@@ -24,20 +24,13 @@ const jsonHeaders = {
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_REQUESTS = 12;
 const MAX_MESSAGE_LENGTH = 1500;
-const MAX_RECENT_MESSAGES = 20;
 const requestWindows = new Map<string, number[]>();
-
-const ACTION_TYPES = new Set([
-  'SHARE_LOCATION', 'START_SAFETY_TIMER', 'CONTACT_GUARDIAN', 'OPEN_NEARBY_REPORTS',
-  'OPEN_MAP', 'CALL_EMERGENCY_SERVICES', 'SHOW_SAFETY_PLAN', 'CHECK_IN',
-  'REPORT_INCIDENT', 'NONE',
-]);
 
 function json(body: Record<string, unknown>, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
 }
 
-async function authenticate(req: Request): Promise<{ userId: string; user: Awaited<ReturnType<ReturnType<typeof createClient>['auth']['getUser']>>['data']['user']; client: ReturnType<typeof createClient> } | null> {
+async function authenticate(req: Request): Promise<{ userId: string; user: User; client: ReturnType<typeof createClient> } | null> {
   const authorization = req.headers.get('Authorization');
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
@@ -83,13 +76,13 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
 
-  const userId = await authenticate(req);
-  if (!userId) return json({ error: 'Please sign in before using Hyper AI.' }, 401);
-  if (isRateLimited(userId)) return json({ error: 'Too many requests. Please wait a moment and try again.' }, 429);
+  const auth = await authenticate(req);
+  if (!auth) return json({ error: 'Please sign in before using Hyper AI.' }, 401);
+  if (isRateLimited(auth.userId)) return json({ error: 'Too many requests. Please wait a moment and try again.' }, 429);
 
   const body = await req.json().catch(() => null) as Record<string, unknown> | null;
   const latestUserMessage = typeof body?.latestUserMessage === 'string'
-    ? body.latestUserMessage.replace(/\\s+/g, ' ').trim().slice(0, MAX_MESSAGE_LENGTH)
+    ? body.latestUserMessage.replace(/\s+/g, ' ').trim().slice(0, MAX_MESSAGE_LENGTH)
     : '';
   const conversationId = typeof body?.conversationId === 'string'
     ? body.conversationId.trim().slice(0, 80)
@@ -159,7 +152,10 @@ Deno.serve(async (req) => {
   } catch (error) {
     if (safetyFloor === 'HIGH' || safetyFloor === 'CRITICAL') {
       return json({
-        response: emergencyFallback(safetyFloor, availableActions),
+        response: emergencyFallback(
+          safetyFloor,
+          appContext.availableAppActions as Array<{ type: string; label: string; requiresConfirmation: boolean }>,
+        ),
         promptVersion: HYPER_ASSISTANT_PROMPT_VERSION,
         fallback: true,
       });
