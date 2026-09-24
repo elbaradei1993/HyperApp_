@@ -380,11 +380,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 <p>{t('dashboard.progress.empty')}</p>
               )}
             </div>
-
-            <button className="dashboard-text-action" type="button" onClick={() => onNavigate('reports')}>
-              {t('dashboard.viewCommunity')}
-              <ArrowUpRight size={15} />
-            </button>
           </section>
 
           <section className="dashboard-panel dashboard-goals-card">
@@ -460,10 +455,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 <span>{t('dashboard.areas.title')}</span>
                 <small>{t('dashboard.areas.subtitle')}</small>
               </div>
-              <button type="button" onClick={() => onNavigate('map')}>
-                {t('dashboard.openMap')}
-                <Compass size={15} />
-              </button>
             </div>
 
             <div className="dashboard-area-grid">
