@@ -5,6 +5,7 @@ export interface TTSOptions {
   speed?: number;
   pitch?: number;
   volume?: number;
+  preserveRecordingSession?: boolean;
 }
 
 interface HostedTtsError extends Error {
@@ -348,7 +349,11 @@ export class TTSService {
     }
 
     this.stop();
-    this.prepareForPlayback();
+    if (!options.preserveRecordingSession) {
+      this.prepareForPlayback();
+    } else {
+      this.setAudioSessionType('play-and-record');
+    }
     const requestId = this.requestId;
 
     try {
