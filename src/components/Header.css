@@ -334,8 +334,12 @@
     white-space: nowrap;
   }
 
-  .app-header__report,
-  .app-header .notification-bell__trigger { display: none !important; }
+  .app-header__report { display: none !important; }
+  .app-header .notification-bell__trigger {
+    display: grid !important;
+    width: 44px;
+    height: 44px;
+  }
 
   .app-account-menu__trigger {
     width: 44px;
