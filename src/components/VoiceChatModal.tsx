@@ -26,6 +26,7 @@ import {
 import { conversationEngine, generateAssistantResponse } from '../services/ai/conversationEngine';
 import { conversationRepository } from '../services/ai/conversationRepository';
 import type {
+  AppActionDescriptor,
   AssistantActionType,
   ConversationMessage,
   ConversationState,
@@ -134,7 +135,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     userLocation: [number, number] | null;
     locationCapturedAt?: string;
     locationPermissionStatus?: 'granted' | 'denied' | 'prompt' | 'unavailable';
-    availableActions: typeof availableActions;
+    availableActions: AppActionDescriptor[];
     preferences: UserPreference[];
   } | null>(null);
 
