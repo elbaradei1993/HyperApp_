@@ -2,7 +2,7 @@
 import { createClient, type User } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
 
 import { parseAssistantResponse } from '../_shared/assistantResponse.ts';
-import { evaluateSafetyRisk, maxSafetyLevel, type GuardSafetyLevel } from '../_shared/safetyGuard.ts';
+import { evaluateSafetyRisk, maxSafetyLevel } from '../_shared/safetyGuard.ts';
 import { buildServerAppContext, loadServerConversation, type DeviceLocationHint } from './context.ts';
 import { AiProviderError, generateWithConfiguredProvider } from './aiClient.ts';
 import {
