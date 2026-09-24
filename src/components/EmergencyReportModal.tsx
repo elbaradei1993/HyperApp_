@@ -232,7 +232,12 @@ const EmergencyReportModal: React.FC<EmergencyReportModalProps> = ({
       }, 2500);
     } catch (error) {
       console.error('Error creating emergency report:', error);
-      addNotification({ type: 'error', title: 'Emergency report failed', message: error instanceof Error ? error.message : 'The emergency report could not be submitted.', duration: 5000 });
+      addNotification({
+        type: 'error',
+        title: t('reports.emergencyReportFailed', 'Emergency report failed'),
+        message: error instanceof Error ? error.message : t('reports.emergencyReportSubmitFailed', 'The emergency report could not be submitted.'),
+        duration: 5000,
+      });
       setIsSubmitting(false);
     }
   };
