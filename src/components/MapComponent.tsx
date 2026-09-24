@@ -499,8 +499,17 @@ const HeatmapLayer: React.FC<{ vibes: Vibe[], isVisible: boolean }> = React.memo
       VibeType.Dangerous,
     ];
 
-    // Create heatmap layers for each vibe type with error handling
-    renderOrder.forEach(vibeType => {
+    let cancelled = false;
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    const renderHeatmap = () => {
+      if (cancelled) return;
+
+      // Create heatmap layers for each vibe type with error handling
+      renderOrder.forEach(vibeType => {
       try {
         const typeVibes = groupedVibes[vibeType];
         if (typeVibes.length === 0) {
@@ -530,14 +539,6 @@ const HeatmapLayer: React.FC<{ vibes: Vibe[], isVisible: boolean }> = React.memo
           gradient,
         });
 
-        // Fix Canvas2D performance warning by setting willReadFrequently
-        // Access the canvas element after the layer is created
-        setTimeout(() => {
-          if (heatLayer._canvas) {
-            heatLayer._canvas.willReadFrequently = true;
-          }
-        }, 0);
-
         // Add layer to map with error handling
         if (heatLayer && map && typeof map.addLayer === 'function') {
           try {
@@ -550,7 +551,12 @@ const HeatmapLayer: React.FC<{ vibes: Vibe[], isVisible: boolean }> = React.memo
       } catch (vibeTypeError) {
         console.warn(`Error creating heatmap layer for ${vibeType}:`, vibeTypeError);
       }
-    });
+      });
+    };
+
+    const idleId = idleWindow.requestIdleCallback
+      ? idleWindow.requestIdleCallback(renderHeatmap, { timeout: 800 })
+      : window.requestAnimationFrame(renderHeatmap);
 
     // Cleanup function with defensive error handling
     return () => {
@@ -566,6 +572,12 @@ const HeatmapLayer: React.FC<{ vibes: Vibe[], isVisible: boolean }> = React.memo
         });
       } catch (cleanupError) {
         console.warn('Error during cleanup:', cleanupError);
+      }
+      cancelled = true;
+      if (idleWindow.cancelIdleCallback && idleWindow.requestIdleCallback) {
+        idleWindow.cancelIdleCallback(idleId);
+      } else {
+        window.cancelAnimationFrame(idleId);
       }
       layersRef.current = [];
     };
