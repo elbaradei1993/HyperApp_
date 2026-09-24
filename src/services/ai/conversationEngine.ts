@@ -61,7 +61,10 @@ export class ConversationEngine {
   ): Promise<ConversationState> {
     const loaded = await conversationRepository.loadCurrent(userId, appContext);
     const state = loaded || await conversationRepository.create(userId, appContext, persistenceEnabled);
-    const durablePreferences = await conversationRepository.loadMemories(userId);
+    const effectivePersistence = loaded?.persistenceEnabled ?? persistenceEnabled;
+    const durablePreferences = effectivePersistence
+      ? await conversationRepository.loadMemories(userId)
+      : [];
     const updated = {
       ...state,
       appContext,
