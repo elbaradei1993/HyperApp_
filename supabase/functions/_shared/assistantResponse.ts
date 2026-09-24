@@ -95,6 +95,7 @@ export function parseAssistantResponse(input: {
     : input.minimumSafetyLevel;
   const safetyLevel = maxSafetyLevel(modelLevel, input.minimumSafetyLevel);
   const availableActions = new Map(input.availableActions.map((action) => [action.type, action]));
+  const seenActionTypes = new Set<ActionType>();
   const suggestedActions = Array.isArray(parsed?.suggestedActions)
     ? parsed.suggestedActions.flatMap((value) => {
       if (!value || typeof value !== 'object') return [];
@@ -103,7 +104,14 @@ export function parseAssistantResponse(input: {
       const descriptor = availableActions.get(type);
       const recentlyFinished = input.lastAssistantAction?.type === type
         && ['completed', 'failed'].includes(input.lastAssistantAction.status || '');
-      if (!ACTION_TYPES.includes(type) || type === 'NONE' || !descriptor || recentlyFinished) return [];
+      if (
+        !ACTION_TYPES.includes(type)
+        || type === 'NONE'
+        || !descriptor
+        || recentlyFinished
+        || seenActionTypes.has(type)
+      ) return [];
+      seenActionTypes.add(type);
       return [{
         type,
         label: cleanText(descriptor.label, 80),
