@@ -36,7 +36,7 @@ export function evaluateSafetyRisk(message: string): SafetyGuardResult {
   const current = isCurrentSituation(text);
   let minimumLevel: GuardSafetyLevel = 'LOW';
 
-  if (!current || deescalated) {
+  if (!current || (deescalated && !CURRENT_MARKERS.test(text))) {
     return { minimumLevel, reasons, deescalated, silentModeRecommended: false };
   }
 
