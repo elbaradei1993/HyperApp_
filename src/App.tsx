@@ -838,6 +838,24 @@ const AppContent: React.FC = () => {
             onNewReport={handleNewReport}
             onSignIn={() => setShowAuthModal(true)}
           />
+          <main className="app-public-entry">
+            <section className="app-public-entry__panel" aria-labelledby="public-entry-title">
+              <span className="app-public-entry__eyebrow">{t('public.eyebrow', 'Community safety')}</span>
+              <h1 id="public-entry-title" className="app-public-entry__title">
+                {t('public.title', 'Know the pulse around you.')}
+              </h1>
+              <p className="app-public-entry__copy">
+                {t('public.description', 'Explore live community safety signals, share local reports, and stay connected to what is happening around you.')}
+              </p>
+              <button
+                type="button"
+                className="app-public-entry__action"
+                onClick={() => setShowAuthModal(true)}
+              >
+                {t('public.signIn', 'Sign in to continue')}
+              </button>
+            </section>
+          </main>
         </div>
       )}
 
