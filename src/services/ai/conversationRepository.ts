@@ -6,6 +6,7 @@ import type {
   ConversationIntent,
   ConversationMessage,
   ConversationState,
+  ConversationSummary,
   HyperAppContext,
   UnresolvedTopic,
   UserFact,
@@ -43,6 +44,8 @@ interface StateMetadata {
   lastQuestionsAsked: string[];
   lastActionsSuggested: AssistantActionType[];
   lastAdviceTopics: string[];
+  title?: string;
+  preview?: string;
 }
 
 const LOCAL_PREFIX = 'hyper-ai-conversation-v3';
@@ -95,6 +98,10 @@ function stateMetadata(state: ConversationState): StateMetadata {
     lastQuestionsAsked: state.lastQuestionsAsked,
     lastActionsSuggested: state.lastActionsSuggested,
     lastAdviceTopics: state.lastAdviceTopics,
+    ...(state.title ? { title: state.title } : {}),
+    ...(state.recentMessages.find((message) => message.role === 'user')?.content
+      ? { preview: state.recentMessages.find((message) => message.role === 'user')?.content.slice(0, 120) }
+      : {}),
   };
 }
 
@@ -110,6 +117,7 @@ export class ConversationRepository {
     try {
       window.sessionStorage.setItem(localConversationKey(state.userId, state.conversationId), JSON.stringify(state));
       window.sessionStorage.setItem(localCurrentKey(state.userId), state.conversationId);
+      window.localStorage.setItem(localCurrentKey(state.userId), state.conversationId);
     } catch {
       this.persistenceWarning = true;
     }
@@ -196,40 +204,70 @@ export class ConversationRepository {
     return state;
   }
 
-  async loadCurrent(userId: string, appContext: HyperAppContext): Promise<ConversationState | null> {
+  async listConversations(userId: string, limit = 50): Promise<ConversationSummary[]> {
     try {
       const { data: conversations, error } = await supabase
         .from('ai_conversations')
-        .select('id,user_id,rolling_summary,current_safety_level,state_metadata,persistence_enabled,created_at,updated_at')
+        .select('id,user_id,rolling_summary,state_metadata,persistence_enabled,created_at,updated_at')
         .eq('user_id', userId)
         .order('updated_at', { ascending: false })
-        .limit(20);
+        .limit(Math.max(1, Math.min(limit, 100)));
       if (error) throw error;
-
-      const now = Date.now();
-      const valid = (conversations || []).find((item) => {
-        if (item.persistence_enabled) return true;
+      return (conversations || []).map((item) => {
         const metadata = item.state_metadata && typeof item.state_metadata === 'object'
           ? item.state_metadata as Record<string, unknown>
           : {};
-        const expiry = typeof metadata.ephemeralExpiresAt === 'string'
-          ? Date.parse(metadata.ephemeralExpiresAt)
-          : Number.NaN;
-        return !Number.isFinite(expiry) || expiry > now;
+        const title = typeof metadata.title === 'string' && metadata.title.trim()
+          ? metadata.title.trim().slice(0, 80)
+          : 'New conversation';
+        const preview = typeof metadata.preview === 'string' && metadata.preview.trim()
+          ? metadata.preview.trim().slice(0, 120)
+          : (item.rolling_summary || '').trim().slice(0, 120);
+        return {
+          conversationId: item.id,
+          title,
+          preview,
+          persistenceEnabled: Boolean(item.persistence_enabled),
+          createdAt: item.created_at,
+          updatedAt: item.updated_at,
+        } satisfies ConversationSummary;
       });
-      if (!valid) return this.loadLocal(userId);
+    } catch {
+      this.persistenceWarning = true;
+      return [];
+    }
+  }
 
-      const row = valid as ConversationRow;
+  async loadConversation(userId: string, conversationId: string, appContext: HyperAppContext): Promise<ConversationState | null> {
+    try {
+      const { data: conversation, error } = await supabase
+        .from('ai_conversations')
+        .select('id,user_id,rolling_summary,current_safety_level,state_metadata,persistence_enabled,created_at,updated_at')
+        .eq('id', conversationId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (error || !conversation) return null;
+
+      const now = Date.now();
+      const metadata = conversation.state_metadata && typeof conversation.state_metadata === 'object'
+        ? conversation.state_metadata as Record<string, unknown>
+        : {};
+      const expiry = typeof metadata.ephemeralExpiresAt === 'string' ? Date.parse(metadata.ephemeralExpiresAt) : Number.NaN;
+      if (!conversation.persistence_enabled && Number.isFinite(expiry) && expiry <= now) {
+        await supabase.from('ai_conversations').delete().eq('id', conversationId).eq('user_id', userId);
+        return null;
+      }
+
       const { data: messageRows, error: messagesError } = await supabase
         .from('ai_messages')
         .select('id,role,content,delivery_status,safety_level,referenced_message_id,created_at')
-        .eq('conversation_id', row.id)
+        .eq('conversation_id', conversationId)
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(200);
       if (messagesError) throw messagesError;
 
-      const metadata = parseMetadata(row.state_metadata);
+      const parsedMetadata = parseMetadata(conversation.state_metadata);
       const messages = [...(messageRows || [])].reverse().map((message) => {
         const item = message as MessageRow;
         return {
@@ -242,25 +280,36 @@ export class ConversationRepository {
           referencedMessageId: item.referenced_message_id || undefined,
         } satisfies ConversationMessage;
       });
-
       const state: ConversationState = {
-        conversationId: row.id,
+        conversationId: conversation.id,
         userId,
+        title: typeof metadata.title === 'string' && metadata.title.trim() ? metadata.title.trim() : undefined,
         recentMessages: messages,
-        rollingSummary: row.rolling_summary || undefined,
-        ...metadata,
-        currentSafetyState: row.current_safety_level,
+        rollingSummary: conversation.rolling_summary || undefined,
+        ...parsedMetadata,
+        currentSafetyState: conversation.current_safety_level,
         appContext,
-        persistenceEnabled: row.persistence_enabled,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
+        persistenceEnabled: Boolean(conversation.persistence_enabled),
+        createdAt: conversation.created_at,
+        updatedAt: conversation.updated_at,
       };
       this.saveLocal(state);
       return state;
     } catch {
       this.persistenceWarning = true;
-      return this.loadLocal(userId);
+      return null;
     }
+  }
+
+  async loadCurrent(userId: string, appContext: HyperAppContext): Promise<ConversationState | null> {
+    const list = await this.listConversations(userId, 50);
+    if (!list.length) return this.loadLocal(userId);
+    let preferredId: string | null = null;
+    if (typeof window !== 'undefined') {
+      preferredId = window.localStorage.getItem(localCurrentKey(userId)) || window.sessionStorage.getItem(localCurrentKey(userId));
+    }
+    const selected = list.find((item) => item.conversationId === preferredId) || list[0];
+    return this.loadConversation(userId, selected.conversationId, appContext);
   }
 
   async save(state: ConversationState): Promise<boolean> {
@@ -359,6 +408,9 @@ export class ConversationRepository {
         if (window.sessionStorage.getItem(localCurrentKey(userId)) === conversationId) {
           window.sessionStorage.removeItem(localCurrentKey(userId));
         }
+        if (window.localStorage.getItem(localCurrentKey(userId)) === conversationId) {
+          window.localStorage.removeItem(localCurrentKey(userId));
+        }
       }
       return true;
     } catch {
@@ -375,18 +427,24 @@ export class ConversationRepository {
         .eq('user_id', userId);
       if (conversationError) throw conversationError;
 
-      const { error: memoryError } = await supabase
-        .from('ai_user_memories')
-        .delete()
-        .eq('user_id', userId);
-      if (memoryError) throw memoryError;
-
       if (typeof window !== 'undefined') {
         const keys = Array.from({ length: window.sessionStorage.length }, (_, index) => (
           window.sessionStorage.key(index)
         )).filter((key): key is string => Boolean(key?.startsWith(`${LOCAL_PREFIX}:`) && key.includes(userId)));
         keys.forEach((key) => window.sessionStorage.removeItem(key));
       }
+      return true;
+    } catch {
+      this.persistenceWarning = true;
+      return false;
+    }
+  }
+
+  async clearMemories(userId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase.from('ai_user_memories').delete().eq('user_id', userId).eq('source', 'user_explicit');
+      if (error) throw error;
+      this.persistenceWarning = false;
       return true;
     } catch {
       this.persistenceWarning = true;
