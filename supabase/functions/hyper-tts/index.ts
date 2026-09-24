@@ -210,7 +210,7 @@ Deno.serve(async (req) => {
     const response = await requestHostedVoice(accountId, apiToken, text, language);
 
     if (!response.ok) {
-      console.error('Cloudflare MeloTTS request failed', { status: response.status });
+      console.error('Cloudflare hosted TTS request failed', { status: response.status });
       if (response.status === 429) {
         return json({ error: 'The free hosted voice allowance is temporarily exhausted.' }, 503);
       }
@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
 
     const hostedAudio = await extractCloudflareAudio(response);
     if (!hostedAudio) {
-      console.error('Cloudflare MeloTTS returned invalid audio');
+      console.error('Cloudflare hosted TTS returned invalid audio');
       return json({ error: 'The hosted voice returned an invalid response.' }, 502);
     }
 
