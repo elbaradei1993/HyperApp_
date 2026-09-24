@@ -730,7 +730,7 @@ input[type='search']::-webkit-search-results-decoration {
 
 .notification-panel {
   position: fixed;
-  z-index: var(--app-z-popover);
+  z-index: calc(var(--app-z-map-control) + 100);
   display: flex;
   flex-direction: column;
   overflow: hidden;
