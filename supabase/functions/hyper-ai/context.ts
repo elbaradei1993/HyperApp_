@@ -199,14 +199,16 @@ export async function loadServerConversation(
     created_at: string;
   }>;
 
-  const { data: memories } = await supabase
-    .from('ai_user_memories')
-    .select('memory_key,memory_value,source')
-    .eq('user_id', userId)
-    .order('updated_at', { ascending: false })
-    .limit(20);
+  const memoriesResult = conversation.persistence_enabled
+    ? await supabase
+      .from('ai_user_memories')
+      .select('memory_key,memory_value,source')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(20)
+    : { data: [] };
 
-  const durablePreferences = (memories || []).flatMap((row) => {
+  const durablePreferences = (memoriesResult.data || []).flatMap((row) => {
     const source = String(row.source);
     if (!['user_explicit', 'profile', 'app_setting'].includes(source)) return [];
     const key = clean(row.memory_key, 80);
