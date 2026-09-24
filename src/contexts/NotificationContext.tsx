@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
 interface NotificationItem {
   id: string;
@@ -33,6 +33,15 @@ interface NotificationProviderProps {
 
 export const NotificationProvider: React.FC<NotificationProviderProps> = ({ children }) => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+
+  useEffect(() => {
+    const handlePush = (event: Event) => {
+      const detail = (event as CustomEvent).detail as Omit<NotificationItem, 'id' | 'timestamp' | 'read'> | undefined;
+      if (detail?.title) addNotification(detail);
+    };
+    window.addEventListener('hyperapp:push-notification', handlePush);
+    return () => window.removeEventListener('hyperapp:push-notification', handlePush);
+  }, []);
 
   // Calculate unread count
   const unreadCount = notifications.filter(n => !n.read).length;
