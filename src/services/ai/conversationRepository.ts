@@ -84,6 +84,8 @@ function parseMetadata(value: Record<string, unknown> | null): StateMetadata {
     lastAdviceTopics: Array.isArray(metadata.lastAdviceTopics)
       ? metadata.lastAdviceTopics.filter((item): item is string => typeof item === 'string').slice(-8)
       : [],
+    title: typeof metadata.title === 'string' && metadata.title.trim() ? metadata.title.trim().slice(0, 80) : undefined,
+    preview: typeof metadata.preview === 'string' && metadata.preview.trim() ? metadata.preview.trim().slice(0, 120) : undefined,
   };
 }
 
@@ -126,7 +128,7 @@ export class ConversationRepository {
   private loadLocal(userId: string): ConversationState | null {
     if (typeof window === 'undefined') return null;
     try {
-      const conversationId = window.sessionStorage.getItem(localCurrentKey(userId));
+      const conversationId = window.localStorage.getItem(localCurrentKey(userId)) || window.sessionStorage.getItem(localCurrentKey(userId));
       if (!conversationId) return null;
       const raw = window.sessionStorage.getItem(localConversationKey(userId, conversationId));
       if (!raw) return null;
