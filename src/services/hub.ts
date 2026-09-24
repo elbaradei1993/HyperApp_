@@ -1332,21 +1332,18 @@ class HubService {
     },
   ): Promise<boolean> {
     try {
-      // Skip location validation for testing purposes
-      // TODO: Re-enable location validation for production
-      /*
       if (venueData.userLocation) {
         const distance = this.calculateDistance(
           venueData.userLocation.latitude,
           venueData.userLocation.longitude,
           venueData.latitude,
-          venueData.longitude
+          venueData.longitude,
         );
-        if (distance > 2.0) { // 2km radius for testing
+        if (distance > 2) {
           throw new Error('You must be within 2 kilometers of the venue to verify it');
         }
       }
-      */
+
 
       // Calculate overall safety score from criteria
       const criteria = venueData.verificationCriteria;
