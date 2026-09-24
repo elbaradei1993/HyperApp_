@@ -100,13 +100,11 @@ class EventService {
     try {
       // Validate parameters before sending
       if (typeof latitude !== 'number' || typeof longitude !== 'number' || typeof radius !== 'number') {
-        console.error('🎫 Invalid parameter types:', { latitude: typeof latitude, longitude: typeof longitude, radius: typeof radius });
-        return this.generateMockEvents(latitude, longitude, radius);
+        return [];
       }
 
       if (isNaN(latitude) || isNaN(longitude) || isNaN(radius)) {
-        console.error('🎫 Parameters contain NaN:', { latitude, longitude, radius });
-        return this.generateMockEvents(latitude, longitude, radius);
+        return [];
       }
 
       // Call Supabase Edge Function to fetch Ticketmaster events (solves CORS issues)
@@ -129,9 +127,7 @@ class EventService {
       });
 
       if (!response.ok) {
-        console.error(`Supabase Edge Function error: ${response.status} ${response.statusText}`);
-        // If Edge Function fails, fall back to mock events
-        return this.generateMockEvents(latitude, longitude, radius);
+        return [];
       }
 
       const data = await response.json();
@@ -149,8 +145,7 @@ class EventService {
       });
     } catch (error) {
       console.error('Error calling Supabase Edge Function:', error);
-      // Fallback to mock events
-      return this.generateMockEvents(latitude, longitude, radius);
+      return [];
     }
   }
 
