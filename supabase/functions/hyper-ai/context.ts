@@ -104,13 +104,16 @@ async function reverseGeocodeArea(latitude: number, longitude: number): Promise<
     if (!response.ok) throw new Error(`Reverse geocoding failed: ${response.status}`);
     const data = await response.json() as { address?: Record<string, unknown> };
     const address = data.address || {};
-    const label = [
+    const parts = [
       address.neighbourhood,
       address.suburb,
       address.city || address.town || address.village || address.municipality,
       address.state,
-    ].find((value) => typeof value === 'string' && value.trim()) as string | undefined;
-    const cleanLabel = label ? clean(label, 120) : null;
+    ]
+      .filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))
+      .map((value) => clean(value, 80));
+    const uniqueParts = Array.from(new Set(parts)).slice(0, 3);
+    const cleanLabel = uniqueParts.length ? clean(uniqueParts.join(', '), 160) : null;
     reverseGeocodeCache = { key, label: cleanLabel, expiresAt: Date.now() + 10 * 60 * 1000 };
     return cleanLabel;
   } catch {
