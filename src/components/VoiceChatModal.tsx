@@ -264,15 +264,10 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
         guardianCount: guardians.length,
         availableAppActions: runtime.availableActions,
       });
-      const [state, summaries, memories] = await Promise.all([
-        conversationEngine.initialize(user.id, initialContext, runtime.preferences, true),
-        conversationEngine.listConversations(user.id, 50),
-        conversationEngine.loadMemories(user.id),
-      ]);
+      const state = await conversationEngine.initialize(user.id, initialContext, runtime.preferences, true);
       if (active) {
         updateConversation(state);
-        setConversationSummaries(summaries);
-        setHyperMemories(memories.filter((memory) => memory.source === 'user_explicit'));
+        void refreshChatSidebar(user.id).catch(() => undefined);
       }
     };
 
@@ -287,7 +282,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       fallbackCleanupRef.current?.();
       ttsService.stop();
     };
-  }, [isOpen, updateConversation, user?.id]);
+  }, [isOpen, refreshChatSidebar, updateConversation, user?.id]);
 
   useEffect(() => {
     if (!isOpen) {
