@@ -161,7 +161,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ embedded = false }) => {
           await pushNotificationService.initialize(user.id);
           permissionGranted = await pushNotificationService.isEnabled();
         } else if (!Capacitor.isNativePlatform()) {
-          addNotification({ type: 'info', title: 'Device notifications', message: 'Push notifications are available in the installed HyperApp app.', duration: 4000 });
+          addNotification({
+            type: 'info',
+            title: t('settings.deviceNotificationsTitle', 'Device notifications'),
+            message: t('settings.deviceNotificationsMessage', 'Push notifications are available in the installed HyperApp app.'),
+            duration: 4000,
+          });
           permissionGranted = false;
         } else if (!permissionGranted && 'Notification' in window) {
           const permission = await Notification.requestPermission();
