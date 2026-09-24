@@ -80,7 +80,7 @@ type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 type VoiceState = 'idle' | 'recording' | 'transcribing' | 'processing' | 'speaking' | 'error';
 
 const StatusAnimation: React.FC<{ state: VoiceState }> = ({ state }) => {
-  if (state === 'processing') return <LoadingSpinner size="sm" />;
+  if (state === 'processing' || state === 'transcribing') return <LoadingSpinner size="sm" />;
   if (state === 'recording') return <Mic size={27} color={AI_SECONDARY} />;
   if (state === 'speaking') return <Volume2 size={27} color={AI_SECONDARY} />;
   if (state === 'error') return <AlertTriangle size={27} color="#ef4444" />;
@@ -162,6 +162,8 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
   const locale = i18n.language || user?.language || 'en';
   const messages = conversation?.recentMessages || [];
   const isProcessing = voiceState === 'processing';
+  const isTranscribing = voiceState === 'transcribing';
+  const isBusy = isProcessing || isTranscribing;
   const isSpeaking = voiceState === 'speaking';
   const availableActions = useMemo(() => DEFAULT_ASSISTANT_ACTIONS.filter((action) => (
     !(action.type === 'SHARE_LOCATION' && settings.locationSharing)
@@ -741,6 +743,29 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     }
   };
 
+  const interruptAndListen = () => {
+    if (!isSpeaking) return;
+    ttsService.stop();
+    transitionVoiceState('idle');
+    handsFreeRef.current = true;
+    setIsHandsFreeMode(true);
+    const recognition = recognitionRef.current;
+    if (!recognition) {
+      void startFallbackHandsFree();
+      return;
+    }
+
+    ttsService.prepareForListening();
+    listeningRef.current = true;
+    transitionVoiceState('recording');
+    try {
+      recognition.start();
+    } catch {
+      listeningRef.current = false;
+      scheduleListeningRestart(100);
+    }
+  };
+
   const stopHandsFree = () => {
     handsFreeRef.current = false;
     setIsHandsFreeMode(false);
@@ -876,7 +901,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       <section
         className="ai-assistant-shell"
         aria-labelledby="ai-assistant-title"
-        aria-busy={isProcessing}
+        aria-busy={isBusy}
         dir={i18n.dir()}
       >
         <button className="ai-assistant-close" type="button" onClick={onClose} aria-label="Close Hyper AI">
@@ -1009,18 +1034,24 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
               onChange={(event) => setDraft(event.target.value)}
               placeholder="Message Hyper AI…"
               aria-label="Message Hyper AI"
-              disabled={isProcessing || isLoadingConversation}
+              disabled={isBusy || isLoadingConversation}
               maxLength={1500}
             />
-            <button type="submit" disabled={!draft.trim() || isProcessing || isLoadingConversation} aria-label="Send message">
+            <button type="submit" disabled={!draft.trim() || isBusy || isLoadingConversation} aria-label="Send message">
               {isProcessing ? <LoadingSpinner size="sm" /> : <Send size={17} />}
             </button>
           </form>
 
           <div className="ai-assistant-controls">
-            <button type="button" className={isHandsFreeMode ? 'ai-voice-control is-recording' : 'ai-voice-control'} onClick={isHandsFreeMode ? stopHandsFree : startHandsFree}>
-              {isHandsFreeMode ? <MicOff size={17} /> : <Mic size={17} />}
-              <span>{isHandsFreeMode ? 'End conversation' : 'Start conversation'}</span>
+            <button
+              type="button"
+              className={isHandsFreeMode ? 'ai-voice-control is-recording' : 'ai-voice-control'}
+              onClick={isSpeaking ? interruptAndListen : isHandsFreeMode ? stopHandsFree : startHandsFree}
+              disabled={isTranscribing}
+              aria-label={isSpeaking ? 'Interrupt Hyper AI and speak' : isHandsFreeMode ? 'End conversation' : 'Start conversation'}
+            >
+              {isSpeaking ? <Mic size={17} /> : isHandsFreeMode ? <MicOff size={17} /> : <Mic size={17} />}
+              <span>{isSpeaking ? 'Interrupt & speak' : isHandsFreeMode ? 'End conversation' : 'Start conversation'}</span>
             </button>
             <button type="button" className="ai-audio-toggle" onClick={() => { setIsTTSEnabled((enabled) => !enabled); ttsService.stop(); }} aria-label={`${isTTSEnabled ? 'Disable' : 'Enable'} voice responses`}>
               {isTTSEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
