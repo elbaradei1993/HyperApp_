@@ -336,6 +336,15 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setError('');
+    try {
+      await signInWithGoogle();
+    } catch (error: any) {
+      setError(error?.message || t('auth.loginFailed'));
+    }
+  };
+
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -548,6 +557,17 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     required
                   />
                 </Box>
+
+                <Button
+                  w="full"
+                  variant="outline"
+                  onClick={handleGoogleLogin}
+                  borderRadius="12px"
+                  borderColor="gray.200"
+                  disabled={isLoading}
+                >
+                  Continue with Google
+                </Button>
 
                 <Button
                   variant="ghost"
