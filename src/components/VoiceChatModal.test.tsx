@@ -15,6 +15,11 @@ const mocks = vi.hoisted(() => ({
   setPersistence: vi.fn(),
   deleteConversation: vi.fn(),
   clearHistory: vi.fn(),
+  listConversations: vi.fn(),
+  openConversation: vi.fn(),
+  loadMemories: vi.fn(),
+  removeMemory: vi.fn(),
+  clearMemories: vi.fn(),
   recordActionOutcome: vi.fn(),
   updateSettings: vi.fn(),
   prepare: vi.fn(() => Promise.resolve()),
@@ -132,6 +137,36 @@ describe('VoiceChatModal', () => {
     mocks.setPersistence.mockResolvedValue(initial);
     mocks.deleteConversation.mockResolvedValue(true);
     mocks.clearHistory.mockResolvedValue(true);
+    mocks.listConversations.mockResolvedValue([{
+      conversationId: 'conversation-a',
+      title: 'He is still there.',
+      preview: 'He is still there.',
+      persistenceEnabled: true,
+      createdAt: '2026-08-05T00:00:00Z',
+      updatedAt: '2026-08-05T00:00:02Z',
+    }, {
+      conversationId: 'conversation-b',
+      title: 'Getting home safely',
+      preview: 'Which route should I take?',
+      persistenceEnabled: true,
+      createdAt: '2026-08-04T00:00:00Z',
+      updatedAt: '2026-08-04T00:00:02Z',
+    }]);
+    mocks.openConversation.mockResolvedValue(state([{
+      id: 'b-user',
+      role: 'user',
+      content: 'Which route should I take?',
+      timestamp: '2026-08-04T00:00:01Z',
+      deliveryStatus: 'sent',
+    }]));
+    mocks.loadMemories.mockResolvedValue([{
+      key: 'response_detail',
+      value: 'Keep replies concise.',
+      source: 'user_explicit',
+      updatedAt: '2026-08-05T00:00:00Z',
+    }]);
+    mocks.removeMemory.mockResolvedValue(true);
+    mocks.clearMemories.mockResolvedValue(true);
     mocks.updateSettings.mockResolvedValue(undefined);
   });
 
@@ -200,7 +235,29 @@ describe('VoiceChatModal', () => {
     ));
   });
 
-  it('shows stale location context and preserves the direct sound test', async () => {
+  it('shows separate previous chats and opens a selected thread', async () => {
+    render(<VoiceChatModal {...defaultProps} />);
+    expect(await screen.findByRole('button', { name: /He is still there\./ })).toBeVisible();
+    const otherChat = screen.getByRole('button', { name: /Getting home safely/ });
+    fireEvent.click(otherChat);
+    await waitFor(() => expect(mocks.openConversation).toHaveBeenCalledWith(
+      'user-a',
+      'conversation-b',
+      expect.any(Object),
+      expect.any(Array),
+    ));
+    expect(screen.getByText('Which route should I take?')).toBeInTheDocument();
+  });
+
+  it('keeps Hyper memory separate from chat history and allows deleting a memory', async () => {
+    render(<VoiceChatModal {...defaultProps} />);
+    expect(await screen.findByText('Keep replies concise.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove memory response_detail' }));
+    await waitFor(() => expect(mocks.removeMemory).toHaveBeenCalledWith('user-a', 'response_detail'));
+    expect(screen.queryByText('Keep replies concise.')).not.toBeInTheDocument();
+  });
+
+    it('shows stale location context and preserves the direct sound test', async () => {
     render(
       <VoiceChatModal
         {...defaultProps}
