@@ -134,8 +134,18 @@ export interface HyperAppContext {
   availableAppActions: AppActionDescriptor[];
 }
 
+export interface ConversationSummary {
+  conversationId: string;
+  title: string;
+  preview: string;
+  persistenceEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ConversationState {
   conversationId: string;
+  title?: string;
   userId?: string;
   recentMessages: ConversationMessage[];
   rollingSummary?: string;
