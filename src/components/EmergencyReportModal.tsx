@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 
 import { VibeType } from '../types';
+import { useNotification } from '../contexts/NotificationContext';
 import { reportsService } from '../services/reports';
 import { reverseGeocode, formatCoordinates } from '../lib/geocoding';
 import { SupabaseStorageService } from '../services/upload';
@@ -43,6 +44,7 @@ const EmergencyReportModal: React.FC<EmergencyReportModalProps> = ({
   onSuccess,
 }) => {
   const { t } = useTranslation();
+  const { addNotification } = useNotification();
   const [selectedEmergency, setSelectedEmergency] = useState<string | null>(null);
   const [urgency, setUrgency] = useState<'high' | 'medium' | 'low'>('medium');
   const [description, setDescription] = useState('');
@@ -230,7 +232,7 @@ const EmergencyReportModal: React.FC<EmergencyReportModalProps> = ({
       }, 2500);
     } catch (error) {
       console.error('Error creating emergency report:', error);
-      // TODO: Show error notification
+      addNotification({ type: 'error', title: 'Emergency report failed', message: error instanceof Error ? error.message : 'The emergency report could not be submitted.', duration: 5000 });
       setIsSubmitting(false);
     }
   };
