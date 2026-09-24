@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabase';
 
-import type { AssistantResponse, ConversationState, ContextWindow, HyperAppContext } from './types';
+import type { AssistantResponse } from './types';
 
 interface AssistantFunctionResponse {
   response?: AssistantResponse;
