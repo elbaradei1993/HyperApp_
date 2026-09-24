@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
 
 import { parseAssistantResponse } from '../_shared/assistantResponse.ts';
 import { evaluateSafetyRisk, maxSafetyLevel, type GuardSafetyLevel } from '../_shared/safetyGuard.ts';
+import { buildServerAppContext, loadServerConversation, type DeviceLocationHint } from './context.ts';
 import { AiProviderError, generateWithConfiguredProvider } from './aiClient.ts';
 import {
   buildTurnPrompt,
@@ -36,150 +37,7 @@ function json(body: Record<string, unknown>, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
 }
 
-function cleanText(value: unknown, maximum: number): string {
-  return typeof value === 'string'
-    ? value.replace(/<[^>]*>/g, ' ').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, maximum)
-    : '';
-}
-
-function safeArray(value: unknown, maximum: number): unknown[] {
-  return Array.isArray(value) ? value.slice(0, maximum) : [];
-}
-
-function sanitizeMessages(value: unknown): Array<{ role: 'user' | 'assistant'; content: string }> {
-  return safeArray(value, MAX_RECENT_MESSAGES).flatMap((message) => {
-    if (!message || typeof message !== 'object') return [];
-    const item = message as Record<string, unknown>;
-    const role = item.role === 'assistant' ? 'assistant' as const : item.role === 'user' ? 'user' as const : null;
-    const content = cleanText(item.content, MAX_MESSAGE_LENGTH);
-    return role && content ? [{ role, content }] : [];
-  });
-}
-
-function sanitizeActions(value: unknown): Array<{
-  type: string;
-  label: string;
-  requiresConfirmation: boolean;
-}> {
-  return safeArray(value, 12).flatMap((action) => {
-    if (!action || typeof action !== 'object') return [];
-    const item = action as Record<string, unknown>;
-    const type = cleanText(item.type, 40);
-    const label = cleanText(item.label, 80);
-    if (!ACTION_TYPES.has(type) || type === 'NONE' || !label) return [];
-    return [{ type, label, requiresConfirmation: item.requiresConfirmation !== false }];
-  });
-}
-
-function sanitizeAppContext(value: unknown): Record<string, unknown> {
-  const context = value && typeof value === 'object' ? value as Record<string, unknown> : {};
-  const locationValue = context.approximateLocation && typeof context.approximateLocation === 'object'
-    ? context.approximateLocation as Record<string, unknown>
-    : {};
-  const latitude = Number(locationValue.latitude);
-  const longitude = Number(locationValue.longitude);
-  const guardian = context.guardianNetwork && typeof context.guardianNetwork === 'object'
-    ? context.guardianNetwork as Record<string, unknown>
-    : {};
-  const emergency = context.activeEmergencyAction && typeof context.activeEmergencyAction === 'object'
-    ? context.activeEmergencyAction as Record<string, unknown>
-    : {};
-  const reports = safeArray(context.nearbyReports, 6).flatMap((report) => {
-    if (!report || typeof report !== 'object') return [];
-    const item = report as Record<string, unknown>;
-    return [{
-      type: cleanText(item.type, 40),
-      description: cleanText(item.description, 220),
-      distanceMeters: Math.max(0, Math.min(100_000, Number(item.distanceMeters) || 0)) || undefined,
-      reportedAt: cleanText(item.reportedAt, 40),
-      verificationStatus: cleanText(item.verificationStatus, 60) || 'unverified community report',
-    }];
-  });
-
-  return {
-    currentScreen: cleanText(context.currentScreen, 60),
-    locale: cleanText(context.locale, 20),
-    preferredLanguage: cleanText(context.preferredLanguage, 20),
-    currentTime: cleanText(context.currentTime, 40),
-    approximateLocation: {
-      latitude: Number.isFinite(latitude) && latitude >= -90 && latitude <= 90 ? latitude : undefined,
-      longitude: Number.isFinite(longitude) && longitude >= -180 && longitude <= 180 ? longitude : undefined,
-      capturedAt: cleanText(locationValue.capturedAt, 40) || undefined,
-      permissionStatus: ['granted', 'denied', 'prompt', 'unavailable'].includes(String(locationValue.permissionStatus))
-        ? locationValue.permissionStatus
-        : 'unavailable',
-      stale: Boolean(locationValue.stale),
-    },
-    guardianNetwork: {
-      configured: Boolean(guardian.configured),
-      availableGuardianCount: Math.max(0, Math.min(100, Number(guardian.availableGuardianCount) || 0)),
-      activeAlertStatus: cleanText(guardian.activeAlertStatus, 40) || undefined,
-    },
-    nearbyReports: reports,
-    activeEmergencyAction: emergency.type ? {
-      type: cleanText(emergency.type, 40),
-      status: ['not_started', 'pending', 'completed', 'failed'].includes(String(emergency.status))
-        ? emergency.status
-        : 'not_started',
-    } : undefined,
-    availableAppActions: sanitizeActions(context.availableAppActions),
-  };
-}
-
-function sanitizeState(value: unknown): Record<string, unknown> {
-  const state = value && typeof value === 'object' ? value as Record<string, unknown> : {};
-  const lastAction = state.lastAssistantAction && typeof state.lastAssistantAction === 'object'
-    ? state.lastAssistantAction as Record<string, unknown>
-    : {};
-  const facts = safeArray(state.knownFacts, 30).flatMap((fact) => {
-    if (!fact || typeof fact !== 'object') return [];
-    const item = fact as Record<string, unknown>;
-    if (item.status !== 'active') return [];
-    return [{ key: cleanText(item.key, 80), value: cleanText(item.value, 180), createdAt: cleanText(item.createdAt, 40) }];
-  });
-  const preferences = safeArray(state.userPreferences, 12).flatMap((preference) => {
-    if (!preference || typeof preference !== 'object') return [];
-    const item = preference as Record<string, unknown>;
-    if (!['user_explicit', 'profile', 'app_setting'].includes(String(item.source))) return [];
-    return [{ key: cleanText(item.key, 80), value: cleanText(item.value, 180), source: item.source }];
-  });
-  const topics = safeArray(state.unresolvedTopics, 12).flatMap((topic) => {
-    if (!topic || typeof topic !== 'object') return [];
-    const item = topic as Record<string, unknown>;
-    if (item.resolvedAt) return [];
-    return [{ type: cleanText(item.type, 40), summary: cleanText(item.summary, 220), createdAt: cleanText(item.createdAt, 40) }];
-  });
-  return {
-    activeFacts: facts,
-    durablePreferences: preferences,
-    unresolvedTopics: topics,
-    currentIntent: cleanText(state.currentIntent, 40),
-    previousIntent: cleanText(state.previousIntent, 40),
-    currentSafetyState: ['LOW', 'ELEVATED', 'HIGH', 'CRITICAL'].includes(String(state.currentSafetyState))
-      ? state.currentSafetyState
-      : 'LOW',
-    lastQuestionsAsked: safeArray(state.lastQuestionsAsked, 8).map((item) => cleanText(item, 180)).filter(Boolean),
-    lastActionsSuggested: safeArray(state.lastActionsSuggested, 8).map((item) => cleanText(item, 40)).filter(Boolean),
-    lastAdviceTopics: safeArray(state.lastAdviceTopics, 8).map((item) => cleanText(item, 80)).filter(Boolean),
-    lastAssistantAction: ACTION_TYPES.has(String(lastAction.type))
-      && ['suggested', 'pending', 'completed', 'failed'].includes(String(lastAction.status))
-      ? { type: lastAction.type, status: lastAction.status }
-      : undefined,
-  };
-}
-
-function sanitizeContextWindow(value: unknown): {
-  recentMessages: Array<{ role: 'user' | 'assistant'; content: string }>;
-  rollingSummary: string;
-} {
-  const context = value && typeof value === 'object' ? value as Record<string, unknown> : {};
-  return {
-    recentMessages: sanitizeMessages(context.recentMessages),
-    rollingSummary: cleanText(context.rollingSummary, 2500),
-  };
-}
-
-async function authenticate(req: Request): Promise<string | null> {
+async function authenticate(req: Request): Promise<{ userId: string; user: Awaited<ReturnType<ReturnType<typeof createClient>['auth']['getUser']>>['data']['user']; client: ReturnType<typeof createClient> } | null> {
   const authorization = req.headers.get('Authorization');
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
@@ -189,7 +47,8 @@ async function authenticate(req: Request): Promise<string | null> {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { data, error } = await client.auth.getUser();
-  return error ? null : data.user?.id || null;
+  const user = data.user;
+  return error || !user ? null : { userId: user.id, user, client };
 }
 
 function isRateLimited(userId: string): boolean {
@@ -229,38 +88,45 @@ Deno.serve(async (req) => {
   if (isRateLimited(userId)) return json({ error: 'Too many requests. Please wait a moment and try again.' }, 429);
 
   const body = await req.json().catch(() => null) as Record<string, unknown> | null;
-  const latestUserMessage = cleanText(body?.latestUserMessage, MAX_MESSAGE_LENGTH);
-  const conversationId = cleanText(body?.conversationId, 80);
+  const latestUserMessage = typeof body?.latestUserMessage === 'string'
+    ? body.latestUserMessage.replace(/\\s+/g, ' ').trim().slice(0, MAX_MESSAGE_LENGTH)
+    : '';
+  const conversationId = typeof body?.conversationId === 'string'
+    ? body.conversationId.trim().slice(0, 80)
+    : '';
+  const rawLocation = body?.locationHint && typeof body.locationHint === 'object'
+    ? body.locationHint as Record<string, unknown>
+    : undefined;
+  const locationHint: DeviceLocationHint | undefined = rawLocation
+    ? {
+      latitude: Number(rawLocation.latitude),
+      longitude: Number(rawLocation.longitude),
+      capturedAt: typeof rawLocation.capturedAt === 'string' ? rawLocation.capturedAt : undefined,
+    }
+    : undefined;
+
   if (!latestUserMessage || !conversationId) return json({ error: 'Please send a valid message.' }, 400);
 
-  const appContext = sanitizeAppContext(body?.appContext);
-  const contextWindow = sanitizeContextWindow(body?.contextWindow);
-  const state = sanitizeState(body?.state);
+  const conversation = await loadServerConversation(
+    auth.client,
+    auth.userId,
+    conversationId,
+  );
+  if (!conversation) return json({ error: 'This Hyper AI conversation is no longer available.' }, 404);
+
+  const appContext = await buildServerAppContext(auth.client, auth.user, locationHint);
   const guard = evaluateSafetyRisk(latestUserMessage);
-  const previousSafety = ['LOW', 'ELEVATED', 'HIGH', 'CRITICAL'].includes(String(state.currentSafetyState))
-    ? state.currentSafetyState as GuardSafetyLevel
-    : 'LOW';
   const safetyFloor = guard.deescalated && guard.minimumLevel === 'LOW'
     ? 'LOW'
-    : maxSafetyLevel(previousSafety, guard.minimumLevel);
-  const availableActions = appContext.availableAppActions as Array<{
-    type: string;
-    label: string;
-    requiresConfirmation: boolean;
-  }>;
+    : maxSafetyLevel(conversation.currentSafetyState, guard.minimumLevel);
   const turnPrompt = buildTurnPrompt({
     appContext,
-    durablePreferences: state.durablePreferences,
-    activeFacts: state.activeFacts,
-    unresolvedTopics: state.unresolvedTopics,
-    rollingSummary: contextWindow.rollingSummary,
-    recentMessages: contextWindow.recentMessages,
-    repetitionState: {
-      lastQuestionsAsked: state.lastQuestionsAsked,
-      lastActionsSuggested: state.lastActionsSuggested,
-      lastAdviceTopics: state.lastAdviceTopics,
-      lastAssistantAction: state.lastAssistantAction,
-    },
+    durablePreferences: conversation.durablePreferences,
+    activeFacts: conversation.activeFacts,
+    unresolvedTopics: conversation.unresolvedTopics,
+    rollingSummary: conversation.rollingSummary,
+    recentMessages: conversation.recentMessages,
+    repetitionState: conversation.repetitionState,
     latestUserMessage,
     deterministicSafety: { ...guard, minimumLevel: safetyFloor },
   });
@@ -281,13 +147,12 @@ Deno.serve(async (req) => {
     });
     const parsed = parseAssistantResponse({
       providerPayload: result.payload,
-      availableActions,
+      availableActions: appContext.availableAppActions as Array<{ type: string; label: string; requiresConfirmation: boolean }>,
       minimumSafetyLevel: safetyFloor,
-      recentAssistantMessages: contextWindow.recentMessages
+      recentAssistantMessages: conversation.recentMessages
         .filter((message) => message.role === 'assistant')
         .slice(-4)
         .map((message) => message.content),
-      lastAssistantAction: state.lastAssistantAction as { type?: string; status?: string } | undefined,
     });
     if (!parsed) return json({ error: 'The hosted AI returned an invalid response. Please try again.' }, 502);
     return json({ response: parsed, model: result.model, promptVersion: HYPER_ASSISTANT_PROMPT_VERSION });
