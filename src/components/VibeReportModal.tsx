@@ -402,7 +402,12 @@ const VibeReportModal: React.FC<VibeReportModalProps> = ({
       }, 2500);
     } catch (error) {
       console.error('Error creating report:', error);
-      addNotification({ type: 'error', title: 'Report failed', message: error instanceof Error ? error.message : 'The report could not be submitted.', duration: 5000 });
+      addNotification({
+        type: 'error',
+        title: t('reports.reportFailed', 'Report failed'),
+        message: error instanceof Error ? error.message : t('reports.reportSubmitFailed', 'The report could not be submitted.'),
+        duration: 5000,
+      });
       setIsSubmitting(false);
     }
   };
