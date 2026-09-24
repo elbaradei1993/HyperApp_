@@ -25,23 +25,27 @@ export async function transcribeVoiceAudio(
     throw publicError(413);
   }
 
+  const extension = audio.type.includes('mp4') ? 'm4a' : audio.type.includes('webm') ? 'webm' : 'audio';
   const formData = new FormData();
-  formData.append('audio', audio, 'hyper-voice.webm');
+  formData.append('audio', audio, `hyper-voice.${extension}`);
   formData.append('language', language.slice(0, 20));
 
   const invocation = supabase.functions.invoke<SpeechFunctionResponse>('hyper-stt', {
     body: formData,
   });
+  let timeoutId: number | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    window.setTimeout(() => reject(new Error('Voice transcription took too long. Please try again.')), TRANSCRIPTION_TIMEOUT_MS);
+    timeoutId = window.setTimeout(
+      () => reject(new Error('Voice transcription took too long. Please try again.')),
+      TRANSCRIPTION_TIMEOUT_MS,
+    );
   });
 
   try {
     const { data, error } = await Promise.race([invocation, timeout]);
     if (error) {
-      const context = error as Error & { context?: { response?: Response } };
-      const status = context.context?.response?.status || 502;
-      throw publicError(status, error.message);
+      const context = error as Error & { context?: Response };
+      throw publicError(context.context?.status || 502, error.message);
     }
     const transcript = data?.transcript?.replace(/\s+/g, ' ').trim();
     if (!transcript) {
@@ -49,7 +53,10 @@ export async function transcribeVoiceAudio(
     }
     return transcript.slice(0, 1500);
   } catch (error) {
-    if (error instanceof Error && error.message.includes('Voice transcription')) throw error;
-    throw error instanceof Error ? error : new Error('Voice transcription could not be completed. Please try again.');
+    throw error instanceof Error
+      ? error
+      : new Error('Voice transcription could not be completed. Please try again.');
+  } finally {
+    if (timeoutId !== undefined) window.clearTimeout(timeoutId);
   }
 }
