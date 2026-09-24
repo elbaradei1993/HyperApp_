@@ -8,6 +8,7 @@ import {
 } from './memoryManager';
 import type {
   ConversationState,
+  ConversationSummary,
   ConversationTurnResult,
   GenerateAssistantResponseInput,
   HyperAppContext,
@@ -77,6 +78,40 @@ export class ConversationEngine {
 
   getState(conversationId: string): ConversationState | undefined {
     return this.states.get(conversationId);
+  }
+
+  async listConversations(userId: string, limit = 50): Promise<ConversationSummary[]> {
+    return conversationRepository.listConversations(userId, limit);
+  }
+
+  async openConversation(
+    userId: string,
+    conversationId: string,
+    appContext: HyperAppContext,
+    preferences: UserPreference[] = [],
+  ): Promise<ConversationState> {
+    const state = await conversationRepository.loadConversation(userId, conversationId, appContext);
+    if (!state) throw new Error('This conversation is no longer available.');
+    const updated = {
+      ...state,
+      appContext,
+      userPreferences: mergePreferences(state.userPreferences, preferences),
+    };
+    this.states.set(updated.conversationId, updated);
+    await conversationRepository.save(updated);
+    return updated;
+  }
+
+  async loadMemories(userId: string): Promise<UserPreference[]> {
+    return conversationRepository.loadMemories(userId);
+  }
+
+  async removeMemory(userId: string, memoryKey: string): Promise<boolean> {
+    return conversationRepository.removeMemory(userId, memoryKey);
+  }
+
+  async clearMemories(userId: string): Promise<boolean> {
+    return conversationRepository.clearMemories(userId);
   }
 
   updateContext(
@@ -159,6 +194,11 @@ export class ConversationEngine {
     } else {
       userMessage = createConversationMessage('user', input.userMessage, { deliveryStatus: 'pending' });
       state = applyUserMessageToState(state, userMessage);
+    }
+
+    if (!state.title) {
+      const titleSource = userMessage.content.replace(/\s+/g, ' ').trim();
+      state.title = titleSource.length > 58 ? titleSource.slice(0, 55) + '…' : titleSource || 'New conversation';
     }
 
     state = {
