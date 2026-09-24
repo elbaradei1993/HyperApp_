@@ -2,7 +2,6 @@ import { NotificationContextType } from '../contexts/NotificationContext';
 import type { Vibe, SOS } from '../types';
 
 import { reportsService } from './reports';
-import { pushNotificationService } from './pushNotificationService';
 
 
 interface NotificationServiceOptions {
@@ -161,12 +160,6 @@ class NotificationService {
       message,
       action,
     });
-
-    // Also send push notification to nearby users (if this is an emergency or high-risk report)
-    if (notificationType === 'error' || (notificationType === 'warning' && (report as Vibe).vibe_type === 'dangerous')) {
-      pushNotificationService.sendPushToNearbyUsers(report, [report.latitude!, report.longitude!])
-        .catch(error => console.error('Failed to send push notification:', error));
-    }
 
     this.lastNotificationTime = now;
   }
