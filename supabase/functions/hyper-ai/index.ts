@@ -226,6 +226,7 @@ Deno.serve(async (req) => {
       systemPrompt: HYPER_ASSISTANT_PROMPT,
       turnPrompt,
       signal: controller.signal,
+      maxTokens: responseTokenBudget(interactionMode),
     });
     const parsed = parseAssistantResponse({
       providerPayload: result.payload,
