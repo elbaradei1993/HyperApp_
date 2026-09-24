@@ -18,6 +18,7 @@ export interface AiClientInput {
   systemPrompt: string;
   turnPrompt: string;
   signal: AbortSignal;
+  maxTokens?: number;
 }
 
 export interface AiClientResult {
@@ -51,7 +52,7 @@ export async function generateWithConfiguredProvider(input: AiClientInput): Prom
             { role: 'system', content: input.systemPrompt },
             { role: 'user', content: input.turnPrompt },
           ],
-          max_tokens: 650,
+          max_tokens: input.maxTokens ?? 650,
           temperature: 0.25,
         }),
       },
