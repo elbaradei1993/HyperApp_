@@ -77,7 +77,7 @@ interface SpeechRecognitionLike {
 }
 
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
-type VoiceState = 'idle' | 'recording' | 'processing' | 'speaking' | 'error';
+type VoiceState = 'idle' | 'recording' | 'transcribing' | 'processing' | 'speaking' | 'error';
 
 const StatusAnimation: React.FC<{ state: VoiceState }> = ({ state }) => {
   if (state === 'processing') return <LoadingSpinner size="sm" />;
@@ -568,7 +568,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
         return;
       }
 
-      transitionVoiceState('processing');
+      transitionVoiceState('transcribing');
       const language = (user?.language || locale || 'en').split('-')[0];
       void transcribeVoiceAudio(blob, language)
         .then((transcript) => {
@@ -853,6 +853,8 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
 
   const status = voiceState === 'recording'
     ? ['Listening…', 'Speak now']
+: voiceState === 'transcribing'
+    ? ['Transcribing…', 'Turning your voice into a message']
     : voiceState === 'processing'
       ? ['Thinking…', 'Using this conversation and current HyperApp context']
       : voiceState === 'speaking'
