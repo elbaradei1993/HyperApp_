@@ -249,7 +249,7 @@ describe('VoiceChatModal', () => {
 
     expect(instances).toHaveLength(1);
     expect(instances[0].start).toHaveBeenCalledTimes(1);
-    expect(mocks.unlock).toHaveBeenCalledWith(true, 'play-and-record');
+    expect(mocks.unlock).toHaveBeenCalledWith(false, 'play-and-record');
     expect(screen.getByRole('button', { name: 'End conversation' })).toBeVisible();
 
     delete (window as typeof window & { SpeechRecognition?: unknown }).SpeechRecognition;
