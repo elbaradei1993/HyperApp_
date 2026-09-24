@@ -133,6 +133,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
   const mediaSilenceStartedAtRef = useRef<number | null>(null);
   const mediaCancelledRef = useRef(false);
   const fallbackStarterRef = useRef<(() => void) | null>(null);
+  const fallbackCleanupRef = useRef<(() => void) | null>(null);
   const conversationRef = useRef<ConversationState | null>(null);
   const conversationListRef = useRef<HTMLDivElement | null>(null);
   const isNearBottomRef = useRef(true);
@@ -259,10 +260,10 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       generationControllerRef.current?.abort();
       if (restartTimerRef.current !== null) window.clearTimeout(restartTimerRef.current);
       recognitionRef.current?.abort();
-      cancelFallbackRecording();
+      fallbackCleanupRef.current?.();
       ttsService.stop();
     };
-  }, [cancelFallbackRecording, isOpen, updateConversation, user?.id]);
+  }, [isOpen, updateConversation, user?.id]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -646,8 +647,6 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     mediaMonitorFrameRef.current = window.requestAnimationFrame(monitor);
   }, [locale, processMessage, scheduleListeningRestart, transitionVoiceState, user?.language]);
 
-  fallbackStarterRef.current = () => { void startFallbackHandsFree(); };
-
   const cancelFallbackRecording = useCallback(() => {
     mediaCancelledRef.current = true;
     listeningRef.current = false;
@@ -678,6 +677,9 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       mediaChunksRef.current = [];
     }
   }, []);
+
+  fallbackStarterRef.current = () => { void startFallbackHandsFree(); };
+  fallbackCleanupRef.current = cancelFallbackRecording;
 
   useEffect(() => {
     if (!isOpen) return undefined;
