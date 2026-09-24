@@ -461,7 +461,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ embedded = false }) => {
                     <Text fontSize="12px" color={notificationPermissionStatus === 'denied' ? 'red.600' : 'gray.500'} lineHeight="1.4">
                       {notificationPermissionStatus === 'denied'
                         ? t('settings.notificationsPermissionDenied')
-                        : t('settings.notificationsDescription', 'Choose whether HyperApp can send you updates.')}
+                        : Capacitor.isNativePlatform()
+                          ? t('settings.notificationsDescription', 'Choose whether HyperApp can send you updates.')
+                          : t('settings.deviceNotificationsMessage', 'Push notifications are available in the installed HyperApp app.')}
                     </Text>
                   </Box>
                 </HStack>
