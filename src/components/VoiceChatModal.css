@@ -738,6 +738,7 @@
 
 .ai-chat-sidebar__header,
 .ai-memory-panel__header {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -766,6 +767,7 @@
 }
 
 .ai-chat-sidebar__new {
+  flex: 0 0 auto;
   min-height: 36px;
   display: flex;
   align-items: center;
@@ -782,6 +784,7 @@
 }
 
 .ai-chat-sidebar__list {
+  flex: 1 1 auto;
   display: grid;
   min-height: 0;
   gap: 5px;
