@@ -1,4 +1,4 @@
-import { requestAssistantResponse } from './aiClient';
+import { requestAssistantResponse, type DeviceLocationHint } from './aiClient';
 import { selectContextWindow, updateRollingSummary } from './contextBudget';
 import { conversationRepository } from './conversationRepository';
 import {
@@ -176,26 +176,20 @@ export class ConversationEngine {
       if (signal.aborted) {
         throw new DOMException('Request cancelled.', 'AbortError');
       }
+      const approximateLocation = input.appContext.approximateLocation;
+      const locationHint: DeviceLocationHint | undefined = approximateLocation?.latitude !== undefined
+        && approximateLocation.longitude !== undefined
+        ? {
+          latitude: approximateLocation.latitude,
+          longitude: approximateLocation.longitude,
+          capturedAt: approximateLocation.capturedAt,
+        }
+        : undefined;
+
       const response = await requestAssistantResponse({
         conversationId: state.conversationId,
         latestUserMessage: input.userMessage,
-        contextWindow: {
-          ...window,
-          rollingSummary: state.rollingSummary,
-        },
-        state: {
-          knownFacts: state.knownFacts,
-          userPreferences: state.userPreferences,
-          unresolvedTopics: state.unresolvedTopics,
-          currentIntent: state.currentIntent,
-          previousIntent: state.previousIntent,
-          currentSafetyState: state.currentSafetyState,
-          lastAssistantAction: state.lastAssistantAction,
-          lastQuestionsAsked: state.lastQuestionsAsked,
-          lastActionsSuggested: state.lastActionsSuggested,
-          lastAdviceTopics: state.lastAdviceTopics,
-        },
-        appContext: input.appContext,
+        locationHint,
       }, signal);
 
       const assistantMessage = createConversationMessage('assistant', response.message, {
