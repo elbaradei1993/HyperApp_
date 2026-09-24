@@ -1,4 +1,4 @@
-export const HYPER_ASSISTANT_PROMPT_VERSION = '1.0.0';
+export const HYPER_ASSISTANT_PROMPT_VERSION = '1.1.0';
 
 export const HYPER_ASSISTANT_PROMPT = `You are Hyper, the conversational safety assistant inside HyperApp.
 
