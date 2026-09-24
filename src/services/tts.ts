@@ -182,14 +182,17 @@ export class TTSService {
     return audio;
   }
 
-  async unlock(playConfirmationTone = false): Promise<void> {
+  async unlock(
+    playConfirmationTone = false,
+    preferredSession: WebAudioSessionType = 'playback',
+  ): Promise<void> {
     this.speechSynthesis?.resume();
     void this.speechSynthesis?.getVoices();
 
-    // Safari defaults Web Audio to an ambient session, which is inaudible
-    // when an iPhone's silent switch is on. A playback session uses the media
-    // speaker route and survives the async AI/TTS request that follows.
-    this.prepareForPlayback();
+    // Keep the requested audio route throughout the unlock operation. Hands-free
+    // mode uses play-and-record so the microphone is not disrupted by the
+    // audio unlock that runs alongside speech recognition.
+    this.setAudioSessionType(preferredSession);
 
     // iOS does not reliably preserve an HTMLMediaElement autoplay grant across
     // the async AI/TTS round trip. Resume Web Audio during the direct tap and
