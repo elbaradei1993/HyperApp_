@@ -216,6 +216,45 @@ describe('VoiceChatModal', () => {
     ));
   });
 
+  it('starts speech recognition directly from the Start conversation tap', async () => {
+    const instances: Array<{
+      start: ReturnType<typeof vi.fn>;
+      abort: ReturnType<typeof vi.fn>;
+      onresult: ((event: { results: ArrayLike<{ 0: { transcript: string } }> }) => void) | null;
+      onerror: ((event: { error: string }) => void) | null;
+      onend: (() => void) | null;
+    }> = [];
+
+    class FakeSpeechRecognition {
+      continuous = false;
+      interimResults = false;
+      lang = '';
+      onresult = null;
+      onerror = null;
+      onend = null;
+      start = vi.fn();
+      abort = vi.fn();
+      constructor() {
+        instances.push(this);
+      }
+    }
+
+    Object.defineProperty(window, 'SpeechRecognition', {
+      configurable: true,
+      value: FakeSpeechRecognition,
+    });
+
+    render(<VoiceChatModal {...defaultProps} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Start conversation' }));
+
+    expect(instances).toHaveLength(1);
+    expect(instances[0].start).toHaveBeenCalledTimes(1);
+    expect(mocks.unlock).toHaveBeenCalledWith(true, 'play-and-record');
+    expect(screen.getByRole('button', { name: 'End conversation' })).toBeVisible();
+
+    delete (window as typeof window & { SpeechRecognition?: unknown }).SpeechRecognition;
+  });
+
   it('renders only validated actions returned by the engine and invokes navigation', async () => {
     const turn = result();
     turn.response.suggestedActions = [{
