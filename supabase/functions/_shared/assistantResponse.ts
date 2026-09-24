@@ -64,6 +64,13 @@ function normalizeSentence(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
+function limitCasualResponse(message: string, mode: InteractionMode): string {
+  if (mode === 'normal' || mode === 'safety_or_task') return message;
+  const sentences = message.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const limit = mode === 'greeting' || mode === 'acknowledgement' ? 1 : 2;
+  return sentences.slice(0, limit).join(' ').trim() || message;
+}
+
 function reduceRepetition(message: string, recentAssistantMessages: string[], safetyLevel: GuardSafetyLevel): string {
   if (safetyLevel === 'CRITICAL') return message;
   const priorSentences = new Set(recentAssistantMessages.flatMap((prior) => (
@@ -82,6 +89,7 @@ export function parseAssistantResponse(input: {
   minimumSafetyLevel: GuardSafetyLevel;
   recentAssistantMessages: string[];
   lastAssistantAction?: { type?: string; status?: string };
+  interactionMode?: InteractionMode;
 }): ParsedAssistantResponse | null {
   const rawText = extractCloudflareText(input.providerPayload);
   if (!rawText) return null;
