@@ -257,9 +257,10 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       generationControllerRef.current?.abort();
       if (restartTimerRef.current !== null) window.clearTimeout(restartTimerRef.current);
       recognitionRef.current?.abort();
+      cancelFallbackRecording();
       ttsService.stop();
     };
-  }, [isOpen, updateConversation, user?.id]);
+  }, [cancelFallbackRecording, isOpen, updateConversation, user?.id]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -694,7 +695,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       document.removeEventListener('visibilitychange', pause);
       window.removeEventListener('pageshow', resume);
     };
-  }, [isOpen, transitionVoiceState]);
+  }, [cancelFallbackRecording, isOpen, transitionVoiceState]);
 
   const submitDraft = () => {
     if (!draft.trim() || isProcessing) return;
