@@ -14,18 +14,12 @@ import type { AssistantProviderRequest } from './aiClient';
 const request: AssistantProviderRequest = {
   conversationId: 'conversation-a',
   latestUserMessage: 'Hello',
-  contextWindow: { recentMessages: [], omittedMessages: [], characterCount: 0 },
-  state: {
-    knownFacts: [],
-    userPreferences: [],
-    unresolvedTopics: [],
-    currentSafetyState: 'LOW',
-    lastQuestionsAsked: [],
-    lastActionsSuggested: [],
-    lastAdviceTopics: [],
+  locationHint: {
+    latitude: 49.1906,
+    longitude: -122.8272,
+    capturedAt: '2026-09-24T07:00:00.000Z',
   },
-  appContext: { availableAppActions: [] },
-};
+}
 
 describe('browser AI client failure handling', () => {
   beforeEach(() => {
