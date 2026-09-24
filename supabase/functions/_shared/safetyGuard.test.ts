@@ -22,6 +22,12 @@ describe('deterministic safety guard', () => {
     expect(evaluateSafetyRisk(text).minimumLevel).toBe('LOW');
   });
 
+  it('does not de-escalate when an active threat is still present', () => {
+    const result = evaluateSafetyRisk('I am safe now, but they are still outside and following me.');
+    expect(result.minimumLevel).toBe('ELEVATED');
+    expect(result.deescalated).toBe(true);
+  });
+
   it('de-escalates a resolved situation', () => {
     expect(evaluateSafetyRisk('I reached a safe place and the person left.')).toMatchObject({
       minimumLevel: 'LOW',
