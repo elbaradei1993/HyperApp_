@@ -245,9 +245,8 @@ const AppContent: React.FC = () => {
             } else if (isAuthenticated && user?.id && !settings?.locationSharing) {
               // If location sharing is disabled, remove user's location from database
               try {
-                console.log('📍 Location sharing disabled - not saving location to database');
-                // Note: We could add a delete method to userLocationService, but for now we'll just skip saving
-                // This means old locations might persist until they expire naturally
+                console.log('📍 Location sharing disabled - removing stored location');
+                await userLocationService.deleteUserLocation(user.id);
               } catch (error) {
                 console.error('❌ Failed to remove location from database:', error as any);
               }
