@@ -240,7 +240,9 @@ Deno.serve(async (req) => {
   const previousSafety = ['LOW', 'ELEVATED', 'HIGH', 'CRITICAL'].includes(String(state.currentSafetyState))
     ? state.currentSafetyState as GuardSafetyLevel
     : 'LOW';
-  const safetyFloor = guard.deescalated ? 'LOW' : maxSafetyLevel(previousSafety, guard.minimumLevel);
+  const safetyFloor = guard.deescalated && guard.minimumLevel === 'LOW'
+    ? 'LOW'
+    : maxSafetyLevel(previousSafety, guard.minimumLevel);
   const availableActions = appContext.availableAppActions as Array<{
     type: string;
     label: string;
