@@ -46,11 +46,9 @@ const GuardianEmergencyModal = React.lazy(() => import('./components/GuardianEme
 
 const AppContent: React.FC = () => {
   const { t } = useTranslation();
-  console.log('🎯 AppContent component rendering...');
   const { user, isAuthenticated, isLoading } = useAuth();
   const { notifications, removeNotification, addNotification, markAsRead, markAllAsRead, clearAll } = useNotification();
   const { settings } = useSettings();
-  console.log('📊 AppContent state:', { isAuthenticated, isLoading, user: !!user });
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const contentScrollRef = useRef<HTMLDivElement>(null);
   const [vibes, setVibes] = useState<Vibe[]>([]);
@@ -254,27 +252,8 @@ const AppContent: React.FC = () => {
               }
             }
 
-            // Always fetch nearby users if authenticated (observer mode allows seeing others)
-            if (isAuthenticated && user?.id) {
-              try {
-                const nearby = await userLocationService.findNearbyUsers(
-                  position.latitude,
-                  position.longitude,
-                  10, // 10km radius
-                  user.id, // exclude current user
-                  20, // limit to 20 users
-                );
-                setNearbyUsers(nearby);
-                console.log(`👥 Found ${nearby.length} nearby users`);
-              } catch (error) {
-                console.error('Error fetching nearby users:', error);
-                setNearbyUsers([]);
-              }
-            } else {
-              // Clear nearby users if not authenticated
-              setNearbyUsers([]);
-              console.log('👥 Nearby users cleared (not authenticated)');
-            }
+            // The nearby-users effect below performs the initial fetch once userLocation is set.
+            // Keeping one fetch path avoids duplicate RPC calls during location initialization.
 
             // Location updates are now handled by backgroundLocationService
             // No need for frequent UI updates here
