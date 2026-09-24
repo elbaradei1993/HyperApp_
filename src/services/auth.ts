@@ -229,8 +229,12 @@ class AuthService {
   }
 
   async signInWithGoogle(): Promise<void> {
-    // Google Auth disabled to fix 500 error
-    throw new Error('Google Sign-In is currently disabled');
+    const redirectTo = `${window.location.origin}/auth/callback`;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo },
+    });
+    if (error) throw new Error(error.message);
     // try {
     //   // Use native Google Sign-In for mobile
     //   const googleUser = await GoogleAuth.signIn();
