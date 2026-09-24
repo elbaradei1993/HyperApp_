@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { FilePlus2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -23,7 +24,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
     label: String(t(item.labelKey, item.fallbackLabel)),
   })), [t]);
 
-  return (
+  const navigation = (
     <nav
       className="mobile-bottom-nav"
       aria-label={String(t('app.mobileNavigation', 'Mobile primary navigation'))}
@@ -63,6 +64,8 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
       ))}
     </nav>
   );
+
+  return typeof document === 'undefined' ? null : createPortal(navigation, document.body);
 };
 
 export default MobileNavigation;
