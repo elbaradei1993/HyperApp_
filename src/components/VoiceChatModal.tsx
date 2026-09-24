@@ -595,6 +595,18 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
                 <input type="checkbox" checked={conversation?.persistenceEnabled ?? true} onChange={() => void togglePersistence()} />
                 Save this conversation to my account
               </label>
+              {!conversation?.persistenceEnabled && (
+                <span
+                  style={{
+                    gridColumn: '1 / -1',
+                    color: '#737780',
+                    fontSize: '9px',
+                    lineHeight: 1.45,
+                  }}
+                >
+                  This chat is temporarily held for up to 2 hours while you use Hyper AI and is not retained as account history.
+                </span>
+              )}
               <button type="button" onClick={() => void deleteCurrentConversation()}>Delete this conversation</button>
               <button type="button" onClick={() => void clearAllHistory()}>Clear all AI history</button>
             </div>
