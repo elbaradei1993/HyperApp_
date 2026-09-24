@@ -797,14 +797,23 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     // This keeps the mobile audio session ready for the later response.
     void ttsService.unlock(false, 'play-and-record').catch(() => undefined);
 
-    const recognition = recognitionRef.current;
-    if (!recognition) {
+    // Prefer the MediaRecorder + Whisper path for hands-free mode. It provides
+    // a consistent mobile capture path and keeps a microphone signal available
+    // for automatic barge-in while Hyper is speaking.
+    if (typeof MediaRecorder !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
       void startFallbackHandsFree();
       return;
     }
 
-    // Start browser speech recognition directly from the user's tap so
-    // microphone permission/user activation is not lost on mobile.
+    const recognition = recognitionRef.current;
+    if (!recognition) {
+      handsFreeRef.current = false;
+      setIsHandsFreeMode(false);
+      setErrorMessage('Voice input is not supported on this device. You can still type, and voice responses can still play.');
+      transitionVoiceState('error');
+      return;
+    }
+
     ttsService.prepareForListening();
     listeningRef.current = true;
     transitionVoiceState('recording');
@@ -830,11 +839,13 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     transitionVoiceState('idle');
     handsFreeRef.current = true;
     setIsHandsFreeMode(true);
-    const recognition = recognitionRef.current;
-    if (!recognition) {
-      void startFallbackHandsFree();
+    if (typeof MediaRecorder !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+      fallbackStarterRef.current?.();
       return;
     }
+
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
 
     ttsService.prepareForListening();
     listeningRef.current = true;
