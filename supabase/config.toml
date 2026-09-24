@@ -24,3 +24,8 @@ entrypoint = "./functions/hyper-ai/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/hyper-tts/index.ts"
+
+[functions.send-guardian-alerts]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/send-guardian-alerts/index.ts"
