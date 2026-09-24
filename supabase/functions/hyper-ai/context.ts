@@ -10,6 +10,22 @@ export interface DeviceLocationHint {
   capturedAt?: string;
 }
 
+interface LocalVibeSnapshot {
+  radiusMeters: number;
+  dataWindowHours: number;
+  reportCount: number;
+  emergencyReportCount: number;
+  observedTags: Array<{ tag: string; count: number }>;
+  latestReports: Array<{
+    tag: string;
+    description: string;
+    distanceMeters: number;
+    reportedAt: string;
+    verificationStatus: string;
+  }>;
+  dataAsOf: string;
+}
+
 export interface ServerConversationContext {
   rollingSummary: string;
   recentMessages: Message[];
@@ -28,6 +44,17 @@ const MAX_MESSAGES = 200;
 const RECENT_MESSAGES = 20;
 const SUMMARY_LIMIT = 2500;
 const LOCATION_STALE_AFTER_MS = 5 * 60 * 1000;
+const LOCAL_CONTEXT_RADIUS_METERS = 5_000;
+const LOCAL_CONTEXT_WINDOW_HOURS = 72;
+const LOCAL_EVENT_RADIUS_METERS = 10_000;
+const LOCAL_EVENT_WINDOW_DAYS = 7;
+const REVERSE_GEOCODE_TIMEOUT_MS = 2_500;
+
+let reverseGeocodeCache: {
+  key: string;
+  label: string | null;
+  expiresAt: number;
+} | null = null;
 
 const AVAILABLE_ACTIONS = [
   { type: 'OPEN_MAP', label: 'Open map', requiresConfirmation: false },
@@ -55,6 +82,41 @@ function distanceMeters(a: [number, number], b: [number, number]): number {
   const bLat = rad(b[0]);
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(aLat) * Math.cos(bLat) * Math.sin(dLng / 2) ** 2;
   return Math.round(radius * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h)));
+}
+
+async function reverseGeocodeArea(latitude: number, longitude: number): Promise<string | null> {
+  const key = `${latitude.toFixed(3)},${longitude.toFixed(3)}`;
+  if (reverseGeocodeCache && reverseGeocodeCache.key === key && reverseGeocodeCache.expiresAt > Date.now()) {
+    return reverseGeocodeCache.label;
+  }
+
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}&zoom=14&addressdetails=1`,
+      {
+        headers: {
+          'User-Agent': 'HyperApp/1.0 (https://github.com/elbaradei1993/HyperApp_)',
+          'Accept': 'application/json',
+        },
+        signal: AbortSignal.timeout(REVERSE_GEOCODE_TIMEOUT_MS),
+      },
+    );
+    if (!response.ok) throw new Error(`Reverse geocoding failed: ${response.status}`);
+    const data = await response.json() as { address?: Record<string, unknown> };
+    const address = data.address || {};
+    const label = [
+      address.neighbourhood,
+      address.suburb,
+      address.city || address.town || address.village || address.municipality,
+      address.state,
+    ].find((value) => typeof value === 'string' && value.trim()) as string | undefined;
+    const cleanLabel = label ? clean(label, 120) : null;
+    reverseGeocodeCache = { key, label: cleanLabel, expiresAt: Date.now() + 10 * 60 * 1000 };
+    return cleanLabel;
+  } catch {
+    reverseGeocodeCache = { key, label: null, expiresAt: Date.now() + 2 * 60 * 1000 };
+    return null;
+  }
 }
 
 function normalizeLocationHint(input?: DeviceLocationHint) {
@@ -262,87 +324,115 @@ export async function buildServerAppContext(
         source: 'device-hint',
       }
       : { permissionStatus: 'unavailable', stale: false },
-    availableAppActions: AVAILABLE_ACTIONS,
+    currentArea: null,
+    localVibeSnapshot: null,
     nearbyReports: [],
+    nearbyEvents: [],
+    availableAppActions: AVAILABLE_ACTIONS,
   };
 
   if (!location || location.stale) return context;
 
   const origin: [number, number] = [location.latitude, location.longitude];
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const now = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const reportCutoff = new Date(now.getTime() - LOCAL_CONTEXT_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
+  const eventCutoff = new Date(now.getTime() + LOCAL_EVENT_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-  const [vibesResult, hazardsResult] = await Promise.all([
-    supabase.from('vibe_reports')
-      .select('id,tag,created_at,spot_id,reporter_lat,reporter_lng')
-      .gte('created_at', cutoff)
+  const [area, reportsResult, eventsResult] = await Promise.all([
+    reverseGeocodeArea(location.latitude, location.longitude),
+    supabase.from('reports')
+      .select('id,vibe_type,notes,location,latitude,longitude,created_at,emergency,status,resolved,credibility_score,validation_count')
+      .gte('created_at', reportCutoff)
       .order('created_at', { ascending: false })
-      .limit(60),
-    supabase.from('hazard_reports')
-      .select('id,spot_id,created_at,expires_at,resolved')
-      .eq('resolved', false)
-      .gt('expires_at', now)
-      .order('created_at', { ascending: false })
-      .limit(60),
+      .limit(100),
+    supabase.from('events')
+      .select('id,title,description,start_time,end_time,location,category,latitude,longitude,address,organizer,source,updated_at')
+      .gte('end_time', nowIso)
+      .lte('start_time', eventCutoff)
+      .order('start_time', { ascending: true })
+      .limit(50),
   ]);
 
-  const vibes = vibesResult.data || [];
-  const hazards = hazardsResult.data || [];
-  const spotIds = Array.from(new Set([
-    ...vibes.map((item) => Number(item.spot_id)).filter(Number.isFinite),
-    ...hazards.map((item) => Number(item.spot_id)).filter(Number.isFinite),
-  ]));
+  context.currentArea = area;
 
-  const spotMap = new Map<number, { name: string; location: string; lat: number; lng: number }>();
-  if (spotIds.length) {
-    const { data: spots } = await supabase.from('spots')
-      .select('id,name,location,lat,lng')
-      .in('id', spotIds);
-    for (const spot of spots || []) {
-      if (Number.isFinite(Number(spot.lat)) && Number.isFinite(Number(spot.lng))) {
-        spotMap.set(Number(spot.id), {
-          name: clean(spot.name, 100),
-          location: clean(spot.location, 120),
-          lat: Number(spot.lat),
-          lng: Number(spot.lng),
-        });
-      }
-    }
+  const reports = (reportsResult.data || []).flatMap((report) => {
+    const latitude = Number(report.latitude);
+    const longitude = Number(report.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return [];
+    const distance = distanceMeters(origin, [latitude, longitude]);
+    if (distance > LOCAL_CONTEXT_RADIUS_METERS) return [];
+    const tag = clean(report.vibe_type, 60) || 'other';
+    const description = clean(report.notes || report.location || 'Community report', 220);
+    const verification = Number(report.validation_count || 0) >= 2 && Number(report.credibility_score || 0) >= 0.65
+      ? 'community-verified'
+      : 'unverified community report';
+    return [{
+      tag,
+      description,
+      distanceMeters: distance,
+      reportedAt: clean(report.created_at, 40),
+      verificationStatus: verification,
+      emergency: Boolean(report.emergency),
+      resolved: Boolean(report.resolved),
+    }];
+  });
+
+  const tagCounts = new Map<string, number>();
+  for (const report of reports) {
+    tagCounts.set(report.tag, (tagCounts.get(report.tag) || 0) + 1);
   }
 
-  const reports = [
-    ...vibes.flatMap((report) => {
-      const spot = spotMap.get(Number(report.spot_id));
-      const lat = Number.isFinite(Number(report.reporter_lat)) ? Number(report.reporter_lat) : spot?.lat;
-      const lng = Number.isFinite(Number(report.reporter_lng)) ? Number(report.reporter_lng) : spot?.lng;
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
-      const distance = distanceMeters(origin, [lat, lng]);
-      if (distance > 5_000) return [];
-      const tag = clean(report.tag, 60) || 'community report';
-      const label = spot?.name || spot?.location;
-      return [{
-        type: tag,
-        description: label ? tag + ' reported at ' + label : tag + ' community report',
-        distanceMeters: distance,
-        reportedAt: clean(report.created_at, 40),
-        verificationStatus: 'unverified community report',
-      }];
-    }),
-    ...hazards.flatMap((report) => {
-      const spot = spotMap.get(Number(report.spot_id));
-      if (!spot) return [];
-      const distance = distanceMeters(origin, [spot.lat, spot.lng]);
-      if (distance > 5_000) return [];
-      return [{
-        type: 'hazard',
-        description: 'Active hazard report at ' + (spot.name || spot.location || 'a nearby spot'),
-        distanceMeters: distance,
-        reportedAt: clean(report.created_at, 40),
-        verificationStatus: 'unverified community report',
-      }];
-    }),
-  ].sort((a, b) => a.distanceMeters - b.distanceMeters || b.reportedAt.localeCompare(a.reportedAt)).slice(0, 6);
+  const latestReports = [...reports]
+    .sort((a, b) => a.distanceMeters - b.distanceMeters || b.reportedAt.localeCompare(a.reportedAt))
+    .slice(0, 6)
+    .map((report) => ({
+      tag: report.tag,
+      description: report.description,
+      distanceMeters: report.distanceMeters,
+      reportedAt: report.reportedAt,
+      verificationStatus: report.verificationStatus,
+    }));
 
-  context.nearbyReports = reports;
+  const localVibeSnapshot: LocalVibeSnapshot = {
+    radiusMeters: LOCAL_CONTEXT_RADIUS_METERS,
+    dataWindowHours: LOCAL_CONTEXT_WINDOW_HOURS,
+    reportCount: reports.length,
+    emergencyReportCount: reports.filter((report) => report.emergency && !report.resolved).length,
+    observedTags: Array.from(tagCounts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 8)
+      .map(([tag, count]) => ({ tag, count })),
+    latestReports,
+    dataAsOf: nowIso,
+  };
+
+  context.localVibeSnapshot = localVibeSnapshot;
+  context.nearbyReports = latestReports;
+
+  const events = (eventsResult.data || []).flatMap((event) => {
+    const latitude = Number(event.latitude);
+    const longitude = Number(event.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return [];
+    const distance = distanceMeters(origin, [latitude, longitude]);
+    if (distance > LOCAL_EVENT_RADIUS_METERS) return [];
+    return [{
+      title: clean(event.title, 120),
+      description: clean(event.description, 240),
+      category: clean(event.category, 60),
+      location: clean(event.address || String(event.location || ''), 160),
+      distanceMeters: distance,
+      startTime: clean(event.start_time, 40),
+      endTime: clean(event.end_time, 40),
+      organizer: clean(event.organizer, 100),
+      source: clean(event.source, 80),
+      updatedAt: clean(event.updated_at, 40),
+    }];
+  });
+
+  context.nearbyEvents = events
+    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime() || a.distanceMeters - b.distanceMeters)
+    .slice(0, 8);
+
   return context;
 }
