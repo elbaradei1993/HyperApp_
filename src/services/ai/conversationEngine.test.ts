@@ -120,11 +120,14 @@ describe('ConversationEngine', () => {
     });
 
     const secondRequest = mocks.request.mock.calls[1][0];
-    expect(secondRequest.contextWindow.recentMessages.map((item: { content: string }) => item.content)).toEqual([
-      'A man is following me.',
-      'Move toward the staffed entrance.',
-      'He crossed when I crossed.',
-    ]);
+    expect(secondRequest).toMatchObject({
+      conversationId: state.conversationId,
+      latestUserMessage: 'He crossed when I crossed.',
+      locationHint: undefined,
+    });
+    expect(secondRequest).not.toHaveProperty('contextWindow');
+    expect(secondRequest).not.toHaveProperty('state');
+    expect(secondRequest).not.toHaveProperty('appContext');
   });
 
   it('coalesces duplicate sends into one provider request', async () => {
