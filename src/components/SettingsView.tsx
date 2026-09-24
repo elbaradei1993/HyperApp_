@@ -5,6 +5,7 @@ import { Capacitor } from '@capacitor/core';
 import { AlertTriangle, Settings, UserCog, Sliders, Shield, LogOut, Key, Trash, Bell, MapPin, FileText, ShieldCheck, X } from 'lucide-react';
 
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { authService } from '../services/auth';
 import { pushNotificationService } from '../services/pushNotificationService';
@@ -24,6 +25,7 @@ interface SettingsViewProps {
 const SettingsView: React.FC<SettingsViewProps> = ({ embedded = false }) => {
   const { t } = useTranslation();
   const { user, signOut } = useAuth();
+  const { addNotification } = useNotification();
   const { settings, updateSettings, isLoading: settingsLoading } = useSettings();
 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -155,9 +157,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ embedded = false }) => {
 
         let permissionGranted = notificationPermissionStatus === 'granted';
 
-        if (!permissionGranted && Capacitor.isNativePlatform() && user?.id) {
+        if (Capacitor.isNativePlatform() && user?.id) {
           await pushNotificationService.initialize(user.id);
-          permissionGranted = true;
+          permissionGranted = await pushNotificationService.isEnabled();
+        } else if (!Capacitor.isNativePlatform()) {
+          addNotification({ type: 'info', title: 'Device notifications', message: 'Push notifications are available in the installed HyperApp app.', duration: 4000 });
+          permissionGranted = false;
         } else if (!permissionGranted && 'Notification' in window) {
           const permission = await Notification.requestPermission();
           setNotificationPermissionStatus(permission);
@@ -456,9 +461,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ embedded = false }) => {
                   </Box>
                 </HStack>
                 <ToggleSwitch
-                  checked={settings.notifications && notificationPermissionStatus === 'granted'}
+                  checked={Capacitor.isNativePlatform() && settings.notifications && notificationPermissionStatus === 'granted'}
                   onChange={handleNotificationToggle}
-                  disabled={isRequestingPermission || settingsLoading}
+                  disabled={isRequestingPermission || settingsLoading || !Capacitor.isNativePlatform()}
                   size="md"
                 />
               </HStack>
