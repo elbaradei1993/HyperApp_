@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Capacitor } from '@capacitor/core';
 import { Box, Text as ChakraText } from '@chakra-ui/react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -44,6 +45,7 @@ const GuardianEmergencyModal = React.lazy(() => import('./components/GuardianEme
 
 
 const AppContent: React.FC = () => {
+  const { t } = useTranslation();
   console.log('🎯 AppContent component rendering...');
   const { user, isAuthenticated, isLoading } = useAuth();
   const { notifications, removeNotification, addNotification, markAsRead, markAllAsRead, clearAll } = useNotification();
