@@ -68,6 +68,9 @@ vi.mock('../services/tts', () => ({
     resetAudioOutput: mocks.resetAudioOutput,
   },
 }));
+vi.mock('../services/speechToText', () => ({
+  transcribeVoiceAudio: vi.fn(() => Promise.resolve('Fallback voice message')),
+}));
 
 function state(messages: ConversationState['recentMessages'] = []): ConversationState {
   return {
@@ -253,6 +256,50 @@ describe('VoiceChatModal', () => {
     expect(screen.getByRole('button', { name: 'End conversation' })).toBeVisible();
 
     delete (window as typeof window & { SpeechRecognition?: unknown }).SpeechRecognition;
+  });
+
+  it('uses a MediaRecorder fallback when browser speech recognition is unavailable', async () => {
+    const recorders: FakeMediaRecorder[] = [];
+    const tracks = [{ stop: vi.fn() }];
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: vi.fn(() => Promise.resolve({ getTracks: () => tracks })) },
+    });
+
+    class FakeMediaRecorder {
+      static isTypeSupported = vi.fn(() => true);
+      state: 'inactive' | 'recording' = 'inactive';
+      mimeType = 'audio/webm';
+      ondataavailable: ((event: { data: Blob }) => void) | null = null;
+      onstop: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      start = vi.fn(() => { this.state = 'recording'; });
+      stop = vi.fn(() => {
+        this.state = 'inactive';
+        this.ondataavailable?.({ data: new Blob(['voice'], { type: this.mimeType }) });
+        this.onstop?.();
+      });
+      constructor() {
+        recorders.push(this);
+      }
+    }
+
+    Object.defineProperty(window, 'MediaRecorder', {
+      configurable: true,
+      value: FakeMediaRecorder,
+    });
+
+    render(<VoiceChatModal {...defaultProps} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Start conversation' }));
+
+    await waitFor(() => expect(recorders).toHaveLength(1));
+    expect(recorders[0].start).toHaveBeenCalledWith(250);
+    expect(screen.getByRole('button', { name: 'End conversation' })).toBeVisible();
+
+    recorders[0].stop();
+    await waitFor(() => expect(mocks.generate).toHaveBeenCalledWith(
+      expect.objectContaining({ userMessage: 'Fallback voice message' }),
+    ));
   });
 
   it('renders only validated actions returned by the engine and invokes navigation', async () => {
