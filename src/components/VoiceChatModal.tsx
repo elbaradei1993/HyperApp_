@@ -400,8 +400,10 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       setErrorMessage('The response is shown, but audio playback was unavailable.');
     } finally {
       stopBargeInMonitor();
-      transitionVoiceState('idle');
-      if (handsFreeRef.current) scheduleListeningRestart();
+      if (voiceStateRef.current === 'speaking') {
+        transitionVoiceState('idle');
+        if (handsFreeRef.current) scheduleListeningRestart();
+      }
     }
   }, [isTTSEnabled, scheduleListeningRestart, startBargeInMonitor, stopBargeInMonitor, transitionVoiceState]);
 
@@ -845,6 +847,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
 
   const interruptAndListen = () => {
     if (!isSpeaking) return;
+    stopBargeInMonitor();
     ttsService.stop();
     transitionVoiceState('idle');
     handsFreeRef.current = true;
@@ -1058,8 +1061,11 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
         <header className="ai-assistant-header">
           <div className="ai-assistant-brand-row">
             <span className="ai-assistant-brand-mark" aria-hidden="true"><Sparkles size={18} /></span>
-            <div><span className="ai-assistant-kicker">Context-aware safety support</span><h2 id="ai-assistant-title">Hyper AI</h2></div>
+            <div><span className="ai-assistant-kicker">Context-aware safety support</span><h2 id="ai-assistant-title">{conversation?.title || 'Hyper AI'}</h2></div>
             <div className="ai-assistant-header-actions">
+              <button type="button" onClick={() => setIsChatSidebarOpen((open) => !open)} aria-label="Open chat list" title="Chats">
+                <MessageCircle size={14} />
+              </button>
               <button type="button" onClick={() => void startNewConversation()} aria-label="Start a new conversation" title="New conversation">
                 <RotateCcw size={14} />
               </button>
@@ -1079,7 +1085,48 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
         </header>
 
         <div className="ai-assistant-body">
-          {showDataControls && (
+          <aside className={isChatSidebarOpen ? 'ai-chat-sidebar is-open' : 'ai-chat-sidebar'} aria-label="Hyper AI conversations">
+            <div className="ai-chat-sidebar__header">
+              <strong>Chats</strong>
+              <button type="button" onClick={() => setIsChatSidebarOpen(false)} aria-label="Close chat list"><X size={15} /></button>
+            </div>
+            <button type="button" className="ai-chat-sidebar__new" onClick={() => void startNewConversation()}>
+              <RotateCcw size={15} /> New chat
+            </button>
+            <div className="ai-chat-sidebar__list" aria-label="Previous chats">
+              {conversationSummaries.length === 0 && <span className="ai-chat-sidebar__empty">No previous chats yet.</span>}
+              {conversationSummaries.map((summary) => (
+                <button
+                  key={summary.conversationId}
+                  type="button"
+                  className={conversation?.conversationId === summary.conversationId ? 'ai-chat-sidebar__item is-active' : 'ai-chat-sidebar__item'}
+                  onClick={() => void openExistingConversation(summary.conversationId)}
+                >
+                  <strong>{summary.title}</strong>
+                  <span>{summary.preview || 'No messages yet'}</span>
+                  <time dateTime={summary.updatedAt}>{new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(new Date(summary.updatedAt))}</time>
+                </button>
+              ))}
+            </div>
+            <div className="ai-memory-panel">
+              <div className="ai-memory-panel__header">
+                <strong>Hyper memory</strong>
+                {hyperMemories.length > 0 && <button type="button" onClick={() => void clearHyperMemory()}>Clear</button>}
+              </div>
+              {hyperMemories.length === 0 ? (
+                <p>Nothing has been explicitly saved. Say “remember…” to store a preference.</p>
+              ) : (
+                hyperMemories.map((memory) => (
+                  <div key={memory.key} className="ai-memory-panel__item">
+                    <span><strong>{memory.key.replace(/_/g, ' ')}</strong>{memory.value}</span>
+                    <button type="button" onClick={() => void removeHyperMemory(memory.key)} aria-label={"Remove memory " + memory.key}><X size={12} /></button>
+                  </div>
+                ))
+              )}
+            </div>
+          </aside>
+          <div className="ai-assistant-main">
+            {showDataControls && (
             <div className="ai-data-controls">
               <label>
                 <input type="checkbox" checked={conversation?.persistenceEnabled ?? true} onChange={() => void togglePersistence()} />
@@ -1098,7 +1145,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
                 </span>
               )}
               <button type="button" onClick={() => void deleteCurrentConversation()}>Delete this conversation</button>
-              <button type="button" onClick={() => void clearAllHistory()}>Clear all AI history</button>
+              <button type="button" onClick={() => void deleteAllConversations()}>Clear all chats</button>
             </div>
           )}
 
@@ -1216,6 +1263,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
           </div>
 
           <p className="ai-assistant-disclaimer">Hyper is an AI assistant, not an emergency dispatcher. Community reports may be incomplete or unverified.</p>
+          </div>
         </div>
       </section>
     </Modal>
