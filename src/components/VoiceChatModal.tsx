@@ -374,10 +374,26 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     recognition.onerror = (event) => {
       listeningRef.current = false;
       if (event.error === 'aborted') return;
+
+      // Browser speech recognition commonly emits no-speech for a quiet
+      // interval. In hands-free mode, treat that as another listening cycle
+      // instead of killing the entire conversation.
+      if (
+        handsFreeRef.current &&
+        isOpenRef.current &&
+        (event.error === 'no-speech' || event.error === 'network')
+      ) {
+        transitionVoiceState('recording');
+        scheduleListeningRestart(300);
+        return;
+      }
+
       const permissionError = event.error === 'not-allowed' || event.error === 'service-not-allowed';
       setErrorMessage(permissionError
         ? 'Microphone access is unavailable. You can still type your message.'
-        : 'I could not hear that clearly. Tap Start conversation and try again.');
+        : event.error === 'audio-capture'
+          ? 'The microphone could not be reached. Check that another app or browser tab is not using it.'
+          : 'I could not hear that clearly. Tap Start conversation and try again.');
       handsFreeRef.current = false;
       setIsHandsFreeMode(false);
       transitionVoiceState('error');
@@ -421,18 +437,46 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
   };
 
   const startHandsFree = () => {
-    if (!recognitionRef.current) {
+    const recognition = recognitionRef.current;
+    if (!recognition) {
       setErrorMessage('Voice input is not supported by this browser. You can still type, and voice responses can still play.');
       return;
     }
+
+    setErrorMessage('');
     handsFreeRef.current = true;
     setIsHandsFreeMode(true);
-    void ttsService.unlock(true).finally(() => scheduleListeningRestart(0));
+
+    // Start speech recognition in the same user-gesture task as the tap.
+    // Waiting for the asynchronous audio unlock first can cause browsers to
+    // lose the permission/user-activation window, especially on mobile.
+    void ttsService.unlock(true, 'play-and-record').catch(() => undefined);
+    ttsService.prepareForListening();
+    listeningRef.current = true;
+    transitionVoiceState('recording');
+
+    try {
+      recognition.start();
+    } catch (error) {
+      listeningRef.current = false;
+      if (error instanceof DOMException && error.name === 'InvalidStateError') {
+        scheduleListeningRestart(250);
+        return;
+      }
+      handsFreeRef.current = false;
+      setIsHandsFreeMode(false);
+      setErrorMessage('The microphone could not start. Check the browser microphone permission and try again.');
+      transitionVoiceState('error');
+    }
   };
 
   const stopHandsFree = () => {
     handsFreeRef.current = false;
     setIsHandsFreeMode(false);
+    if (restartTimerRef.current !== null) {
+      window.clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
     recognitionRef.current?.abort();
     ttsService.stop();
     ttsService.releaseAudioSession();
