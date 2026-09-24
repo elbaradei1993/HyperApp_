@@ -522,7 +522,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     mediaCancelledRef.current = false;
     mediaChunksRef.current = [];
     mediaSpeechDetectedRef.current = false;
-    mediaSilenceStartedRef.current = null;
+    mediaSilenceStartedAtRef.current = null;
     mediaStartedAtRef.current = performance.now();
 
     let audioContext = mediaAudioContextRef.current;
@@ -708,10 +708,10 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
         const rms = Math.sqrt(sum / data.length);
         if (rms > 0.022) {
           mediaSpeechDetectedRef.current = true;
-          mediaSilenceStartedRef.current = null;
+          mediaSilenceStartedAtRef.current = null;
         } else if (mediaSpeechDetectedRef.current) {
-          mediaSilenceStartedRef.current ??= now;
-          if (now - mediaSilenceStartedRef.current >= 950) {
+          mediaSilenceStartedAtRef.current ??= now;
+          if (now - mediaSilenceStartedAtRef.current >= 950) {
             listeningRef.current = false;
             recorder.stop();
             return;
