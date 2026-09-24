@@ -9,22 +9,16 @@ interface AssistantFunctionResponse {
   error?: string;
 }
 
+export interface DeviceLocationHint {
+  latitude: number;
+  longitude: number;
+  capturedAt?: string;
+}
+
 export interface AssistantProviderRequest {
   conversationId: string;
   latestUserMessage: string;
-  contextWindow: ContextWindow;
-  state: Pick<ConversationState,
-    | 'knownFacts'
-    | 'userPreferences'
-    | 'unresolvedTopics'
-    | 'currentIntent'
-    | 'previousIntent'
-    | 'currentSafetyState'
-    | 'lastAssistantAction'
-    | 'lastQuestionsAsked'
-    | 'lastActionsSuggested'
-    | 'lastAdviceTopics'>;
-  appContext: HyperAppContext;
+  locationHint?: DeviceLocationHint;
 }
 
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -83,7 +77,11 @@ export async function requestAssistantResponse(
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(request),
+        body: JSON.stringify({
+          conversationId: request.conversationId,
+          latestUserMessage: request.latestUserMessage,
+          locationHint: request.locationHint,
+        }),
       });
       const payload = await response.json().catch(() => null) as AssistantFunctionResponse | null;
       if (response.ok && payload?.response?.message?.trim()) {
