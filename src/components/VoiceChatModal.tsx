@@ -10,7 +10,6 @@ import {
   Send,
   Sparkles,
   Square,
-  Trash2,
   MoreHorizontal,
   Volume2,
   VolumeX,
@@ -119,7 +118,6 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const [showDataControls, setShowDataControls] = useState(false);
-  const [isTestingSound, setIsTestingSound] = useState(false);
   const [conversationSummaries, setConversationSummaries] = useState<ConversationSummary[]>([]);
   const [hyperMemories, setHyperMemories] = useState<UserPreference[]>([]);
   const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(false);
@@ -890,20 +888,6 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     ttsService.stop();
     ttsService.releaseAudioSession();
     transitionVoiceState('idle');
-  };
-
-  const testSound = async () => {
-    if (isTestingSound) return;
-    setIsTestingSound(true);
-    setErrorMessage('');
-    try {
-      await ttsService.unlock(true);
-      await ttsService.speak('Hyper AI voice is ready.', { speed: 1, pitch: 1, volume: 1 });
-    } catch {
-      setErrorMessage('Audio could not play. Check that the phone is not muted, raise media volume, then tap Test sound again.');
-    } finally {
-      setIsTestingSound(false);
-    }
   };
 
   const startNewConversation = async () => {
