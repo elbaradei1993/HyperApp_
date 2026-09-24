@@ -5,6 +5,7 @@ import {
   Check,
   MessageCircle,
   Mic,
+  Plus,
   MicOff,
   RotateCcw,
   Send,
@@ -1087,7 +1088,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
               <button type="button" onClick={() => setIsChatSidebarOpen(false)} aria-label="Close chat list"><X size={15} /></button>
             </div>
             <button type="button" className="ai-chat-sidebar__new" onClick={() => void startNewConversation()}>
-              <RotateCcw size={15} /> New chat
+              <Plus size={15} /> New chat
             </button>
             <div className="ai-chat-sidebar__list" aria-label="Previous chats">
               {conversationSummaries.length === 0 && <span className="ai-chat-sidebar__empty">No previous chats yet.</span>}
@@ -1124,6 +1125,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
           <div className="ai-assistant-main">
             {showDataControls && (
             <div className="ai-data-controls">
+              <div className="ai-data-controls__title">Conversation options</div>
               <label>
                 <input type="checkbox" checked={conversation?.persistenceEnabled ?? true} onChange={() => void togglePersistence()} />
                 Save this conversation to my account
