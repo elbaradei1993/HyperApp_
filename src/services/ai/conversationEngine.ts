@@ -34,6 +34,17 @@ function extractAdviceTopics(message: string): string[] {
   return topics.filter(([, pattern]) => pattern.test(message)).map(([topic]) => topic);
 }
 
+function mergePreferences(
+  current: UserPreference[],
+  additions: UserPreference[],
+): UserPreference[] {
+  const byKey = new Map<string, UserPreference>();
+  for (const preference of [...current, ...additions]) {
+    byKey.set(preference.key, preference);
+  }
+  return Array.from(byKey.values());
+}
+
 export class ConversationEngine {
   private states = new Map<string, ConversationState>();
   private pending = new Map<string, {
@@ -50,10 +61,11 @@ export class ConversationEngine {
   ): Promise<ConversationState> {
     const loaded = await conversationRepository.loadCurrent(userId, appContext);
     const state = loaded || await conversationRepository.create(userId, appContext, persistenceEnabled);
+    const durablePreferences = await conversationRepository.loadMemories(userId);
     const updated = {
       ...state,
       appContext,
-      userPreferences: preferences,
+      userPreferences: mergePreferences(durablePreferences, preferences),
       persistenceEnabled: loaded?.persistenceEnabled ?? persistenceEnabled,
     };
     this.states.set(updated.conversationId, updated);
@@ -172,6 +184,31 @@ export class ConversationEngine {
         deliveryStatus: 'sent',
       });
       state = recordAssistantResponse(state, assistantMessage, extractQuestions(response.message));
+
+      if (response.memoryUpdates?.length) {
+        for (const update of response.memoryUpdates) {
+          const memory: UserPreference = {
+            key: update.key,
+            value: update.value,
+            source: update.source,
+            updatedAt: assistantMessage.timestamp,
+          };
+          await conversationRepository.upsertMemory(state.userId, memory);
+        }
+        state = {
+          ...state,
+          userPreferences: mergePreferences(
+            state.userPreferences,
+            response.memoryUpdates.map((update) => ({
+              key: update.key,
+              value: update.value,
+              source: update.source,
+              updatedAt: assistantMessage.timestamp,
+            })),
+          ),
+        };
+      }
+
       state = {
         ...state,
         currentSafetyState: response.safetyLevel,
