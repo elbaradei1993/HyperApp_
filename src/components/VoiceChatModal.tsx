@@ -11,6 +11,7 @@ import {
   Sparkles,
   Square,
   Trash2,
+  MoreHorizontal,
   Volume2,
   VolumeX,
   X,
@@ -1072,11 +1073,8 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
               <button type="button" onClick={() => setIsChatSidebarOpen((open) => !open)} aria-label="Open chat list" title="Chats">
                 <MessageCircle size={14} />
               </button>
-              <button type="button" onClick={() => void startNewConversation()} aria-label="Start a new conversation" title="New conversation">
-                <RotateCcw size={14} />
-              </button>
-              <button type="button" onClick={() => setShowDataControls((shown) => !shown)} aria-label="Conversation data controls" title="Data controls">
-                <Trash2 size={14} />
+              <button type="button" onClick={() => setShowDataControls((shown) => !shown)} aria-label="More Hyper AI options" title="More options">
+                <MoreHorizontal size={16} />
               </button>
               <span className="ai-assistant-beta">AI</span>
             </div>
@@ -1091,6 +1089,14 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
         </header>
 
         <div className="ai-assistant-body">
+          {isChatSidebarOpen && (
+            <button
+              type="button"
+              className="ai-chat-sidebar__backdrop"
+              onClick={() => setIsChatSidebarOpen(false)}
+              aria-label="Close chat list"
+            />
+          )}
           <aside className={isChatSidebarOpen ? 'ai-chat-sidebar is-open' : 'ai-chat-sidebar'} aria-label="Hyper AI conversations">
             <div className="ai-chat-sidebar__header">
               <strong>Chats</strong>
@@ -1261,11 +1267,6 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
                 <Square size={13} /> Stop generating
               </button>
             )}
-            {isSpeaking && <button type="button" className="ai-stop-speaking" onClick={() => { ttsService.stop(); transitionVoiceState('idle'); }}>Stop audio</button>}
-            <button type="button" className="ai-test-sound" onClick={() => void testSound()} disabled={isTestingSound}>
-              {isTestingSound ? 'Testing sound...' : 'Test sound'}
-            </button>
-            <button type="button" className="ai-emergency-action" onClick={() => window.location.assign('tel:911')}>Emergency call</button>
           </div>
 
           <p className="ai-assistant-disclaimer">Hyper is an AI assistant, not an emergency dispatcher. Community reports may be incomplete or unverified.</p>
