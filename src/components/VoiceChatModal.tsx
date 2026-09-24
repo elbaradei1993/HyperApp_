@@ -212,6 +212,15 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     setConversation(state);
   }, []);
 
+  const refreshChatSidebar = useCallback(async (userId: string) => {
+    const [summaries, memories] = await Promise.all([
+      conversationEngine.listConversations(userId, 50),
+      conversationEngine.loadMemories(userId),
+    ]);
+    setConversationSummaries(summaries);
+    setHyperMemories(memories.filter((memory) => memory.source === 'user_explicit'));
+  }, []);
+
   runtimeContextRef.current = {
     locale,
     userLanguage: user?.language,
@@ -423,6 +432,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       const result = await pendingTurn;
       updateConversation(result.state);
       setSuggestedActions(result.response.suggestedActions);
+      void refreshChatSidebar(user.id).catch(() => undefined);
       await speakText(result.response.message);
     } catch (error) {
       const latestState = conversationEngine.getState(state.conversationId);
@@ -439,7 +449,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     } finally {
       generationControllerRef.current = null;
     }
-  }, [appContext, speakText, transitionVoiceState, updateConversation, user?.id]);
+  }, [appContext, refreshChatSidebar, speakText, transitionVoiceState, updateConversation, user?.id]);
 
   useEffect(() => {
     const speechWindow = window as typeof window & {
@@ -899,6 +909,50 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     setSuggestedActions([]);
     setCompletedActions([]);
     setErrorMessage('');
+    setIsChatSidebarOpen(false);
+    void refreshChatSidebar(user.id).catch(() => undefined);
+  };
+
+  const openExistingConversation = async (conversationId: string) => {
+    if (!user?.id || conversationId === conversation?.conversationId) {
+      setIsChatSidebarOpen(false);
+      return;
+    }
+    stopHandsFree();
+    setIsLoadingConversation(true);
+    setErrorMessage('');
+    setSuggestedActions([]);
+    setCompletedActions([]);
+    try {
+      const state = await conversationEngine.openConversation(user.id, conversationId, appContext, preferences);
+      updateConversation(state);
+      setIsChatSidebarOpen(false);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'This conversation could not be opened.');
+      void refreshChatSidebar(user.id).catch(() => undefined);
+    } finally {
+      setIsLoadingConversation(false);
+    }
+  };
+
+  const removeHyperMemory = async (memoryKey: string) => {
+    if (!user?.id) return;
+    const removed = await conversationEngine.removeMemory(user.id, memoryKey);
+    if (!removed) {
+      setErrorMessage('This Hyper memory could not be removed.');
+      return;
+    }
+    setHyperMemories((current) => current.filter((memory) => memory.key !== memoryKey));
+  };
+
+  const clearHyperMemory = async () => {
+    if (!user?.id) return;
+    const cleared = await conversationEngine.clearMemories(user.id);
+    if (!cleared) {
+      setErrorMessage('Hyper memory could not be cleared.');
+      return;
+    }
+    setHyperMemories([]);
   };
 
   const deleteCurrentConversation = async () => {
@@ -911,14 +965,15 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     await startNewConversation();
   };
 
-  const clearAllHistory = async () => {
+  const deleteAllConversations = async () => {
     if (!user?.id) return;
     const cleared = await conversationEngine.clearHistory(user.id);
     if (!cleared) {
-      setErrorMessage('Saved AI history could not be cleared. Try again.');
+      setErrorMessage('Saved AI conversations could not be cleared. Try again.');
       return;
     }
     await startNewConversation();
+    if (user?.id) void refreshChatSidebar(user.id).catch(() => undefined);
   };
 
   const togglePersistence = async () => {
