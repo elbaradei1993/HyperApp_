@@ -24,7 +24,7 @@ const audioHeaders = {
   'Content-Type': 'application/octet-stream',
   'X-Content-Type-Options': 'nosniff',
 };
-const MODEL = '@cf/myshell-ai/melotts';
+const MODEL = '@cf/deepgram/aura-1';
 const MAX_TEXT_LENGTH = 1200;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_REQUESTS = 24;
@@ -140,11 +140,15 @@ async function requestHostedVoice(
           method: 'POST',
           signal: controller.signal,
           headers: {
-            Accept: 'application/json, audio/*',
+            Accept: 'audio/mpeg, application/json',
             Authorization: `Bearer ${apiToken}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ prompt: text, lang: language }),
+          body: JSON.stringify({
+            text,
+            speaker: 'luna',
+            encoding: 'mp3',
+          }),
         },
       );
       lastResponse = response;
