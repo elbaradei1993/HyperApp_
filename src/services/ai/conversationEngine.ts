@@ -76,6 +76,22 @@ export class ConversationEngine {
     return this.states.get(conversationId);
   }
 
+  updateContext(
+    conversationId: string,
+    appContext: HyperAppContext,
+    preferences: UserPreference[] = [],
+  ): ConversationState | undefined {
+    const current = this.states.get(conversationId);
+    if (!current) return undefined;
+    const updated = {
+      ...current,
+      appContext,
+      userPreferences: mergePreferences(current.userPreferences, preferences),
+    };
+    this.states.set(conversationId, updated);
+    return updated;
+  }
+
   async createConversation(
     userId: string,
     appContext: HyperAppContext,
