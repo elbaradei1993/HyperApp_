@@ -78,6 +78,60 @@ function pemToArrayBuffer(pem: string): ArrayBuffer {
   return bytes.buffer;
 }
 
+// --- Security helpers ---
+
+// HTML-escape user-controlled values before interpolating them into email HTML.
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Authenticate the caller via their Supabase JWT (same pattern as hyper-ai).
+// The anon key alone is NOT sufficient: getUser() must return a real user.
+async function authenticate(req: Request): Promise<{ id: string; email: string } | null> {
+  const authorization = req.headers.get('Authorization');
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  if (!authorization?.startsWith('Bearer ') || !supabaseUrl || !supabaseAnonKey) return null;
+  const client = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authorization } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await client.auth.getUser();
+  if (error || !data.user?.id || !data.user?.email) return null;
+  return { id: data.user.id, email: data.user.email };
+}
+
+// Best-effort in-memory rate limiter (per key). Emergency alerts are
+// rate-limited loosely: enough to stop spam loops, not to block real use.
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+const RATE_LIMIT_MAX = 20;
+const requestWindows = new Map<string, number[]>();
+
+function isRateLimited(key: string): boolean {
+  const now = Date.now();
+  const active = (requestWindows.get(key) || []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+  if (active.length >= RATE_LIMIT_MAX) {
+    requestWindows.set(key, active);
+    return true;
+  }
+  requestWindows.set(key, [...active, now]);
+  return false;
+}
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+const ALLOWED_ALERT_TYPES = ['medical', 'safety', 'location', 'custom'] as const;
+
 serve(async (req) => {
   try {
     // Initialize Supabase client
@@ -97,13 +151,44 @@ serve(async (req) => {
     const { userId, alertType, message, shareLocation, location } = await req.json();
 
     if (!userId || !alertType) {
-      return new Response(
-        JSON.stringify({ error: 'Missing userId or alertType' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Missing userId or alertType' }, 400);
     }
 
-    console.log('📤 Processing guardian alert for user:', userId, 'type:', alertType);
+    // SECURITY (critical): require a signed-in caller and bind them to the
+    // userId they claim. Previously anyone could trigger fake emergency
+    // alerts to ANY user's guardians with attacker-controlled content.
+    const caller = await authenticate(req);
+    if (!caller) {
+      return jsonResponse({ error: 'Authentication required' }, 401);
+    }
+    if (userId !== caller.id) {
+      return jsonResponse({ error: 'Not authorized to send alerts for this user' }, 403);
+    }
+    if (!ALLOWED_ALERT_TYPES.includes(alertType)) {
+      return jsonResponse({ error: 'Invalid alertType' }, 400);
+    }
+    if (isRateLimited(`send-guardian-alerts:${caller.id}`)) {
+      return jsonResponse({ error: 'Too many requests. Please try again later.' }, 429);
+    }
+
+    // Sanitize user-controlled content: cap length, and HTML-escape anything
+    // interpolated into the email template (XSS/phishing in inboxes).
+    const plainMessage = typeof message === 'string' ? message.slice(0, 500) : '';
+    const safeMessage = escapeHtml(plainMessage);
+    const doShareLocation = shareLocation === true;
+
+    // Validate location coordinates when shared.
+    let safeLocation: { latitude: number; longitude: number } | null = null;
+    if (doShareLocation && location) {
+      const lat = Number(location.latitude);
+      const lng = Number(location.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        return jsonResponse({ error: 'Invalid location coordinates' }, 400);
+      }
+      safeLocation = { latitude: lat, longitude: lng };
+    }
+
+    console.log('Processing guardian alert of type:', alertType);
 
     // Get user's guardians with their contact info
     const { data: guardians, error: guardiansError } = await supabase
@@ -215,10 +300,10 @@ serve(async (req) => {
                   alertType: alertType,
                   userId: userId,
                   userName: userName,
-                  message: message || '',
-                  shareLocation: shareLocation ? 'true' : 'false',
-                  latitude: location?.latitude?.toString() || '',
-                  longitude: location?.longitude?.toString() || '',
+                  message: plainMessage,
+                  shareLocation: doShareLocation ? 'true' : 'false',
+                  latitude: safeLocation ? safeLocation.latitude.toString() : '',
+                  longitude: safeLocation ? safeLocation.longitude.toString() : '',
                   timestamp: Date.now().toString()
                 },
                 android: {
@@ -279,19 +364,19 @@ serve(async (req) => {
                 ${alertMessage}
               </p>
 
-              ${message ? `
+              ${safeMessage ? `
                 <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444;">
                   <h3 style="margin: 0 0 10px 0; color: #ef4444; font-size: 16px;">Additional Message:</h3>
-                  <p style="margin: 0; color: #374151; font-style: italic;">"${message}"</p>
+                  <p style="margin: 0; color: #374151; font-style: italic;">"${safeMessage}"</p>
                 </div>
               ` : ''}
 
-              ${shareLocation && location ? `
+              ${doShareLocation && safeLocation ? `
                 <div style="background: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #22c55e;">
                   <h3 style="margin: 0 0 10px 0; color: #16a34a; font-size: 16px;">📍 Location Shared</h3>
                   <p style="margin: 0; color: #374151;">
-                    Latitude: ${location.latitude}<br>
-                    Longitude: ${location.longitude}
+                    Latitude: ${safeLocation.latitude}<br>
+                    Longitude: ${safeLocation.longitude}
                   </p>
                   <p style="margin: 10px 0 0 0; font-size: 14px; color: #6b7280;">
                     You can view this location in the HyperApp or on a map service.

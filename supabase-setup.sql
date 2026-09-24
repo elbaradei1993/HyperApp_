@@ -212,6 +212,12 @@ create table if not exists public.auth_tokens (
   unique (user_id, token_type)
 );
 
+-- SECURITY (critical): auth_tokens holds single-use bearer tokens (magic-link,
+-- password_reset). Enable RLS with intentionally NO policies: every
+-- anon/authenticated request is denied; only service_role (edge functions,
+-- which bypass RLS) can read/write this table.
+alter table public.auth_tokens enable row level security;
+
 -- Guardian System
 -- Add guardian preferences to users table
 alter table public.users add column if not exists guardian_emergency_contacts jsonb default '[]';
@@ -703,3 +709,9 @@ begin
   limit p_limit;
 end;
 $$;
+
+-- SECURITY (critical): get_marketing_recipients is SECURITY DEFINER and returns
+-- PII (email, names). Revoke public execution; only service_role (edge
+-- functions) may call it.
+revoke all on function public.get_marketing_recipients(jsonb, text, integer) from public, anon, authenticated;
+grant execute on function public.get_marketing_recipients(jsonb, text, integer) to service_role;

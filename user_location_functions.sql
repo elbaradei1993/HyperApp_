@@ -25,6 +25,13 @@ AS $$
 DECLARE
   user_sharing_enabled BOOLEAN := false; -- Default to false for safety
 BEGIN
+  -- SECURITY (critical): callers may only update their OWN location.
+  -- Previously any caller could overwrite or delete any user's location.
+  IF auth.uid() IS NULL OR auth.uid() <> p_user_id THEN
+    RAISE LOG 'update_user_location: rejected unauthorized update for user %', p_user_id;
+    RETURN FALSE;
+  END IF;
+
   -- Check if user has location sharing enabled
   SELECT location_sharing INTO user_sharing_enabled
   FROM users
@@ -78,6 +85,11 @@ EXCEPTION
 END;
 $$;
 
+-- SECURITY (critical): update_user_location is SECURITY DEFINER. The auth.uid()
+-- check inside the body enforces own-row writes; revoke anonymous execution.
+REVOKE ALL ON FUNCTION public.update_user_location(uuid, double precision, double precision, real, real, real, real, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.update_user_location(uuid, double precision, double precision, real, real, real, real, text) TO authenticated;
+
 -- Function to find nearby users for map display (without PostGIS)
 CREATE OR REPLACE FUNCTION find_nearby_users_for_map(
   center_lat DOUBLE PRECISION,
@@ -94,22 +106,58 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  -- SECURITY: clamp the caller-supplied radius server-side (0.1–50 km).
+  v_radius_km DOUBLE PRECISION := LEAST(GREATEST(COALESCE(radius_km, 10), 0.1), 50);
 BEGIN
-  -- Return all users with recent locations (within 24 hours)
-  -- Distance calculation will be done in JavaScript
+  -- SECURITY (critical): only signed-in users may discover nearby users.
+  -- Previously this function ignored its parameters and returned EVERY user's
+  -- precise location to any caller, including anonymous ones.
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
   RETURN QUERY
+  WITH nearby AS (
+    SELECT
+      ul.user_id,
+      ul.latitude,
+      ul.longitude,
+      -- Haversine distance in km; acos argument clamped to [-1, 1] to avoid
+      -- NaN from floating-point rounding.
+      (6371 * acos(
+        LEAST(1, GREATEST(-1,
+          cos(radians(center_lat)) * cos(radians(ul.latitude)) *
+          cos(radians(ul.longitude) - radians(center_lng)) +
+          sin(radians(center_lat)) * sin(radians(ul.latitude))
+        ))
+      )) AS dist
+    FROM user_locations ul
+    WHERE ul.latitude IS NOT NULL
+      AND ul.longitude IS NOT NULL
+      AND ul.last_updated > NOW() - INTERVAL '24 hours' -- Only recent locations
+      -- Only users who opted into location sharing are discoverable
+      AND EXISTS (
+        SELECT 1 FROM users u
+        WHERE u.user_id = ul.user_id::text
+          AND u.location_sharing = true
+      )
+  )
   SELECT
-    ul.user_id,
-    ul.latitude as user_location_lat,
-    ul.longitude as user_location_lng,
-    0.0 as distance -- Placeholder, will be calculated client-side
-  FROM user_locations ul
-  WHERE ul.latitude IS NOT NULL
-    AND ul.longitude IS NOT NULL
-    AND ul.last_updated > NOW() - INTERVAL '24 hours' -- Only recent locations
-  ORDER BY ul.last_updated DESC;
+    nearby.user_id,
+    nearby.latitude AS user_location_lat,
+    nearby.longitude AS user_location_lng,
+    nearby.dist AS distance
+  FROM nearby
+  WHERE nearby.dist <= v_radius_km
+  ORDER BY nearby.dist ASC;
 END;
 $$;
+
+-- SECURITY (critical): revoke anonymous/public execution. Signed-in callers
+-- are authorized inside the function body (auth.uid() + sharing opt-in).
+REVOKE ALL ON FUNCTION public.find_nearby_users_for_map(double precision, double precision, double precision) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.find_nearby_users_for_map(double precision, double precision, double precision) TO authenticated;
 
 -- Function to get user location statistics
 CREATE OR REPLACE FUNCTION get_user_location_stats(p_user_id UUID DEFAULT NULL)

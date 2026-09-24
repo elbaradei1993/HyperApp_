@@ -9,6 +9,57 @@ const corsHeaders = {
 // Declare Deno global for TypeScript
 declare const Deno: any
 
+// --- Security helpers ---
+
+// Authenticate the caller via their Supabase JWT (same pattern as hyper-ai).
+// The anon key alone is NOT sufficient: getUser() must return a real user.
+async function authenticate(req: Request): Promise<{ id: string; email: string } | null> {
+  const authorization = req.headers.get('Authorization')
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')
+  if (!authorization?.startsWith('Bearer ') || !supabaseUrl || !supabaseAnonKey) return null
+  const client = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authorization } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  const { data, error } = await client.auth.getUser()
+  if (error || !data.user?.id || !data.user?.email) return null
+  return { id: data.user.id, email: data.user.email }
+}
+
+// Server-side admin check. ADMIN_EMAILS is a comma-separated allowlist set as
+// a function secret. Fails closed: with the variable unset, nobody is admin.
+function isAdmin(email: string): boolean {
+  const allowlist = (Deno.env.get('ADMIN_EMAILS') ?? '')
+    .split(',')
+    .map((e: string) => e.toLowerCase().trim())
+    .filter(Boolean)
+  return allowlist.includes(email.toLowerCase())
+}
+
+// Best-effort in-memory rate limiter (per key).
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
+const RATE_LIMIT_MAX = 10
+const requestWindows = new Map<string, number[]>()
+
+function isRateLimited(key: string): boolean {
+  const now = Date.now()
+  const active = (requestWindows.get(key) || []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS)
+  if (active.length >= RATE_LIMIT_MAX) {
+    requestWindows.set(key, active)
+    return true
+  }
+  requestWindows.set(key, [...active, now])
+  return false
+}
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
 serve(async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
@@ -16,13 +67,26 @@ serve(async (req) => {
   }
 
   try {
-    const { testEmail, campaignId, subject, html } = await req.json()
+    // SECURITY (critical): this function sends email from the app's identity.
+    // Require an authenticated admin (ADMIN_EMAILS allowlist). Previously any
+    // anonymous caller could send arbitrary HTML to arbitrary addresses.
+    const caller = await authenticate(req)
+    if (!caller) {
+      return jsonResponse({ success: false, error: 'Authentication required' }, 401)
+    }
+    if (!isAdmin(caller.email)) {
+      return jsonResponse({ success: false, error: 'Admin privileges required' }, 403)
+    }
+    if (isRateLimited(`send-marketing-email:${caller.id}`)) {
+      return jsonResponse({ success: false, error: 'Too many requests. Please try again later.' }, 429)
+    }
 
-    console.log('Function called with:', { testEmail, campaignId })
+    const { campaignId } = await req.json()
+
+    console.log('Marketing email function called by admin')
 
     // Check if API key exists
     const apiKey = Deno.env.get('RESEND_API_KEY')
-    console.log('API Key exists:', !!apiKey)
 
     if (!apiKey) {
       console.error('RESEND_API_KEY not found')
@@ -38,70 +102,37 @@ serve(async (req) => {
       )
     }
 
-    if (testEmail) {
-      console.log('Sending test email to:', testEmail)
+    if (campaignId) {
+      // For now, just return success for campaign (implement later).
+      // Already admin-gated above.
+      console.log('Campaign sending not implemented yet, but function works!')
 
-      // Create Supabase client for database operations
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Campaign sending placeholder - function works!',
+          stats: { total: 0, successful: 0, failed: 0 }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
+    }
 
-      // Generate magic link token for authentication
-      const token = crypto.randomUUID()
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
-
-      // Find user by email
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('user_id, email')
-        .eq('email', testEmail)
-        .single()
-
-      let userId = null
-      if (userData) {
-        userId = userData.user_id
-
-        // Create or update auth token
-        const { error: tokenError } = await supabase
-          .from('auth_tokens')
-          .upsert({
-            user_id: userId,
-            email: testEmail,
-            token: token,
-            token_type: 'magic_link',
-            expires_at: expiresAt
-          }, {
-            onConflict: 'user_id,token_type'
-          })
-
-        if (tokenError) {
-          console.error('Token creation error:', tokenError)
-        }
-      }
-
-      // Create magic link URL
-      const baseUrl = Deno.env.get('SUPABASE_URL')?.replace('/v1', '') || 'http://localhost:54321'
-      const magicLink = `${baseUrl}/functions/v1/magic-link-auth?token=${token}`
-
-      // Prepare email content with magic link
-      const emailSubject = subject || 'Welcome to HyperApp - Click to Verify & Login'
-      const emailHtml = html || `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; direction: rtl;">
-          <h1>🎉 Welcome to HyperApp!</h1>
-          <p>Click the button below to verify your email and automatically log in to your account:</p>
-          <p style="text-align: center; margin: 30px 0;">
-            <a href="${magicLink}" style="background: #3b82f6; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">
-              🚀 Verify Email & Login
-            </a>
-          </p>
-          <p>This link will expire in 24 hours.</p>
+    // Admin self-test: send a fixed branded template to the admin's own
+    // address only. Arbitrary recipients/subjects/HTML are not accepted —
+    // that was an unauthenticated email cannon.
+    {
+      const emailSubject = 'HyperApp — test email'
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1>HyperApp test email</h1>
+          <p>This is a test message from the HyperApp marketing email function.</p>
+          <p>If you received this, Resend delivery is working correctly.</p>
           <p>Best regards,<br>The HyperApp Team</p>
         </div>
       `
 
       try {
-        // Send email via Resend API
+        // Send email via Resend API (recipient is always the admin themself)
         const response = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
@@ -110,7 +141,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             from: 'onboarding@resend.dev',
-            to: [testEmail],
+            to: [caller.email],
             subject: emailSubject,
             html: emailHtml,
           }),
@@ -125,7 +156,7 @@ serve(async (req) => {
           return new Response(
             JSON.stringify({
               success: true,
-              message: `Test email sent to ${testEmail}`,
+              message: 'Test email sent',
               resendId: data.id
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -159,31 +190,6 @@ serve(async (req) => {
         )
       }
     }
-
-    if (campaignId) {
-      // For now, just return success for campaign (implement later)
-      console.log('Campaign sending not implemented yet, but function works!')
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Campaign sending placeholder - function works!',
-          stats: { total: 0, successful: 0, failed: 0 }
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: 'Either testEmail or campaignId must be provided'
-      }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    )
 
   } catch (error) {
     console.error('Function error:', error)
