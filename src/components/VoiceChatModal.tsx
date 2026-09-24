@@ -36,6 +36,7 @@ import type {
 import { guardianService } from '../services/guardian';
 import { reportsService } from '../services/reports';
 import { ttsService } from '../services/tts';
+import { transcribeVoiceAudio } from '../services/speechToText';
 import type { Report } from '../types';
 
 import { Modal, LoadingSpinner } from './shared';
@@ -119,6 +120,19 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
   const [isTestingSound, setIsTestingSound] = useState(false);
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const mediaChunksRef = useRef<Blob[]>([]);
+  const mediaAudioContextRef = useRef<AudioContext | null>(null);
+  const mediaAnalyserRef = useRef<AnalyserNode | null>(null);
+  const mediaSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const mediaMonitorFrameRef = useRef<number | null>(null);
+  const mediaMaxTimerRef = useRef<number | null>(null);
+  const mediaStartedAtRef = useRef(0);
+  const mediaSpeechDetectedRef = useRef(false);
+  const mediaSilenceStartedAtRef = useRef<number | null>(null);
+  const mediaCancelledRef = useRef(false);
+  const fallbackStarterRef = useRef<(() => void) | null>(null);
   const conversationRef = useRef<ConversationState | null>(null);
   const conversationListRef = useRef<HTMLDivElement | null>(null);
   const isNearBottomRef = useRef(true);
@@ -281,8 +295,14 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     if (restartTimerRef.current !== null) window.clearTimeout(restartTimerRef.current);
     restartTimerRef.current = window.setTimeout(() => {
       restartTimerRef.current = null;
+      if (!handsFreeRef.current || !isOpenRef.current || listeningRef.current) return;
+
       const recognition = recognitionRef.current;
-      if (!recognition || !handsFreeRef.current || !isOpenRef.current || listeningRef.current) return;
+      if (!recognition) {
+        fallbackStarterRef.current?.();
+        return;
+      }
+
       try {
         ttsService.prepareForListening();
         listeningRef.current = true;
@@ -409,6 +429,253 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     };
   }, [isOpen, processMessage, scheduleListeningRestart, transitionVoiceState, user?.language]);
 
+  const startFallbackHandsFree = useCallback(async () => {
+    if (
+      !isOpenRef.current ||
+      !handsFreeRef.current ||
+      typeof MediaRecorder === 'undefined' ||
+      !navigator.mediaDevices?.getUserMedia
+    ) {
+      setErrorMessage('Voice input is not supported by this browser. You can still type, and voice responses can still play.');
+      return;
+    }
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      return;
+    }
+
+    setErrorMessage('');
+    mediaCancelledRef.current = false;
+    mediaChunksRef.current = [];
+    mediaSpeechDetectedRef.current = false;
+    mediaSilenceStartedRef.current = null;
+    mediaStartedAtRef.current = performance.now();
+
+    let audioContext: AudioContext | null = null;
+    try {
+      const audioWindow = window as typeof window & { webkitAudioContext?: new () => AudioContext };
+      const AudioContextCtor = window.AudioContext || audioWindow.webkitAudioContext;
+      audioContext = AudioContextCtor ? new AudioContextCtor() : null;
+    } catch {
+      audioContext = null;
+    }
+
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+    } catch (error) {
+      audioContext?.close().catch(() => undefined);
+      handsFreeRef.current = false;
+      setIsHandsFreeMode(false);
+      const name = error instanceof DOMException ? error.name : '';
+      setErrorMessage(name === 'NotAllowedError' || name === 'SecurityError'
+        ? 'Microphone access is blocked. Allow microphone access for HyperApp and try again.'
+        : 'The microphone could not start. Check the microphone and try again.');
+      transitionVoiceState('error');
+      return;
+    }
+
+    if (!handsFreeRef.current || !isOpenRef.current) {
+      stream.getTracks().forEach((track) => track.stop());
+      audioContext?.close().catch(() => undefined);
+      return;
+    }
+
+    const supportedTypes = [
+      'audio/mp4;codecs=mp4a.40.2',
+      'audio/mp4',
+      'audio/webm;codecs=opus',
+      'audio/webm',
+    ];
+    const mimeType = supportedTypes.find((type) => (
+      typeof MediaRecorder.isTypeSupported !== 'function' || MediaRecorder.isTypeSupported(type)
+    ));
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    } catch {
+      stream.getTracks().forEach((track) => track.stop());
+      audioContext?.close().catch(() => undefined);
+      setErrorMessage('This browser could not create a compatible voice recording.');
+      handsFreeRef.current = false;
+      setIsHandsFreeMode(false);
+      transitionVoiceState('error');
+      return;
+    }
+
+    mediaRecorderRef.current = recorder;
+    mediaStreamRef.current = stream;
+    mediaAudioContextRef.current = audioContext;
+
+    if (audioContext) {
+      try {
+        await audioContext.resume();
+        const source = audioContext.createMediaStreamSource(stream);
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 1024;
+        source.connect(analyser);
+        mediaSourceRef.current = source;
+        mediaAnalyserRef.current = analyser;
+      } catch {
+        mediaAnalyserRef.current = null;
+      }
+    }
+
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) mediaChunksRef.current.push(event.data);
+    };
+
+    recorder.onerror = () => {
+      mediaCancelledRef.current = true;
+      handsFreeRef.current = false;
+      setIsHandsFreeMode(false);
+      setErrorMessage('The voice recording failed. Please try again.');
+      transitionVoiceState('error');
+    };
+
+    recorder.onstop = () => {
+      if (mediaMonitorFrameRef.current !== null) {
+        window.cancelAnimationFrame(mediaMonitorFrameRef.current);
+        mediaMonitorFrameRef.current = null;
+      }
+      if (mediaMaxTimerRef.current !== null) {
+        window.clearTimeout(mediaMaxTimerRef.current);
+        mediaMaxTimerRef.current = null;
+      }
+
+      const cancelled = mediaCancelledRef.current;
+      const chunks = mediaChunksRef.current;
+      const recordedType = recorder.mimeType || mimeType || 'audio/webm';
+      const blob = new Blob(chunks, { type: recordedType });
+      mediaRecorderRef.current = null;
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+      mediaSourceRef.current?.disconnect();
+      mediaSourceRef.current = null;
+      mediaAnalyserRef.current = null;
+      const context = mediaAudioContextRef.current;
+      mediaAudioContextRef.current = null;
+      context?.close().catch(() => undefined);
+      mediaChunksRef.current = [];
+
+      if (cancelled || !handsFreeRef.current || !isOpenRef.current || !blob.size) {
+        return;
+      }
+
+      transitionVoiceState('processing');
+      const language = (user?.language || locale || 'en').split('-')[0];
+      void transcribeVoiceAudio(blob, language)
+        .then((transcript) => {
+          if (!handsFreeRef.current || !isOpenRef.current) return;
+          void processMessage(transcript);
+        })
+        .catch((error) => {
+          if (!handsFreeRef.current || !isOpenRef.current) return;
+          setErrorMessage(error instanceof Error ? error.message : 'Voice transcription failed. Please try again.');
+          transitionVoiceState('error');
+          scheduleListeningRestart(900);
+        });
+    };
+
+    try {
+      recorder.start(250);
+    } catch {
+      recorder.onstop?.();
+      setErrorMessage('The microphone could not start recording. Please try again.');
+      handsFreeRef.current = false;
+      setIsHandsFreeMode(false);
+      transitionVoiceState('error');
+      return;
+    }
+
+    ttsService.prepareForListening();
+    listeningRef.current = true;
+    transitionVoiceState('recording');
+
+    const monitor = () => {
+      if (mediaRecorderRef.current !== recorder || recorder.state === 'inactive') return;
+      const now = performance.now();
+      const analyser = mediaAnalyserRef.current;
+      if (analyser) {
+        const data = new Uint8Array(analyser.fftSize);
+        analyser.getByteTimeDomainData(data);
+        let sum = 0;
+        for (const value of data) {
+          const normalized = (value - 128) / 128;
+          sum += normalized * normalized;
+        }
+        const rms = Math.sqrt(sum / data.length);
+        if (rms > 0.022) {
+          mediaSpeechDetectedRef.current = true;
+          mediaSilenceStartedRef.current = null;
+        } else if (mediaSpeechDetectedRef.current) {
+          mediaSilenceStartedRef.current ??= now;
+          if (now - mediaSilenceStartedRef.current >= 950) {
+            listeningRef.current = false;
+            recorder.stop();
+            return;
+          }
+        }
+      }
+
+      if (now - mediaStartedAtRef.current >= 15_000) {
+        listeningRef.current = false;
+        recorder.stop();
+        return;
+      }
+
+      mediaMonitorFrameRef.current = window.requestAnimationFrame(monitor);
+    };
+
+    mediaMaxTimerRef.current = window.setTimeout(() => {
+      if (mediaRecorderRef.current === recorder && recorder.state !== 'inactive') {
+        listeningRef.current = false;
+        recorder.stop();
+      }
+    }, 15_500);
+
+    mediaMonitorFrameRef.current = window.requestAnimationFrame(monitor);
+  }, [locale, processMessage, scheduleListeningRestart, transitionVoiceState, user?.language]);
+
+  fallbackStarterRef.current = () => { void startFallbackHandsFree(); };
+
+  const cancelFallbackRecording = useCallback(() => {
+    mediaCancelledRef.current = true;
+    listeningRef.current = false;
+    if (mediaMonitorFrameRef.current !== null) {
+      window.cancelAnimationFrame(mediaMonitorFrameRef.current);
+      mediaMonitorFrameRef.current = null;
+    }
+    if (mediaMaxTimerRef.current !== null) {
+      window.clearTimeout(mediaMaxTimerRef.current);
+      mediaMaxTimerRef.current = null;
+    }
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      try {
+        recorder.stop();
+      } catch {
+        // Ignore an already-stopping recorder.
+      }
+    } else {
+      mediaRecorderRef.current = null;
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+      mediaAudioContextRef.current?.close().catch(() => undefined);
+      mediaAudioContextRef.current = null;
+      mediaSourceRef.current?.disconnect();
+      mediaSourceRef.current = null;
+      mediaAnalyserRef.current = null;
+      mediaChunksRef.current = [];
+    }
+  }, []);
+
   useEffect(() => {
     if (!isOpen) return undefined;
     const pause = () => {
@@ -416,6 +683,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       handsFreeRef.current = false;
       setIsHandsFreeMode(false);
       recognitionRef.current?.abort();
+      cancelFallbackRecording();
       ttsService.stop();
       transitionVoiceState('idle');
     };
@@ -437,20 +705,22 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
   };
 
   const startHandsFree = () => {
-    const recognition = recognitionRef.current;
-    if (!recognition) {
-      setErrorMessage('Voice input is not supported by this browser. You can still type, and voice responses can still play.');
-      return;
-    }
-
     setErrorMessage('');
     handsFreeRef.current = true;
     setIsHandsFreeMode(true);
 
-    // Start speech recognition in the same user-gesture task as the tap.
-    // Waiting for the asynchronous audio unlock first can cause browsers to
-    // lose the permission/user-activation window, especially on mobile.
+    // Unlock output and start the first listening turn from the same tap.
+    // This keeps the mobile audio session ready for the later response.
     void ttsService.unlock(false, 'play-and-record').catch(() => undefined);
+
+    const recognition = recognitionRef.current;
+    if (!recognition) {
+      void startFallbackHandsFree();
+      return;
+    }
+
+    // Start browser speech recognition directly from the user's tap so
+    // microphone permission/user activation is not lost on mobile.
     ttsService.prepareForListening();
     listeningRef.current = true;
     transitionVoiceState('recording');
@@ -478,6 +748,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       restartTimerRef.current = null;
     }
     recognitionRef.current?.abort();
+    cancelFallbackRecording();
     ttsService.stop();
     ttsService.releaseAudioSession();
     transitionVoiceState('idle');
