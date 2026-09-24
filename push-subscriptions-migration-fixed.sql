@@ -71,6 +71,11 @@ RETURNS TABLE (
   distance DOUBLE PRECISION
 ) AS $$
 BEGIN
+  -- SECURITY: clamp radius server-side. This function is a distance oracle over
+  -- precise user locations + FCM tokens; only service_role (edge functions) may
+  -- call it (see REVOKE below).
+  radius_km := LEAST(GREATEST(radius_km, 1), 50);
+
   RETURN QUERY
   SELECT
     ps.user_id,
@@ -94,3 +99,10 @@ BEGIN
     ) <= radius_km;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- SECURITY (critical): find_nearby_users is SECURITY DEFINER and exposes
+-- user_id + fcm_token + distance (a triangulation oracle). Revoke public
+-- execution; only service_role (the send-push-notifications edge function) may
+-- call it.
+REVOKE ALL ON FUNCTION public.find_nearby_users(double precision, double precision, integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.find_nearby_users(double precision, double precision, integer) TO service_role;

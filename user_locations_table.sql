@@ -41,9 +41,10 @@ CREATE POLICY user_locations_update_own ON public.user_locations
   USING (user_id::text = auth.uid()::text)
   WITH CHECK (user_id::text = auth.uid()::text);
 
--- Allow functions to manage locations (for RPC calls)
+-- SECURITY (critical): the permissive "user_locations_function_access" policy
+-- (FOR ALL TO authenticated USING (true) WITH CHECK (true)) has been REMOVED
+-- and is intentionally not recreated. It nullified the own-row policies above,
+-- letting any signed-in user read, update, or delete ANY user's precise
+-- location. SECURITY DEFINER functions bypass RLS, so no replacement policy is
+-- needed for RPC flows.
 DROP POLICY IF EXISTS user_locations_function_access ON public.user_locations;
-CREATE POLICY user_locations_function_access ON public.user_locations
-  FOR ALL TO authenticated
-  USING (true)
-  WITH CHECK (true);
