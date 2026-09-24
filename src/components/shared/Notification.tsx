@@ -108,7 +108,7 @@ const Notification: React.FC<NotificationProps> = ({
     right: '20px',
     zIndex: 10000,
     maxWidth: '400px',
-    width: '100%',
+    width: 'min(400px, calc(100vw - 40px))',
     backgroundColor: type === 'success' ? '#d1fae5' : type === 'error' ? '#fee2e2' : type === 'warning' ? '#fef3c7' : '#dbeafe',
     border: `1px solid ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#3b82f6'}`,
     borderRadius: '8px',
