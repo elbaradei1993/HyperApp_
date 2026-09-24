@@ -128,6 +128,15 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
   const generationControllerRef = useRef<AbortController | null>(null);
   const voiceStateRef = useRef<VoiceState>('idle');
   const processingRef = useRef(false);
+  const runtimeContextRef = useRef<{
+    locale: string;
+    userLanguage?: string;
+    userLocation: [number, number] | null;
+    locationCapturedAt?: string;
+    locationPermissionStatus?: 'granted' | 'denied' | 'prompt' | 'unavailable';
+    availableActions: typeof availableActions;
+    preferences: UserPreference[];
+  } | null>(null);
 
   const transitionVoiceState = useCallback((state: VoiceState) => {
     voiceStateRef.current = state;
@@ -178,6 +187,16 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     setConversation(state);
   }, []);
 
+  runtimeContextRef.current = {
+    locale,
+    userLanguage: user?.language,
+    userLocation,
+    locationCapturedAt,
+    locationPermissionStatus,
+    availableActions,
+    preferences,
+  };
+
   useEffect(() => {
     if (!isOpen || !user?.id) return undefined;
     let active = true;
@@ -186,9 +205,11 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     setErrorMessage('');
 
     const initialize = async () => {
-      const bounds = userLocation ? {
-        northEast: [userLocation[0] + 0.02, userLocation[1] + 0.02] as [number, number],
-        southWest: [userLocation[0] - 0.02, userLocation[1] - 0.02] as [number, number],
+      const runtime = runtimeContextRef.current;
+      if (!runtime) return;
+      const bounds = runtime.userLocation ? {
+        northEast: [runtime.userLocation[0] + 0.02, runtime.userLocation[1] + 0.02] as [number, number],
+        southWest: [runtime.userLocation[0] - 0.02, runtime.userLocation[1] - 0.02] as [number, number],
       } : undefined;
       const [reports, guardians] = await Promise.all([
         bounds ? reportsService.getReports({ bounds, limit: 50 }).catch(() => []) : Promise.resolve([]),
@@ -199,16 +220,17 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       setGuardianCount(guardians.length);
       const initialContext = buildHyperAppContext({
         currentScreen: 'dashboard',
-        locale,
-        preferredLanguage: user.language || locale,
-        userLocation,
-        locationCapturedAt,
-        locationPermissionStatus: locationPermissionStatus || (userLocation ? 'granted' : 'unavailable'),
+        locale: runtime.locale,
+        preferredLanguage: runtime.userLanguage || runtime.locale,
+        userLocation: runtime.userLocation,
+        locationCapturedAt: runtime.locationCapturedAt,
+        locationPermissionStatus: runtime.locationPermissionStatus
+          || (runtime.userLocation ? 'granted' : 'unavailable'),
         nearbyReports: reports,
         guardianCount: guardians.length,
-        availableAppActions: availableActions,
+        availableAppActions: runtime.availableActions,
       });
-      const state = await conversationEngine.initialize(user.id, initialContext, preferences, true);
+      const state = await conversationEngine.initialize(user.id, initialContext, runtime.preferences, true);
       if (active) updateConversation(state);
     };
 
@@ -222,18 +244,18 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       recognitionRef.current?.abort();
       ttsService.stop();
     };
-  }, [
-    isOpen,
-    availableActions,
-    locale,
-    locationCapturedAt,
-    locationPermissionStatus,
-    preferences,
-    updateConversation,
-    user?.id,
-    user?.language,
-    userLocation,
-  ]);
+  }, [isOpen, updateConversation, user?.id]);
+
+  useEffect(() => {
+    if (!isOpen || !conversationRef.current) return;
+    const current = conversationRef.current;
+    const nextState: ConversationState = {
+      ...current,
+      appContext,
+      userPreferences: preferences,
+    };
+    updateConversation(nextState);
+  }, [appContext, isOpen, preferences, updateConversation]);
 
   useEffect(() => {
     if (!conversationListRef.current || !isNearBottomRef.current) return;
@@ -432,6 +454,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     );
     updateConversation(state);
     setSuggestedActions([]);
+    setCompletedActions([]);
     setErrorMessage('');
   };
 
