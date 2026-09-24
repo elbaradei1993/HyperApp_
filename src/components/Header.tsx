@@ -182,7 +182,7 @@ const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNewReport, on
               ) : (
                 <button type="button" className="app-header__sign-in" onClick={onSignIn}>
                   <LogIn size={17} aria-hidden="true" />
-                  {t('auth.signIn', 'Sign in')}
+                  {t('auth.signIn')}
                 </button>
               )}
             </div>

@@ -13,7 +13,7 @@ describe('MobileNavigation', () => {
   it('exposes every real primary destination and a separate report action', () => {
     render(
       <MobileNavigation
-        activeTab="reports"
+        activeTab="community"
         isReportPending={false}
         onNavigate={vi.fn()}
         onNewReport={vi.fn()}

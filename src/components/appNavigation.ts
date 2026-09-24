@@ -1,6 +1,6 @@
 import { LayoutDashboard, Map, Settings, Users, type LucideIcon } from 'lucide-react';
 
-export type TabType = 'dashboard' | 'map' | 'reports' | 'settings';
+export type TabType = 'dashboard' | 'map' | 'community' | 'settings';
 
 export interface AppNavigationItem {
   id: TabType;
@@ -26,7 +26,7 @@ export const APP_NAVIGATION: readonly AppNavigationItem[] = [
     compactLabel: 'Map',
   },
   {
-    id: 'reports',
+    id: 'community',
     icon: Users,
     labelKey: 'tabs.community',
     fallbackLabel: 'Community',

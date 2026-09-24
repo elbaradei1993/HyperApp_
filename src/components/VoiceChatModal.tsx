@@ -49,7 +49,7 @@ interface VoiceChatModalProps {
   userLocation: [number, number] | null;
   locationCapturedAt?: string;
   locationPermissionStatus?: 'granted' | 'denied' | 'prompt' | 'unavailable';
-  onNavigate: (tab: 'map' | 'reports') => void;
+  onNavigate: (tab: 'map' | 'community') => void;
   onNewReport: () => void;
 }
 
@@ -475,7 +475,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     }
     if (action.type === 'OPEN_NEARBY_REPORTS') {
       onClose();
-      onNavigate('reports');
+      onNavigate('community');
     }
     if (action.type === 'REPORT_INCIDENT') {
       onClose();

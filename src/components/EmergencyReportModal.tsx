@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Box, VStack, HStack, Text, Button, Input, Textarea, Grid, GridItem } from '@chakra-ui/react';
 import {
   AlertTriangle,
+  AlertCircle,
   Flame,
   Ambulance,
   Shield,
@@ -396,6 +397,19 @@ const EmergencyReportModal: React.FC<EmergencyReportModalProps> = ({
     );
   }
 
+  // Requirements checklist shown above the submit button so a
+  // never-disabled button always explains what is still missing.
+  const missingRequirements: string[] = [];
+  if (!selectedEmergency) {
+    missingRequirements.push(t('modals.emergencyReport.missingType'));
+  }
+  if (!description.trim()) {
+    missingRequirements.push(t('modals.emergencyReport.missingDescription'));
+  }
+  if (!userLocation) {
+    missingRequirements.push(t('modals.emergencyReport.missingLocation'));
+  }
+
   return (
     <Box
       className="app-modal-overlay"
@@ -673,6 +687,31 @@ const EmergencyReportModal: React.FC<EmergencyReportModalProps> = ({
           borderColor="gray.200"
           bg="gray.50"
         >
+          {missingRequirements.length > 0 && (
+            <Box
+              mb={4}
+              p={3}
+              borderRadius="12px"
+              bg="amber.50"
+              border="1px solid"
+              borderColor="amber.200"
+              role="status"
+            >
+              <HStack gap={2} mb={1}>
+                <AlertCircle size={14} color="#d97706" />
+                <Text fontSize="12px" fontWeight={700} color="amber.800">
+                  {t('modals.emergencyReport.beforeYouSend')}
+                </Text>
+              </HStack>
+              <VStack gap={1} align="stretch" pl={6}>
+                {missingRequirements.map((item) => (
+                  <Text key={item} fontSize="12px" color="amber.800">
+                    • {item}
+                  </Text>
+                ))}
+              </VStack>
+            </Box>
+          )}
           <HStack gap={3}>
             <Button
               flex={1}
@@ -692,7 +731,7 @@ const EmergencyReportModal: React.FC<EmergencyReportModalProps> = ({
               onClick={handleSubmit}
               borderRadius="12px"
               _hover={{ bg: 'red.600' }}
-              disabled={!selectedEmergency || !description.trim() || (!userLocation && !locationLoading) || isSubmitting}
+              disabled={isSubmitting}
             >
               <HStack gap={2}>
                 <Send size={16} />

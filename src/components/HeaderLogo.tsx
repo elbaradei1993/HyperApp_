@@ -16,7 +16,7 @@ const HeaderLogo: React.FC<HeaderLogoProps> = ({ label, onActivate }) => (
     }}
   >
     <span className="app-brand__mark" aria-hidden="true">
-      <img src="/hyperapp-logo.png" alt="" />
+      <img src="/hyperapp-logo.png" alt="HyperApp" />
     </span>
     <span className="app-brand__wordmark">HyperApp</span>
   </a>
