@@ -129,6 +129,62 @@ export class ConversationRepository {
     }
   }
 
+  async loadMemories(userId: string): Promise<UserPreference[]> {
+    try {
+      const { data, error } = await supabase
+        .from('ai_user_memories')
+        .select('memory_key,memory_value,source,updated_at')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return (data || []).flatMap((row) => {
+        const item = row as {
+          memory_key?: unknown;
+          memory_value?: unknown;
+          source?: unknown;
+          updated_at?: unknown;
+        };
+        if (
+          typeof item.memory_key !== 'string'
+          || typeof item.memory_value !== 'string'
+          || !['user_explicit', 'profile', 'app_setting'].includes(String(item.source))
+        ) {
+          return [];
+        }
+        return [{
+          key: item.memory_key,
+          value: item.memory_value,
+          source: item.source as UserPreference['source'],
+          updatedAt: typeof item.updated_at === 'string' ? item.updated_at : new Date().toISOString(),
+        }];
+      });
+    } catch {
+      this.persistenceWarning = true;
+      return [];
+    }
+  }
+
+  async upsertMemory(userId: string, memory: UserPreference): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('ai_user_memories')
+        .upsert({
+          user_id: userId,
+          memory_key: memory.key,
+          memory_value: memory.value,
+          source: memory.source,
+          updated_at: memory.updatedAt,
+        }, { onConflict: 'user_id,memory_key' });
+      if (error) throw error;
+      this.persistenceWarning = false;
+      return true;
+    } catch {
+      this.persistenceWarning = true;
+      return false;
+    }
+  }
+
   async create(
     userId: string,
     appContext: HyperAppContext,
@@ -278,8 +334,18 @@ export class ConversationRepository {
 
   async clearHistory(userId: string): Promise<boolean> {
     try {
-      const { error } = await supabase.from('ai_conversations').delete().eq('user_id', userId);
-      if (error) throw error;
+      const { error: conversationError } = await supabase
+        .from('ai_conversations')
+        .delete()
+        .eq('user_id', userId);
+      if (conversationError) throw conversationError;
+
+      const { error: memoryError } = await supabase
+        .from('ai_user_memories')
+        .delete()
+        .eq('user_id', userId);
+      if (memoryError) throw memoryError;
+
       if (typeof window !== 'undefined') {
         const keys = Array.from({ length: window.sessionStorage.length }, (_, index) => (
           window.sessionStorage.key(index)
