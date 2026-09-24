@@ -30,6 +30,7 @@ import type {
   AssistantActionType,
   ConversationMessage,
   ConversationState,
+  ConversationSummary,
   SuggestedAction,
   UserPreference,
 } from '../services/ai/types';
@@ -118,6 +119,9 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const [showDataControls, setShowDataControls] = useState(false);
   const [isTestingSound, setIsTestingSound] = useState(false);
+  const [conversationSummaries, setConversationSummaries] = useState<ConversationSummary[]>([]);
+  const [hyperMemories, setHyperMemories] = useState<UserPreference[]>([]);
+  const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(false);
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -132,6 +136,9 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
   const mediaSpeechDetectedRef = useRef(false);
   const mediaSilenceStartedAtRef = useRef<number | null>(null);
   const mediaCancelledRef = useRef(false);
+  const bargeInFrameRef = useRef<number | null>(null);
+  const bargeInSpeechSinceRef = useRef<number | null>(null);
+  const bargeInTriggeredRef = useRef(false);
   const fallbackStarterRef = useRef<(() => void) | null>(null);
   const fallbackCleanupRef = useRef<(() => void) | null>(null);
   const conversationRef = useRef<ConversationState | null>(null);
@@ -248,8 +255,16 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
         guardianCount: guardians.length,
         availableAppActions: runtime.availableActions,
       });
-      const state = await conversationEngine.initialize(user.id, initialContext, runtime.preferences, true);
-      if (active) updateConversation(state);
+      const [state, summaries, memories] = await Promise.all([
+        conversationEngine.initialize(user.id, initialContext, runtime.preferences, true),
+        conversationEngine.listConversations(user.id, 50),
+        conversationEngine.loadMemories(user.id),
+      ]);
+      if (active) {
+        updateConversation(state);
+        setConversationSummaries(summaries);
+        setHyperMemories(memories.filter((memory) => memory.source === 'user_explicit'));
+      }
     };
 
     void initialize().finally(() => active && setIsLoadingConversation(false));
@@ -318,6 +333,50 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     }, delayMs);
   }, [transitionVoiceState]);
 
+  const stopBargeInMonitor = useCallback(() => {
+    if (bargeInFrameRef.current !== null) {
+      window.cancelAnimationFrame(bargeInFrameRef.current);
+      bargeInFrameRef.current = null;
+    }
+    bargeInSpeechSinceRef.current = null;
+    bargeInTriggeredRef.current = false;
+  }, []);
+
+  const startBargeInMonitor = useCallback(() => {
+    stopBargeInMonitor();
+    if (!handsFreeRef.current || !mediaAnalyserRef.current) return;
+    const monitor = () => {
+      if (!handsFreeRef.current || voiceStateRef.current !== 'speaking' || !mediaAnalyserRef.current) {
+        bargeInFrameRef.current = null;
+        return;
+      }
+      const analyser = mediaAnalyserRef.current;
+      const data = new Uint8Array(analyser.fftSize);
+      analyser.getByteTimeDomainData(data);
+      let sum = 0;
+      for (const value of data) {
+        const normalized = (value - 128) / 128;
+        sum += normalized * normalized;
+      }
+      const rms = Math.sqrt(sum / data.length);
+      const now = performance.now();
+      if (rms > 0.045) {
+        bargeInSpeechSinceRef.current ??= now;
+        if (!bargeInTriggeredRef.current && now - bargeInSpeechSinceRef.current >= 260) {
+          bargeInTriggeredRef.current = true;
+          ttsService.stop();
+          transitionVoiceState('idle');
+          void startFallbackHandsFree();
+          return;
+        }
+      } else {
+        bargeInSpeechSinceRef.current = null;
+      }
+      bargeInFrameRef.current = window.requestAnimationFrame(monitor);
+    };
+    bargeInFrameRef.current = window.requestAnimationFrame(monitor);
+  }, [stopBargeInMonitor, transitionVoiceState]);
+
   const speakText = useCallback(async (text: string) => {
     if (!isTTSEnabled) {
       transitionVoiceState('idle');
@@ -326,14 +385,16 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     }
     try {
       transitionVoiceState('speaking');
-      await ttsService.speak(text, { speed: 1.02, pitch: 1.02, volume: 1 });
+      startBargeInMonitor();
+      await ttsService.speak(text, { speed: 1.02, pitch: 1.02, volume: 1, preserveRecordingSession: handsFreeRef.current });
     } catch {
       setErrorMessage('The response is shown, but audio playback was unavailable.');
     } finally {
+      stopBargeInMonitor();
       transitionVoiceState('idle');
       if (handsFreeRef.current) scheduleListeningRestart();
     }
-  }, [isTTSEnabled, scheduleListeningRestart, transitionVoiceState]);
+  }, [isTTSEnabled, scheduleListeningRestart, startBargeInMonitor, stopBargeInMonitor, transitionVoiceState]);
 
   const processMessage = useCallback(async (text: string, retryMessageId?: string) => {
     const state = conversationRef.current;
