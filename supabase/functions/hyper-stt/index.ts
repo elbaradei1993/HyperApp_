@@ -122,14 +122,19 @@ Deno.serve(async (req) => {
       }
 
       const payload = await response.json().catch(() => null) as {
-        result?: { text?: unknown };
+        result?: {
+          text?: unknown;
+          transcription_info?: { text?: unknown };
+        };
         text?: unknown;
       } | null;
       const transcript = typeof payload?.result?.text === 'string'
         ? payload.result.text.trim()
-        : typeof payload?.text === 'string'
-          ? payload.text.trim()
-          : '';
+        : typeof payload?.result?.transcription_info?.text === 'string'
+          ? payload.result.transcription_info.text.trim()
+          : typeof payload?.text === 'string'
+            ? payload.text.trim()
+            : '';
 
       if (!transcript) return json({ error: 'No clear speech was detected.' }, 422);
       return json({ transcript: transcript.replace(/\s+/g, ' ').slice(0, 1500) });
