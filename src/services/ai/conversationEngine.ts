@@ -98,7 +98,6 @@ export class ConversationEngine {
       userPreferences: mergePreferences(state.userPreferences, preferences),
     };
     this.states.set(updated.conversationId, updated);
-    await conversationRepository.save(updated);
     return updated;
   }
 
