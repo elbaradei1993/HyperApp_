@@ -1,4 +1,5 @@
 import type { SupabaseClient, User } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
+import { maxSafetyLevel, evaluateSafetyRisk, type GuardSafetyLevel } from '../_shared/safetyGuard.ts';
 
 type SafetyLevel = 'LOW' | 'ELEVATED' | 'HIGH' | 'CRITICAL';
 type Message = { role: 'user' | 'assistant'; content: string };
@@ -132,6 +133,20 @@ function lastAdviceTopics(messages: Array<{ role: string; content: string }>): s
   return result.slice(-8);
 }
 
+function deriveSafetyState(messages: Array<{ role: 'user' | 'assistant'; content: string }>): GuardSafetyLevel {
+  let level: GuardSafetyLevel = 'LOW';
+  for (const message of messages) {
+    if (message.role !== 'user') continue;
+    const guard = evaluateSafetyRisk(message.content);
+    if (guard.deescalated && guard.minimumLevel === 'LOW') {
+      level = 'LOW';
+      continue;
+    }
+    level = maxSafetyLevel(level, guard.minimumLevel);
+  }
+  return level;
+}
+
 function rollingSummary(messages: Array<{ role: string; content: string }>): string {
   if (messages.length <= RECENT_MESSAGES) return '';
   const lines = messages.slice(0, -RECENT_MESSAGES).map((item) => {
@@ -205,9 +220,7 @@ export async function loadServerConversation(
       role: item.role,
       content: clean(item.content, 1500),
     })),
-    currentSafetyState: ['LOW', 'ELEVATED', 'HIGH', 'CRITICAL'].includes(String(conversation.current_safety_level))
-      ? conversation.current_safety_level as SafetyLevel
-      : 'LOW',
+    currentSafetyState: deriveSafetyState(messages),
     activeFacts: activeFacts(messages),
     durablePreferences,
     unresolvedTopics: unresolvedTopics(messages),
@@ -244,6 +257,7 @@ export async function buildServerAppContext(
         capturedAt: location.capturedAt,
         permissionStatus: 'granted',
         stale: location.stale,
+        source: 'device-hint',
       }
       : { permissionStatus: 'unavailable', stale: false },
     availableAppActions: AVAILABLE_ACTIONS,
