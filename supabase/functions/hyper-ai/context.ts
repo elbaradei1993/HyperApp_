@@ -1,10 +1,7 @@
 import type { SupabaseClient, User } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
 
 type SafetyLevel = 'LOW' | 'ELEVATED' | 'HIGH' | 'CRITICAL';
-type Message = {
-  role: 'user' | 'assistant';
-  content: string;
-};
+type Message = { role: 'user' | 'assistant'; content: string };
 
 export interface DeviceLocationHint {
   latitude: number;
@@ -40,12 +37,12 @@ const AVAILABLE_ACTIONS = [
 
 function clean(value: unknown, max: number): string {
   return typeof value === 'string'
-    ? value.replace(/<[^>]*>/g, ' ').replace(/[\\u0000-\\u001f\\u007f]/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, max)
+    ? value.replace(/<[^>]*>/g, ' ').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max)
     : '';
 }
 
 function compact(value: string): string {
-  return value.replace(/\\s+/g, ' ').trim();
+  return value.replace(/\s+/g, ' ').trim();
 }
 
 function distanceMeters(a: [number, number], b: [number, number]): number {
@@ -83,13 +80,13 @@ function activeFacts(messages: Array<{ role: string; content: string; created_at
   for (const message of messages) {
     if (message.role !== 'user') continue;
     const text = compact(message.content);
-    const location = text.match(/\\b(?:i am|i'm|we are|we're)\\s+(?:at|near|in)\\s+([^.!?]{2,100})/i)?.[1];
+    const location = text.match(/\b(?:i am|i'm|we are|we're)\s+(?:at|near|in)\s+([^.!?]{2,100})/i)?.[1];
     if (location) facts.set('current_location', {
       key: 'current_location',
       value: clean(location, 180),
       createdAt: message.created_at,
     });
-    if (/\\b(i am|i'm) alone\\b/i.test(text)) facts.set('companionship', {
+    if (/\b(i am|i'm) alone\b/i.test(text)) facts.set('companionship', {
       key: 'companionship',
       value: 'alone',
       createdAt: message.created_at,
@@ -101,11 +98,11 @@ function activeFacts(messages: Array<{ role: string; content: string; created_at
 function unresolvedTopics(messages: Array<{ role: string; content: string; created_at: string }>) {
   const latest = [...messages].reverse().find((item) => item.role === 'user');
   if (!latest) return [];
-  if (/\\b(i am safe now|i'm safe now|we are safe now|got away|they left)\\b/i.test(latest.content)) return [];
-  if (/\\b(they did not answer|they didn't answer|cannot reach|can't reach|no one answered)\\b/i.test(latest.content)) {
+  if (/\b(i am safe now|i'm safe now|we are safe now|got away|they left)\b/i.test(latest.content)) return [];
+  if (/\b(they did not answer|they didn't answer|cannot reach|can't reach|no one answered)\b/i.test(latest.content)) {
     return [{ type: 'failed_contact', summary: clean(latest.content, 220), createdAt: latest.created_at }];
   }
-  if (/\\b(where|location|station|near )\\b/i.test(latest.content)) {
+  if (/\b(where|location|station|near )\b/i.test(latest.content)) {
     return [{ type: 'location_uncertainty', summary: clean(latest.content, 220), createdAt: latest.created_at }];
   }
   return [];
@@ -114,17 +111,17 @@ function unresolvedTopics(messages: Array<{ role: string; content: string; creat
 function lastQuestions(messages: Array<{ role: string; content: string }>): string[] {
   return messages
     .filter((item) => item.role === 'assistant')
-    .flatMap((item) => item.content.match(/[^?]{3,180}\\?/g) || [])
+    .flatMap((item) => item.content.match(/[^?]{3,180}\?/g) || [])
     .map(compact)
     .slice(-8);
 }
 
 function lastAdviceTopics(messages: Array<{ role: string; content: string }>): string[] {
   const patterns: Array<[string, RegExp]> = [
-    ['staffed_place', /\\b(staffed|populated|well-lit|secure place)\\b/i],
-    ['emergency_services', /\\bemergency services\\b/i],
-    ['nearby_reports', /\\bnearby reports?\\b/i],
-    ['avoid_confrontation', /\\b(do not|don't) confront\\b/i],
+    ['staffed_place', /\b(staffed|populated|well-lit|secure place)\b/i],
+    ['emergency_services', /\bemergency services\b/i],
+    ['nearby_reports', /\bnearby reports?\b/i],
+    ['avoid_confrontation', /\b(do not|don't) confront\b/i],
   ];
   const result: string[] = [];
   for (const item of messages.filter((item) => item.role === 'assistant')) {
@@ -143,7 +140,7 @@ function rollingSummary(messages: Array<{ role: string; content: string }>): str
   }).filter(Boolean);
   let result = '';
   for (const line of lines) {
-    const next = result ? result + '\\n' + line : line;
+    const next = result ? result + '\n' + line : line;
     result = next.length <= SUMMARY_LIMIT ? next : next.slice(-SUMMARY_LIMIT);
   }
   return result;
@@ -328,9 +325,7 @@ export async function buildServerAppContext(
         verificationStatus: 'unverified community report',
       }];
     }),
-  ]
-    .sort((a, b) => a.distanceMeters - b.distanceMeters || b.reportedAt.localeCompare(a.reportedAt))
-    .slice(0, 6);
+  ].sort((a, b) => a.distanceMeters - b.distanceMeters || b.reportedAt.localeCompare(a.reportedAt)).slice(0, 6);
 
   context.nearbyReports = reports;
   return context;
