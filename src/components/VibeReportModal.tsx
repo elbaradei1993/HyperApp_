@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 
 import { VibeType } from '../types';
+import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { reportsService } from '../services/reports';
 import { hubService } from '../services/hub';
 import { reverseGeocode, formatCoordinates } from '../lib/geocoding';
@@ -54,6 +56,8 @@ const VibeReportModal: React.FC<VibeReportModalProps> = ({
   currentLocation,
 }) => {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const { addNotification } = useNotification();
   const [selectedVibe, setSelectedVibe] = useState<VibeType | null>(null);
   const [notes, setNotes] = useState('');
   const [location, setLocation] = useState('');
@@ -369,7 +373,7 @@ const VibeReportModal: React.FC<VibeReportModalProps> = ({
           reportType: selectedVibe,
           description: notes.trim() || `Infrastructure issue: ${selectedVibe}`,
           severity,
-          userId: 'anonymous', // Could be updated to use actual user ID if available
+          userId: user?.id || '',
         });
       } else {
         // Submit regular vibe report
@@ -398,6 +402,7 @@ const VibeReportModal: React.FC<VibeReportModalProps> = ({
       }, 2500);
     } catch (error) {
       console.error('Error creating report:', error);
+      addNotification({ type: 'error', title: 'Report failed', message: error instanceof Error ? error.message : 'The report could not be submitted.', duration: 5000 });
       setIsSubmitting(false);
     }
   };
