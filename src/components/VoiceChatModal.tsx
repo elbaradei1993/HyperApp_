@@ -366,7 +366,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
           bargeInTriggeredRef.current = true;
           ttsService.stop();
           transitionVoiceState('idle');
-          void startFallbackHandsFree();
+          fallbackStarterRef.current?.();
           return;
         }
       } else {
@@ -516,39 +516,47 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     mediaSilenceStartedRef.current = null;
     mediaStartedAtRef.current = performance.now();
 
-    let audioContext: AudioContext | null = null;
-    try {
-      const audioWindow = window as typeof window & { webkitAudioContext?: new () => AudioContext };
-      const AudioContextCtor = window.AudioContext || audioWindow.webkitAudioContext;
-      audioContext = AudioContextCtor ? new AudioContextCtor() : null;
-    } catch {
-      audioContext = null;
+    let audioContext = mediaAudioContextRef.current;
+    let stream = mediaStreamRef.current;
+
+    if (!audioContext) {
+      try {
+        const audioWindow = window as typeof window & { webkitAudioContext?: new () => AudioContext };
+        const AudioContextCtor = window.AudioContext || audioWindow.webkitAudioContext;
+        audioContext = AudioContextCtor ? new AudioContextCtor() : null;
+      } catch {
+        audioContext = null;
+      }
     }
 
-    let stream: MediaStream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
-    } catch (error) {
-      audioContext?.close().catch(() => undefined);
-      handsFreeRef.current = false;
-      setIsHandsFreeMode(false);
-      const name = error instanceof DOMException ? error.name : '';
-      setErrorMessage(name === 'NotAllowedError' || name === 'SecurityError'
-        ? 'Microphone access is blocked. Allow microphone access for HyperApp and try again.'
-        : 'The microphone could not start. Check the microphone and try again.');
-      transitionVoiceState('error');
-      return;
+    if (!stream) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+      } catch (error) {
+        audioContext?.close().catch(() => undefined);
+        handsFreeRef.current = false;
+        setIsHandsFreeMode(false);
+        const name = error instanceof DOMException ? error.name : '';
+        setErrorMessage(name === 'NotAllowedError' || name === 'SecurityError'
+          ? 'Microphone access is blocked. Allow microphone access for HyperApp and try again.'
+          : 'The microphone could not start. Check the microphone and try again.');
+        transitionVoiceState('error');
+        return;
+      }
+      mediaStreamRef.current = stream;
     }
 
     if (!handsFreeRef.current || !isOpenRef.current) {
       stream.getTracks().forEach((track) => track.stop());
       audioContext?.close().catch(() => undefined);
+      mediaStreamRef.current = null;
+      mediaAudioContextRef.current = null;
       return;
     }
 
@@ -581,12 +589,14 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
     if (audioContext) {
       try {
         await audioContext.resume();
-        const source = audioContext.createMediaStreamSource(stream);
-        const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 1024;
-        source.connect(analyser);
-        mediaSourceRef.current = source;
-        mediaAnalyserRef.current = analyser;
+        if (!mediaAnalyserRef.current) {
+          const source = audioContext.createMediaStreamSource(stream);
+          const analyser = audioContext.createAnalyser();
+          analyser.fftSize = 1024;
+          source.connect(analyser);
+          mediaSourceRef.current = source;
+          mediaAnalyserRef.current = analyser;
+        }
       } catch {
         mediaAnalyserRef.current = null;
       }
@@ -619,17 +629,19 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       const recordedType = recorder.mimeType || mimeType || 'audio/webm';
       const blob = new Blob(chunks, { type: recordedType });
       mediaRecorderRef.current = null;
-      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
-      mediaStreamRef.current = null;
-      mediaSourceRef.current?.disconnect();
-      mediaSourceRef.current = null;
-      mediaAnalyserRef.current = null;
-      const context = mediaAudioContextRef.current;
-      mediaAudioContextRef.current = null;
-      context?.close().catch(() => undefined);
       mediaChunksRef.current = [];
 
       if (cancelled || !handsFreeRef.current || !isOpenRef.current || !blob.size) {
+        if (cancelled || !handsFreeRef.current || !isOpenRef.current) {
+          mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+          mediaStreamRef.current = null;
+          mediaSourceRef.current?.disconnect();
+          mediaSourceRef.current = null;
+          mediaAnalyserRef.current = null;
+          const context = mediaAudioContextRef.current;
+          mediaAudioContextRef.current = null;
+          context?.close().catch(() => undefined);
+        }
         return;
       }
 
@@ -726,21 +738,27 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       } catch {
         // Ignore an already-stopping recorder.
       }
-    } else {
-      mediaRecorderRef.current = null;
-      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
-      mediaStreamRef.current = null;
-      mediaAudioContextRef.current?.close().catch(() => undefined);
-      mediaAudioContextRef.current = null;
-      mediaSourceRef.current?.disconnect();
-      mediaSourceRef.current = null;
-      mediaAnalyserRef.current = null;
-      mediaChunksRef.current = [];
+      return;
     }
+    mediaRecorderRef.current = null;
+    mediaChunksRef.current = [];
   }, []);
 
+  const releaseVoiceInput = useCallback(() => {
+    cancelFallbackRecording();
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+    mediaAudioContextRef.current?.close().catch(() => undefined);
+    mediaAudioContextRef.current = null;
+    mediaSourceRef.current?.disconnect();
+    mediaSourceRef.current = null;
+    mediaAnalyserRef.current = null;
+    mediaChunksRef.current = [];
+    stopBargeInMonitor();
+  }, [cancelFallbackRecording, stopBargeInMonitor]);
+
   fallbackStarterRef.current = () => { void startFallbackHandsFree(); };
-  fallbackCleanupRef.current = cancelFallbackRecording;
+  fallbackCleanupRef.current = releaseVoiceInput;
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -749,7 +767,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       handsFreeRef.current = false;
       setIsHandsFreeMode(false);
       recognitionRef.current?.abort();
-      cancelFallbackRecording();
+      releaseVoiceInput();
       ttsService.stop();
       transitionVoiceState('idle');
     };
@@ -760,7 +778,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       document.removeEventListener('visibilitychange', pause);
       window.removeEventListener('pageshow', resume);
     };
-  }, [cancelFallbackRecording, isOpen, transitionVoiceState]);
+  }, [isOpen, releaseVoiceInput, transitionVoiceState]);
 
   const submitDraft = () => {
     if (!draft.trim() || isProcessing) return;
@@ -837,7 +855,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       restartTimerRef.current = null;
     }
     recognitionRef.current?.abort();
-    cancelFallbackRecording();
+    releaseVoiceInput();
     ttsService.stop();
     ttsService.releaseAudioSession();
     transitionVoiceState('idle');
