@@ -46,6 +46,7 @@ interface StateMetadata {
 }
 
 const LOCAL_PREFIX = 'hyper-ai-conversation-v3';
+const EPHEMERAL_TTL_MS = 2 * 60 * 60 * 1000;
 
 function localConversationKey(userId: string, conversationId: string): string {
   return `${LOCAL_PREFIX}:${userId}:${conversationId}`;
@@ -197,17 +198,28 @@ export class ConversationRepository {
 
   async loadCurrent(userId: string, appContext: HyperAppContext): Promise<ConversationState | null> {
     try {
-      const { data: conversation, error } = await supabase
+      const { data: conversations, error } = await supabase
         .from('ai_conversations')
         .select('id,user_id,rolling_summary,current_safety_level,state_metadata,persistence_enabled,created_at,updated_at')
         .eq('user_id', userId)
         .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(20);
       if (error) throw error;
-      if (!conversation) return this.loadLocal(userId);
 
-      const row = conversation as ConversationRow;
+      const now = Date.now();
+      const valid = (conversations || []).find((item) => {
+        if (item.persistence_enabled) return true;
+        const metadata = item.state_metadata && typeof item.state_metadata === 'object'
+          ? item.state_metadata as Record<string, unknown>
+          : {};
+        const expiry = typeof metadata.ephemeralExpiresAt === 'string'
+          ? Date.parse(metadata.ephemeralExpiresAt)
+          : Number.NaN;
+        return !Number.isFinite(expiry) || expiry > now;
+      });
+      if (!valid) return this.loadLocal(userId);
+
+      const row = valid as ConversationRow;
       const { data: messageRows, error: messagesError } = await supabase
         .from('ai_messages')
         .select('id,role,content,delivery_status,safety_level,referenced_message_id,created_at')
@@ -216,6 +228,7 @@ export class ConversationRepository {
         .order('created_at', { ascending: false })
         .limit(200);
       if (messagesError) throw messagesError;
+
       const metadata = parseMetadata(row.state_metadata);
       const messages = [...(messageRows || [])].reverse().map((message) => {
         const item = message as MessageRow;
@@ -252,7 +265,11 @@ export class ConversationRepository {
 
   async save(state: ConversationState): Promise<boolean> {
     this.saveLocal(state);
-    if (!state.persistenceEnabled || !state.userId) return false;
+    if (!state.userId) return false;
+
+    const ephemeralExpiresAt = state.persistenceEnabled
+      ? undefined
+      : new Date(Date.now() + EPHEMERAL_TTL_MS).toISOString();
 
     try {
       const { error: conversationError } = await supabase.from('ai_conversations').upsert({
@@ -260,8 +277,11 @@ export class ConversationRepository {
         user_id: state.userId,
         rolling_summary: state.rollingSummary || null,
         current_safety_level: state.currentSafetyState,
-        state_metadata: stateMetadata(state),
-        persistence_enabled: true,
+        state_metadata: {
+          ...stateMetadata(state),
+          ...(ephemeralExpiresAt ? { ephemeralExpiresAt } : {}),
+        },
+        persistence_enabled: state.persistenceEnabled,
         updated_at: state.updatedAt,
       });
       if (conversationError) throw conversationError;
@@ -294,15 +314,30 @@ export class ConversationRepository {
     const updated = { ...state, persistenceEnabled: enabled };
     this.saveLocal(updated);
     if (!state.userId) return false;
-    if (enabled) return this.save(updated);
 
     try {
       const { error } = await supabase
         .from('ai_conversations')
-        .delete()
+        .update({
+          persistence_enabled: enabled,
+          state_metadata: {
+            ...stateMetadata(updated),
+            ...(enabled
+              ? {}
+              : { ephemeralExpiresAt: new Date(Date.now() + EPHEMERAL_TTL_MS).toISOString() }),
+          },
+          updated_at: updated.updatedAt,
+        })
         .eq('id', state.conversationId)
         .eq('user_id', state.userId);
       if (error) throw error;
+
+      if (!enabled && typeof window !== 'undefined') {
+        window.sessionStorage.setItem(
+          localConversationKey(state.userId, state.conversationId),
+          JSON.stringify(updated),
+        );
+      }
       this.persistenceWarning = false;
       return true;
     } catch {
