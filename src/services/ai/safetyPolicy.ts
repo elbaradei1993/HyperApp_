@@ -13,7 +13,7 @@ export function deriveConversationSafety(
     return previousLevel;
   }
   const guard = evaluateSafetyRisk(latestUserMessage.content);
-  if (guard.deescalated) {
+  if (guard.deescalated && guard.minimumLevel === 'LOW') {
     return 'LOW';
   }
   return maxSafetyLevel(previousLevel, guard.minimumLevel);
