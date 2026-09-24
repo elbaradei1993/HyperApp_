@@ -525,7 +525,12 @@ const AppContent: React.FC = () => {
     import('./services/backgroundLocationService').then(({ backgroundLocationService }) => {
       // Subscribe to location changes
       unsubscribe = backgroundLocationService.onLocationChange(async (newLocation, oldLocation) => {
-        // Only update nearby users if location changed significantly (> 500m)
+        // Keep the app's live location state synchronized with the background GPS service.
+        // Hyper AI and other location-aware surfaces consume this state directly.
+        setUserLocation(newLocation);
+        setLastLocationUpdate(Date.now());
+
+        // Only refresh nearby users if location changed significantly (> 500m)
         if (oldLocation) {
           // Calculate distance using Haversine formula
           const distance = calculateDistance(newLocation, oldLocation);
