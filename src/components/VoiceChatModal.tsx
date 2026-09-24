@@ -247,14 +247,23 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
   }, [isOpen, updateConversation, user?.id]);
 
   useEffect(() => {
-    if (!isOpen || !conversationRef.current) return;
+    if (!isOpen) {
+      conversationRef.current = null;
+      setConversation(null);
+      setSuggestedActions([]);
+      setCompletedActions([]);
+      return;
+    }
     const current = conversationRef.current;
-    const nextState: ConversationState = {
-      ...current,
+    if (!current) return;
+    const updated = conversationEngine.updateContext(
+      current.conversationId,
       appContext,
-      userPreferences: preferences,
-    };
-    updateConversation(nextState);
+      preferences,
+    );
+    if (updated) {
+      updateConversation(updated);
+    }
   }, [appContext, isOpen, preferences, updateConversation]);
 
   useEffect(() => {
