@@ -325,11 +325,13 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({
       restartTimerRef.current = null;
       if (!handsFreeRef.current || !isOpenRef.current || listeningRef.current) return;
 
-      const recognition = recognitionRef.current;
-      if (!recognition) {
+      if (typeof MediaRecorder !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
         fallbackStarterRef.current?.();
         return;
       }
+
+      const recognition = recognitionRef.current;
+      if (!recognition) return;
 
       try {
         ttsService.prepareForListening();
