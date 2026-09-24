@@ -99,40 +99,6 @@ function responseTokenBudget(mode: ReturnType<typeof classifyInteractionMode>): 
   }
 }
 
-function lightweightConversationResponse(
-  mode: ReturnType<typeof classifyInteractionMode>,
-  message: string,
-): Record<string, unknown> | null {
-  const normalized = message.trim().toLowerCase();
-
-  if (mode === 'greeting') {
-    return {
-      message: 'Hey! What’s up?',
-      safetyLevel: 'LOW',
-      suggestedActions: [],
-      requiresImmediateAttention: false,
-      followUpNeeded: false,
-      memoryUpdates: [],
-    };
-  }
-
-  if (mode === 'acknowledgement') {
-    let reply = 'Got it.';
-    if (/^(thanks|thank you|thx)[!. ,]*$/i.test(normalized)) reply = 'Anytime.';
-    else if (/^(yes|yep|yeah|sure|great|cool)[!. ,]*$/i.test(normalized)) reply = 'Perfect.';
-    return {
-      message: reply,
-      safetyLevel: 'LOW',
-      suggestedActions: [],
-      requiresImmediateAttention: false,
-      followUpNeeded: false,
-      memoryUpdates: [],
-    };
-  }
-
-  return null;
-}
-
 function emergencyFallback(
   level: 'HIGH' | 'CRITICAL',
   availableActions: Array<{ type: string; label: string; requiresConfirmation: boolean }>,
@@ -191,14 +157,6 @@ Deno.serve(async (req) => {
     ? 'LOW'
     : maxSafetyLevel(conversation.currentSafetyState, guard.minimumLevel);
   const interactionMode = classifyInteractionMode(latestUserMessage, safetyFloor);
-  const lightweightResponse = lightweightConversationResponse(interactionMode, latestUserMessage);
-  if (lightweightResponse) {
-    return json({
-      response: lightweightResponse,
-      model: 'deterministic-conversation',
-      promptVersion: HYPER_ASSISTANT_PROMPT_VERSION,
-    });
-  }
 
   const turnPrompt = buildTurnPrompt({
     appContext,
